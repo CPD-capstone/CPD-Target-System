@@ -23,6 +23,8 @@ N/A
 
 <!-- Explain how you tested the changes. -->
 
+N/A
+
 ## AI assistance
 
 <!-- Select exactly one. -->
