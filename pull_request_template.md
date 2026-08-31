@@ -46,6 +46,7 @@ If AI was used:
 ```
 
 - [ ] I reviewed, understood, and tested all AI-assisted code.
+- [ ] I identified AI-generated or AI-modified code with comments.
 
 ## Checklist
 
