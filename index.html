@@ -6,6 +6,7 @@
     <title>Test Page--Connor</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <!--Header area with text (moved above sidebar) -->
@@ -39,26 +40,50 @@
     <div class="container-fluid mt-3">
         <div class="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-3 row-gap-5">
             <div class="col d-flex justify-content-center">
-                <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
+                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target red">
+                    <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
+                </button>
             </div>
             <div class="col d-flex justify-content-center">
-                <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
+                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target red">
+                    <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
+                </button>
             </div>
             <div class="col d-flex justify-content-center">
-                <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
+                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target red">
+                    <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
+                </button>
             </div>
             <div class="col d-flex justify-content-center">
-                <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
+                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target red">
+                    <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
+                </button>
             </div>
             <div class="col d-flex justify-content-center">
-                <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
+                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target red">
+                    <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
+                </button>
             </div>
         </div>
     </div>
 
+    <footer class="page-readout d-flex flex-column align-items-center" aria-label="Page indicator">
+        <strong>&lt;&lt; PG 1 &gt;&gt;</strong>
+        <span>5 / 24</span>
+    </footer>
+
     
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.querySelectorAll('.target-card').forEach((targetCard) => {
+            targetCard.addEventListener('click', () => {
+                const isRed = targetCard.classList.toggle('is-red');
+                targetCard.setAttribute('aria-pressed', isRed);
+                targetCard.setAttribute('aria-label', isRed ? 'Return target to green' : 'Mark target red');
+            });
+        });
+    </script>
 
 </body>
 </html>
