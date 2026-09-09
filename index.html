@@ -30,7 +30,7 @@
         </div>
         <div class="offcanvas-body">
             <div class="d-grid gap-2">
-                <button class="btn btn-outline-primary text-start">Drill</button>
+                <a class="btn btn-outline-primary text-start" href="drills.html">Drill</a>
                 <button class="btn btn-outline-primary text-start">Login</button>
                 <button class="btn btn-outline-primary text-start">Score</button>
             </div>
@@ -75,28 +75,7 @@
     
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        const drillStatus = document.getElementById('drillStatus');
-        const targetCards = document.querySelectorAll('.target-card');
-
-        const updateDrillStatus = () => {
-            const hasRedTarget = document.querySelector('.target-card.is-red');
-            drillStatus.classList.toggle('bg-danger', hasRedTarget !== null);
-            drillStatus.classList.toggle('bg-primary', hasRedTarget === null);
-            drillStatus.textContent = hasRedTarget !== null
-                ? 'Pistol Drill in Progress'
-                : 'There are no active drills';
-        };
-
-        targetCards.forEach((targetCard) => {
-            targetCard.addEventListener('click', () => {
-                const isRed = targetCard.classList.toggle('is-red');
-                targetCard.setAttribute('aria-pressed', isRed);
-                targetCard.setAttribute('aria-label', isRed ? 'Return target to green' : 'Mark target red');
-                updateDrillStatus();
-            });
-        });
-    </script>
+    <script src="script.js"></script>
 
 </body>
 </html>
