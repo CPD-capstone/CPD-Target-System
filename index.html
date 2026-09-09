@@ -11,7 +11,7 @@
 <body>
     <!--Header area with text (moved above sidebar) -->
     <div id="drillStatus" class="p-3 text-white bg-primary text-center border-start border-5 border-secondary rounded-3 m-3" style="--bs-primary-rgb: 0, 87, 184;">
-        Pistol Drill In Progress...
+        There are no active drills
     </div>
 
     <!-- Menu Button -->
@@ -83,6 +83,9 @@
             const hasRedTarget = document.querySelector('.target-card.is-red');
             drillStatus.classList.toggle('bg-danger', hasRedTarget !== null);
             drillStatus.classList.toggle('bg-primary', hasRedTarget === null);
+            drillStatus.textContent = hasRedTarget !== null
+                ? 'Pistol Drill in Progress'
+                : 'There are no active drills';
         };
 
         targetCards.forEach((targetCard) => {
