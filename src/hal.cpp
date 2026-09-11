@@ -1,5 +1,11 @@
 #include "hal.h"
 
+TaskHandle_t SolenoidTaskHandle = NULL;
+QueueHandle_t targetQueue;
+Adafruit_MCP23X17 mcp1;
+Adafruit_MCP23X17 mcp2;
+Target targets[24] = {0};
+
 /**
  * Executes SPI write to the appropriate MCP23S17 chip
  */
@@ -14,9 +20,44 @@ void updateTargetState(uint8_t targetIndex, bool newState){
     }
 }
 
-void SolenoidControlTask(void *pvParameters) {
+void initSPI(){
+    // Initialize SPI Bus and Expanders on Core 1
+    SPI.begin(PIN_SPI_SCK, PIN_SPI_MISO, PIN_SPI_MOSI);
+
+    if(!mcp1.begin_SPI(PIN_MCP1_CS, &SPI)){
+        Serial.println("Error: Expansion Board #1 Failed!");
+        vTaskDelete(NULL);
+    }
+
+    if(!mcp2.begin_SPI(PIN_MCP2_CS, &SPI)){
+        Serial.println("Error: Expansion Board #2 Failed!");
+        vTaskDelete(NULL);
+    }
+
+    // Set modes and ensure initial state is LOW
+    for(uint8_t i = 0; i < 16; i++){
+        mcp1.pinMode(i, OUTPUT);
+        mcp1.digitalWrite(i, LOW);
+    }
+    for(uint8_t i = 0; i < 8; i++){
+        mcp2.pinMode(i, OUTPUT);
+        mcp2.digitalWrite(i, LOW);
+    }
+}
+
+void SolenoidControlTask(void *pvParameters){
+    initSPI();
+
+    TargetCommand cmd;
+    
     for(;;){
         uint32_t now = millis(); // grab current ms for buffer
+
+        while (xQueueReceive(targetQueue, &cmd, 0) == pdTRUE) {
+            if (cmd.targetId < 24) {
+                targets[cmd.targetId].desiredState = cmd.newState;
+            }
+        }
 
         // loop through each target
         for (uint8_t i = 0; i < 24; i++){
@@ -41,6 +82,9 @@ void SolenoidControlTask(void *pvParameters) {
 }
 
 void hal_init(){
+    // Instantiate FreeRTOS Queue for cross-core command passing
+    targetQueue = xQueueCreate(32, sizeof(TargetCommand));
+    
     // pin task to core
     xTaskCreatePinnedToCore(
         SolenoidControlTask,   // Function to run
@@ -50,28 +94,5 @@ void hal_init(){
         5,                     // Priority (Higher number = higher priority)
         &SolenoidTaskHandle,   // Task handle
         1                      // Pin to Core 1
-    );
-
-    // 1. Initialize SPI Bus and Expanders on Core 1
-    SPI.begin(PIN_SPI_SCK, PIN_SPI_MISO, PIN_SPI_MOSI);
-
-    if(!mcp1.begin_SPI(PIN_MCP1_CS, &SPI)){
-        Serial.println("Error: Expansion Board #1 Failed!");
-        vTaskDelete(NULL);
-    }
-
-    if(!mcp2.begin_SPI(PIN_MCP2_CS, &SPI)){
-        Serial.println("Error: Expansion Board #2 Failed!");
-        vTaskDelete(NULL);
-    }
-
-    // Set modes and ensure initial state is LOW
-    for(uint8_t i = 0; i < 16; i++){
-        mcp1.pinMode(i, OUTPUT);
-        mcp1.digitalWrite(i, LOW);
-    }
-    for(uint8_t i = 0; i < 8; i++){
-        mcp2.pinMode(i, OUTPUT);
-        mcp2.digitalWrite(i, LOW);
-    }
+    );  
 }

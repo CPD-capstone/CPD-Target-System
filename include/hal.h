@@ -12,14 +12,17 @@
 #include "pins.h"
 
 // Handle for the FreeRTOS task
-TaskHandle_t SolenoidTaskHandle = NULL;
+extern TaskHandle_t SolenoidTaskHandle;
+
+// Global queue handle declaration
+extern QueueHandle_t targetQueue;
 
 // time in ms that holds our delay time between target activation to prevent pin sheering
-const uint32_t MECHANICAL_BUFFER = 500;
+constexpr uint32_t MECHANICAL_BUFFER = 500;
 
 // MCP23S17 Objects
-Adafruit_MCP23X17 mcp1;
-Adafruit_MCP23X17 mcp2;
+extern Adafruit_MCP23X17 mcp1;
+extern Adafruit_MCP23X17 mcp2;
 
 struct Target{
     bool desiredState;
@@ -27,7 +30,13 @@ struct Target{
     uint32_t lastActuationMs;
 };
 
-Target targets[24] = {0};
+// TEMP: WILL PROBABLY CHANGE
+struct TargetCommand { 
+    uint8_t targetId; // Target index (0 to 23)
+    bool newState;    // true = UP/FLIP, false = DOWN/UNFLIP
+};
+
+extern Target targets[24];
 
 // =============================================================================
 // FUNCTION PROTOTYPES
