@@ -1,0 +1,37 @@
+{
+  "users": {
+    "userId": {
+      "email": "user@example.com",
+      "name": "User Name",
+
+      "performance": {
+        "totalDrillsCompleted": 0,
+        "totalTrainingTime": 0,
+        "averageHitsPerMinute": 0,
+        "averageAccuracy": 0
+      }
+    }
+  },
+
+  "drills": {
+    "drillId": {
+      "name": "Example Drill",
+      "owners": ["userId"],
+      
+      "targets": [1, 5, 9],
+
+      "duration": 60,
+
+      "status": "available"
+    }
+  },
+
+  "targets": {
+    "targetId": {
+      "targetNumber": 1,
+      "status": "available",
+      "usedBy": null,
+      "currentDrill": null
+    }
+  }
+}
