@@ -13,6 +13,29 @@
         Drill Library
     </header>
 
+        <!-- Menu Button -->
+    <div class="m-3">
+        <button class="btn btn-outline-primary d-flex flex-column gap-1 p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#menuPanel" aria-controls="menuPanel" aria-label="Open menu">
+            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
+            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
+            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
+        </button>
+    </div>
+
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="menuPanel" aria-labelledby="menuPanelLabel">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="menuPanelLabel">Menu</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close menu"></button>
+        </div>
+        <div class="offcanvas-body">
+            <div class="d-grid gap-2">
+                <a class="btn btn-outline-primary text-start" href="index.html">Targets</a>
+                <button class="btn btn-outline-primary text-start">Login</button>
+                <button class="btn btn-outline-primary text-start">Score</button>
+            </div>
+        </div>
+    </div>
+
     <main class="container-fluid px-3 px-md-4 py-3">
         <div class="d-flex align-items-center justify-content-between mb-4">
             <div>
@@ -88,4 +111,8 @@
         </div>
     </main>
 </body>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="script.js"></script>
 </html>
