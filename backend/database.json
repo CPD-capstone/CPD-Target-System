@@ -1,9 +1,8 @@
 {
   "users": {
     "userId": {
-      "email": "user@example.com",
-      "name": "User Name",
-
+      "badge number": "401",
+    
       "performance": {
         "totalDrillsCompleted": 0,
         "totalTrainingTime": 0,
