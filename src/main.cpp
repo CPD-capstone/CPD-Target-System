@@ -3,11 +3,11 @@
 #include "wifi_manager.h"
 #include "web_server.h"
 
-void setup() {
+void setup(){
     Serial.begin(115200);
 
     // set up core designations
-    hal_init();
+    //hal_init(); // commented out until further testing
 
     // start database
     startLFS();

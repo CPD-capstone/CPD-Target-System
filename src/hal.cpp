@@ -53,7 +53,7 @@ void SolenoidControlTask(void *pvParameters){
     for(;;){
         uint32_t now = millis(); // grab current ms for buffer
 
-        while (xQueueReceive(targetQueue, &cmd, 0) == pdTRUE) {
+        while (xQueueReceive(targetQueue, &cmd, 0) == pdTRUE){
             if (cmd.targetId < 24) {
                 targets[cmd.targetId].desiredState = cmd.newState;
             }

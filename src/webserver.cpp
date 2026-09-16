@@ -5,20 +5,20 @@ DNSServer dnsServer; // for autocapture
 
 void initWebserver(){
     // Root route defaults to HTTP_GET automatically
-    server.on("/", [](AsyncWebServerRequest *request) {
+    server.on("/", [](AsyncWebServerRequest *request){
         if (LittleFS.exists("/index.html")) {
             request->send(LittleFS, "/index.html", "text/html");
-        } else {
+        }else{
             request->send(404, "text/plain", "Error: index.html not found in LittleFS");
         }
     });
 
     // Captive Portal OS probe redirects (omitting method defaults to GET)
-    server.on("/generate_204", [](AsyncWebServerRequest *request) {
+    server.on("/generate_204", [](AsyncWebServerRequest *request){
         request->send(LittleFS, "/index.html", "text/html");
     });
 
-    server.on("/redirect", [](AsyncWebServerRequest *request) {
+    server.on("/redirect", [](AsyncWebServerRequest *request){
         request->send(LittleFS, "/index.html", "text/html");
     });
 
@@ -26,7 +26,7 @@ void initWebserver(){
     server.serveStatic("/", LittleFS, "/");
 
     // Fallback handler
-    server.onNotFound([](AsyncWebServerRequest *request) {
+    server.onNotFound([](AsyncWebServerRequest *request){
         request->send(404, "text/plain", "404: Not Found");
     });
 

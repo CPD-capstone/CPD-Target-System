@@ -1,6 +1,6 @@
-# CPD Target System Frontend
+# CPD Target System Database
 
-This directory contains the frontend application for the CPD Target System.
+This directory contains the files that are saved in the littleFS
 
 ## Setup
 
