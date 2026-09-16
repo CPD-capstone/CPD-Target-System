@@ -24,6 +24,7 @@ if (targetCards.length && drillStatus) {
 if (document.getElementById('drillList')) {
     const drillList = document.getElementById('drillList');
     const drillForm = document.getElementById('newDrillForm');
+    const editDrillForm = document.getElementById('editDrillForm');
     const storageKey = 'cpd-drill-library';
 
     const normalizeDrillMap = (source = {}) => {
@@ -73,6 +74,48 @@ if (document.getElementById('drillList')) {
         return '—';
     };
 
+    const getDrills = () => {
+        const stored = localStorage.getItem(storageKey);
+        if (!stored) {
+            return {};
+        }
+
+        try {
+            return JSON.parse(stored);
+        } catch (error) {
+            return {};
+        }
+    };
+
+    const saveDrills = (drills) => {
+        localStorage.setItem(storageKey, JSON.stringify(drills));
+    };
+
+    const openEditModal = (drillId) => {
+        const drills = getDrills();
+        const drill = drills[drillId];
+
+        if (!drill) {
+            return;
+        }
+
+        document.getElementById('editDrillId').value = drillId;
+        document.getElementById('editDrillName').value = drill.name || '';
+        document.getElementById('editTargetNumber').value = Array.isArray(drill.targets) && drill.targets.length ? drill.targets[0] : '';
+        document.getElementById('editDrillDuration').value = formatDuration(drill.duration);
+        document.getElementById('editDrillOwner').value = Array.isArray(drill.owners) && drill.owners.length ? drill.owners[0] : '';
+
+        const editModal = new bootstrap.Modal(document.getElementById('editDrillModal'));
+        editModal.show();
+    };
+
+    const deleteDrill = (drillId) => {
+        const drills = getDrills();
+        delete drills[drillId];
+        saveDrills(drills);
+        renderDrills(drills);
+    };
+
     const renderDrills = (drills) => {
         const entries = Object.entries(drills || {});
 
@@ -97,20 +140,35 @@ if (document.getElementById('drillList')) {
                         <div><dt>Name</dt><dd>${(drill?.name || 'Untitled Drill').replace(/</g, '&lt;')}</dd></div>
                         <div><dt>Target Number</dt><dd>${getTargets(drill)}</dd></div>
                         <div><dt>Duration</dt><dd>${formatDuration(drill?.duration)}</dd></div>
-                        <div><dt>Owner</dt><dd>${(getOwners(drill)).replace(/</g, '&lt;')}</dd></div>
+                        <div><dt>Owner</dt><dd>${getOwners(drill).replace(/</g, '&lt;')}</dd></div>
                     </dl>
                     <div class="drill-actions">
-                        <button class="btn btn-secondary" type="button"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Edit</button>
-                        <button class="btn btn-danger" type="button"><i class="bi bi-trash3 me-1" aria-hidden="true"></i>Delete</button>
+                        <button class="btn btn-secondary edit-drill-btn" type="button" data-drill-id="${drillId}"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Edit</button>
+                        <button class="btn btn-danger delete-drill-btn" type="button" data-drill-id="${drillId}"><i class="bi bi-trash3 me-1" aria-hidden="true"></i>Delete</button>
                     </div>
                 </article>
             </div>
         `).join('');
+
+        document.querySelectorAll('.edit-drill-btn').forEach((button) => {
+            button.addEventListener('click', () => openEditModal(button.dataset.drillId));
+        });
+
+        document.querySelectorAll('.delete-drill-btn').forEach((button) => {
+            button.addEventListener('click', () => {
+                const drillId = button.dataset.drillId;
+                const drills = getDrills();
+                const drillName = drills[drillId]?.name || 'this drill';
+
+                if (window.confirm(`Delete ${drillName}?`)) {
+                    deleteDrill(drillId);
+                }
+            });
+        });
     };
 
     const loadDrills = async () => {
-        const saved = localStorage.getItem(storageKey);
-        const savedDrills = saved ? JSON.parse(saved) : {};
+        const savedDrills = getDrills();
 
         try {
             const response = await fetch('database.json', { cache: 'no-store' });
@@ -122,7 +180,7 @@ if (document.getElementById('drillList')) {
             const fileDrills = normalizeDrillMap(payload?.drills);
             const mergedDrills = { ...fileDrills, ...savedDrills };
 
-            localStorage.setItem(storageKey, JSON.stringify(mergedDrills));
+            saveDrills(mergedDrills);
             renderDrills(mergedDrills);
         } catch (error) {
             renderDrills(savedDrills || {});
@@ -143,8 +201,7 @@ if (document.getElementById('drillList')) {
             return;
         }
 
-        const existing = localStorage.getItem(storageKey);
-        const currentDrills = existing ? JSON.parse(existing) : {};
+        const currentDrills = getDrills();
         const nextDrillId = `drill-${Date.now()}`;
 
         currentDrills[nextDrillId] = {
@@ -155,7 +212,7 @@ if (document.getElementById('drillList')) {
             status: 'available'
         };
 
-        localStorage.setItem(storageKey, JSON.stringify(currentDrills));
+        saveDrills(currentDrills);
         renderDrills(currentDrills);
 
         const modal = bootstrap.Modal.getInstance(document.getElementById('newDrillModal'));
@@ -164,6 +221,42 @@ if (document.getElementById('drillList')) {
         }
 
         drillForm.reset();
+    });
+
+    editDrillForm?.addEventListener('submit', (event) => {
+        event.preventDefault();
+
+        const formData = new FormData(editDrillForm);
+        const drillId = String(formData.get('editDrillId') || '').trim();
+        const name = String(formData.get('editDrillName') || '').trim();
+        const targetNumber = String(formData.get('editTargetNumber') || '').trim();
+        const durationValue = String(formData.get('editDrillDuration') || '').trim();
+        const owner = String(formData.get('editDrillOwner') || '').trim();
+
+        if (!drillId || !name) {
+            alert('Please enter a drill name.');
+            return;
+        }
+
+        const currentDrills = getDrills();
+        currentDrills[drillId] = {
+            ...currentDrills[drillId],
+            name,
+            owners: owner ? [owner] : [],
+            targets: targetNumber ? [Number(targetNumber)] : [],
+            duration: parseDuration(durationValue),
+            status: 'available'
+        };
+
+        saveDrills(currentDrills);
+        renderDrills(currentDrills);
+
+        const modal = bootstrap.Modal.getInstance(document.getElementById('editDrillModal'));
+        if (modal) {
+            modal.hide();
+        }
+
+        editDrillForm.reset();
     });
 
     loadDrills();
