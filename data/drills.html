@@ -58,23 +58,24 @@
                     <h5 class="modal-title" id="newDrillModalLabel">New Drill</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form id="newDrillForm">
+                <form id="newDrillForm" novalidate>
                     <div class="modal-body">
+                        <div class="form-validation-message" id="newDrillError" role="alert" aria-live="polite" hidden></div>
                         <div class="mb-3">
                             <label for="drillName" class="form-label">Name</label>
                             <input type="text" class="form-control" id="drillName" name="drillName" placeholder="Enter drill name" required>
                         </div>
                         <div class="mb-3">
                             <label for="targetNumber" class="form-label">Target number</label>
-                            <input type="number" class="form-control" id="targetNumber" name="targetNumber" min="1" placeholder="e.g. 3">
+                            <input type="number" class="form-control" id="targetNumber" name="targetNumber" min="1" placeholder="e.g. 3" required>
                         </div>
                         <div class="mb-3">
                             <label for="drillDuration" class="form-label">Duration</label>
-                            <input type="text" class="form-control" id="drillDuration" name="drillDuration" placeholder="00:30">
+                            <input type="text" class="form-control" id="drillDuration" name="drillDuration" placeholder="00:30" required>
                         </div>
                         <div class="mb-3 mb-0">
                             <label for="drillOwner" class="form-label">Owner</label>
-                            <input type="text" class="form-control" id="drillOwner" name="drillOwner" placeholder="Enter owner name">
+                            <input type="text" class="form-control" id="drillOwner" name="drillOwner" placeholder="Enter owner name" required>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -93,8 +94,9 @@
                     <h5 class="modal-title" id="editDrillModalLabel">Edit Drill</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form id="editDrillForm">
+                <form id="editDrillForm" novalidate>
                     <div class="modal-body">
+                        <div class="form-validation-message" id="editDrillError" role="alert" aria-live="polite" hidden></div>
                         <input type="hidden" id="editDrillId" name="editDrillId">
                         <div class="mb-3">
                             <label for="editDrillName" class="form-label">Name</label>
@@ -102,15 +104,15 @@
                         </div>
                         <div class="mb-3">
                             <label for="editTargetNumber" class="form-label">Target number</label>
-                            <input type="number" class="form-control" id="editTargetNumber" name="editTargetNumber" min="1" placeholder="e.g. 3">
+                            <input type="number" class="form-control" id="editTargetNumber" name="editTargetNumber" min="1" placeholder="e.g. 3" required>
                         </div>
                         <div class="mb-3">
                             <label for="editDrillDuration" class="form-label">Duration</label>
-                            <input type="text" class="form-control" id="editDrillDuration" name="editDrillDuration" placeholder="00:30">
+                            <input type="text" class="form-control" id="editDrillDuration" name="editDrillDuration" placeholder="00:30" required>
                         </div>
                         <div class="mb-3 mb-0">
                             <label for="editDrillOwner" class="form-label">Owner</label>
-                            <input type="text" class="form-control" id="editDrillOwner" name="editDrillOwner" placeholder="Enter owner name">
+                            <input type="text" class="form-control" id="editDrillOwner" name="editDrillOwner" placeholder="Enter owner name" required>
                         </div>
                     </div>
                     <div class="modal-footer">

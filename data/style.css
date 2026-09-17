@@ -90,6 +90,18 @@
     margin-top: auto;
 }
 
+.form-validation-message {
+    margin-bottom: 1rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid #f1aeb5;
+    border-left: 4px solid #dc3545;
+    border-radius: 0.5rem;
+    background: #fff5f5;
+    color: #842029;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
 .target-card {
     position: relative;
     display: block;

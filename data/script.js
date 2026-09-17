@@ -71,6 +71,43 @@ if (document.getElementById('drillList')) {
     const editDrillForm = document.getElementById('editDrillForm');
     const storageKey = 'cpd-drill-library';
 
+    const showFormError = (form, message, invalidInputs) => {
+        const errorMessage = document.getElementById(form.id === 'newDrillForm' ? 'newDrillError' : 'editDrillError');
+
+        errorMessage.textContent = message;
+        errorMessage.hidden = false;
+        invalidInputs.forEach((input) => input.classList.add('is-invalid'));
+        invalidInputs[0]?.focus();
+    };
+
+    const clearFormError = (form) => {
+        const errorMessage = document.getElementById(form.id === 'newDrillForm' ? 'newDrillError' : 'editDrillError');
+
+        errorMessage.hidden = true;
+        errorMessage.textContent = '';
+        form.querySelectorAll('input:not([type="hidden"])').forEach((input) => input.classList.remove('is-invalid'));
+    };
+
+    const validateDrillFields = (form) => {
+        const fields = [
+            { input: form.querySelector('[name$="Name"]'), label: 'Name' },
+            { input: form.querySelector('[name$="targetNumber"]'), label: 'Target number' },
+            { input: form.querySelector('[name$="Duration"]'), label: 'Duration' },
+            { input: form.querySelector('[name$="Owner"]'), label: 'Owner' }
+        ];
+        const missingFields = fields.filter(({ input }) => !input?.value.trim());
+
+        if (!missingFields.length) {
+            return { valid: true };
+        }
+
+        return {
+            valid: false,
+            message: `Please complete: ${missingFields.map(({ label }) => label).join(', ')}.`,
+            invalidInputs: missingFields.map(({ input }) => input)
+        };
+    };
+
     const normalizeDrillMap = (source = {}) => {
         if (!source || typeof source !== 'object') {
             return {};
@@ -240,10 +277,13 @@ if (document.getElementById('drillList')) {
         const durationValue = String(formData.get('drillDuration') || '').trim();
         const owner = String(formData.get('drillOwner') || '').trim();
 
-        if (!name) {
-            alert('Please enter a drill name.');
+        const validation = validateDrillFields(drillForm);
+        if (!validation.valid) {
+            showFormError(drillForm, validation.message, validation.invalidInputs);
             return;
         }
+
+        clearFormError(drillForm);
 
         const currentDrills = getDrills();
         const nextDrillId = `drill-${Date.now()}`;
@@ -277,10 +317,17 @@ if (document.getElementById('drillList')) {
         const durationValue = String(formData.get('editDrillDuration') || '').trim();
         const owner = String(formData.get('editDrillOwner') || '').trim();
 
-        if (!drillId || !name) {
-            alert('Please enter a drill name.');
+        const validation = validateDrillFields(editDrillForm);
+        if (!drillId || !validation.valid) {
+            showFormError(
+                editDrillForm,
+                !drillId ? 'This drill could not be identified. Please close and reopen the editor.' : validation.message,
+                validation.invalidInputs || []
+            );
             return;
         }
+
+        clearFormError(editDrillForm);
 
         const currentDrills = getDrills();
         currentDrills[drillId] = {
