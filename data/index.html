@@ -38,29 +38,43 @@
     </div>
 
     <div class="container-fluid mt-3">
-        <div class="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-3 row-gap-5">
-            <div class="col d-flex justify-content-center">
-                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target red">
+        <div class="target-toolbar d-flex justify-content-end mb-3">
+            <div class="btn-group" role="group" aria-label="Filter targets">
+                <button class="btn btn-outline-primary target-filter is-active" type="button" data-filter="all" aria-pressed="true">All</button>
+                <button class="btn btn-outline-primary target-filter" type="button" data-filter="odd" aria-pressed="false">Odd</button>
+                <button class="btn btn-outline-primary target-filter" type="button" data-filter="even" aria-pressed="false">Even</button>
+                <button class="btn btn-outline-primary target-filter" type="button" data-filter="random" aria-pressed="false">Random</button>
+            </div>
+        </div>
+
+        <div class="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-2 row-gap-5" id="targetGrid">
+            <div class="col d-flex justify-content-center" data-target-number="1">
+                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target 1 red">
+                    <span class="target-number" aria-hidden="true">1</span>
                     <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
                 </button>
             </div>
-            <div class="col d-flex justify-content-center">
-                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target red">
+            <div class="col d-flex justify-content-center" data-target-number="2">
+                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target 2 red">
+                    <span class="target-number" aria-hidden="true">2</span>
                     <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
                 </button>
             </div>
-            <div class="col d-flex justify-content-center">
-                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target red">
+            <div class="col d-flex justify-content-center" data-target-number="3">
+                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target 3 red">
+                    <span class="target-number" aria-hidden="true">3</span>
                     <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
                 </button>
             </div>
-            <div class="col d-flex justify-content-center">
-                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target red">
+            <div class="col d-flex justify-content-center" data-target-number="4">
+                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target 4 red">
+                    <span class="target-number" aria-hidden="true">4</span>
                     <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
                 </button>
             </div>
-            <div class="col d-flex justify-content-center">
-                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target red">
+            <div class="col d-flex justify-content-center" data-target-number="5">
+                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target 5 red">
+                    <span class="target-number" aria-hidden="true">5</span>
                     <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
                 </button>
             </div>

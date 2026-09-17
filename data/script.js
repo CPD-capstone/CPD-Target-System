@@ -1,5 +1,46 @@
 const drillStatus = document.getElementById('drillStatus');
 const targetCards = document.querySelectorAll('.target-card');
+const targetFilters = document.querySelectorAll('.target-filter');
+
+if (targetCards.length && targetFilters.length) {
+    const targetColumns = Array.from(targetCards, (targetCard) => targetCard.closest('[data-target-number]'));
+
+    const applyTargetFilter = (filter) => {
+        let visibleNumbers;
+
+        if (filter === 'odd') {
+            visibleNumbers = targetColumns
+                .map((column) => Number(column.dataset.targetNumber))
+                .filter((number) => number % 2 !== 0);
+        } else if (filter === 'even') {
+            visibleNumbers = targetColumns
+                .map((column) => Number(column.dataset.targetNumber))
+                .filter((number) => number % 2 === 0);
+        } else if (filter === 'random') {
+            visibleNumbers = targetColumns
+                .map((column) => Number(column.dataset.targetNumber))
+                .sort(() => Math.random() - 0.5)
+                .slice(0, 3);
+        } else {
+            visibleNumbers = targetColumns.map((column) => Number(column.dataset.targetNumber));
+        }
+
+        targetColumns.forEach((column) => {
+            const isVisible = visibleNumbers.includes(Number(column.dataset.targetNumber));
+            column.classList.toggle('d-none', !isVisible);
+        });
+
+        targetFilters.forEach((button) => {
+            const isActive = button.dataset.filter === filter;
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-pressed', isActive);
+        });
+    };
+
+    targetFilters.forEach((button) => {
+        button.addEventListener('click', () => applyTargetFilter(button.dataset.filter));
+    });
+}
 
 if (targetCards.length && drillStatus) {
     const updateDrillStatus = () => {
@@ -15,7 +56,10 @@ if (targetCards.length && drillStatus) {
         targetCard.addEventListener('click', () => {
             const isRed = targetCard.classList.toggle('is-red');
             targetCard.setAttribute('aria-pressed', isRed);
-            targetCard.setAttribute('aria-label', isRed ? 'Return target to green' : 'Mark target red');
+            const targetNumber = targetCard.closest('[data-target-number]')?.dataset.targetNumber;
+            targetCard.setAttribute('aria-label', isRed
+                ? `Return target ${targetNumber} to green`
+                : `Mark target ${targetNumber} red`);
             updateDrillStatus();
         });
     });

@@ -81,12 +81,40 @@
 }
 
 .target-card {
+    position: relative;
     display: block;
     padding: 0;
     border: 0;
     background: transparent;
     perspective: 700px;
     cursor: pointer;
+}
+
+.target-toolbar {
+    margin-top: -0.5rem;
+    margin-bottom: 1.5rem !important;
+}
+
+.target-number {
+    position: absolute;
+    top: -0.65rem;
+    left: 50%;
+    z-index: 1;
+    display: grid;
+    width: 1.75rem;
+    height: 1.75rem;
+    place-items: center;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    background: #212529;
+    color: #ffffff;
+    font: 700 0.85rem/1 monospace;
+    transform: translateX(-50%);
+}
+
+.target-filter.is-active {
+    background-color: #0d6efd;
+    color: #ffffff;
 }
 
 .target-card img {
