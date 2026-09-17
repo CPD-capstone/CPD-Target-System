@@ -94,11 +94,12 @@ if (document.getElementById('drillList')) {
     };
 
     const validateDrillFields = (form) => {
+        const isEditForm = form.id === 'editDrillForm';
         const fields = [
-            { input: form.querySelector('[name$="Name"]'), label: 'Name' },
-            { input: form.querySelector('[name$="targetNumber"]'), label: 'Target number' },
-            { input: form.querySelector('[name$="Duration"]'), label: 'Duration' },
-            { input: form.querySelector('[name$="Owner"]'), label: 'Owner' }
+            { input: document.getElementById(isEditForm ? 'editDrillName' : 'drillName'), label: 'Name' },
+            { input: document.getElementById(isEditForm ? 'editTargetNumber' : 'targetNumber'), label: 'Target number' },
+            { input: document.getElementById(isEditForm ? 'editDrillDuration' : 'drillDuration'), label: 'Duration' },
+            { input: document.getElementById(isEditForm ? 'editDrillOwner' : 'drillOwner'), label: 'Owner' }
         ];
         const missingFields = fields.filter(({ input }) => !input?.value.trim());
 
