@@ -70,6 +70,11 @@ if (document.getElementById('drillList')) {
     const drillForm = document.getElementById('newDrillForm');
     const editDrillForm = document.getElementById('editDrillForm');
     const storageKey = 'cpd-drill-library';
+    const deleteDrillModalElement = document.getElementById('deleteDrillModal');
+    const deleteDrillModal = deleteDrillModalElement ? new bootstrap.Modal(deleteDrillModalElement) : null;
+    const deleteDrillName = document.getElementById('deleteDrillName');
+    const confirmDeleteDrillButton = document.getElementById('confirmDeleteDrillButton');
+    let pendingDeleteDrillId = null;
 
     const showFormError = (form, message, invalidInputs) => {
         const errorMessage = document.getElementById(form.id === 'newDrillForm' ? 'newDrillError' : 'editDrillError');
@@ -241,12 +246,27 @@ if (document.getElementById('drillList')) {
                 const drills = getDrills();
                 const drillName = drills[drillId]?.name || 'this drill';
 
-                if (window.confirm(`Delete ${drillName}?`)) {
-                    deleteDrill(drillId);
-                }
+                pendingDeleteDrillId = drillId;
+                deleteDrillName.textContent = drillName;
+                deleteDrillModal?.show();
             });
         });
     };
+
+    confirmDeleteDrillButton?.addEventListener('click', () => {
+        if (!pendingDeleteDrillId) {
+            return;
+        }
+
+        deleteDrill(pendingDeleteDrillId);
+        pendingDeleteDrillId = null;
+        deleteDrillModal?.hide();
+    });
+
+    deleteDrillModalElement?.addEventListener('hidden.bs.modal', () => {
+        pendingDeleteDrillId = null;
+        deleteDrillName.textContent = '';
+    });
 
     const loadDrills = async () => {
         const savedDrills = getDrills();
