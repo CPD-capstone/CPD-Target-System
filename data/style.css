@@ -1,6 +1,16 @@
+.target-page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.target-page > .container-fluid {
+    flex: 1 0 auto;
+}
+
 .page-readout {
     max-width: 19rem;
-    margin: 3.5rem auto 1.5rem;
+    margin: auto auto 1.5rem;
     padding: 0.65rem 0.85rem;
     border-top: 2px solid #0d6efd;
     border-bottom: 1px solid #adb5bd;
@@ -80,13 +90,60 @@
     margin-top: auto;
 }
 
+.form-validation-message {
+    margin-bottom: 1rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid #f1aeb5;
+    border-left: 4px solid #dc3545;
+    border-radius: 0.5rem;
+    background: #fff5f5;
+    color: #842029;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.delete-confirmation {
+    border-top: 4px solid #dc3545;
+}
+
+.delete-confirmation .modal-title {
+    color: #842029;
+}
+
 .target-card {
+    position: relative;
     display: block;
     padding: 0;
     border: 0;
     background: transparent;
     perspective: 700px;
     cursor: pointer;
+}
+
+.target-toolbar {
+    flex-shrink: 1;
+}
+
+.target-number {
+    position: absolute;
+    top: -0.65rem;
+    left: 50%;
+    z-index: 1;
+    display: grid;
+    width: 1.75rem;
+    height: 1.75rem;
+    place-items: center;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    background: #212529;
+    color: #ffffff;
+    font: 700 0.85rem/1 monospace;
+    transform: translateX(-50%);
+}
+
+.target-filter.is-active {
+    background-color: #0d6efd;
+    color: #ffffff;
 }
 
 .target-card img {

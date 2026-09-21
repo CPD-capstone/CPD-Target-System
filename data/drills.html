@@ -31,7 +31,7 @@
             <div class="d-grid gap-2">
                 <a class="btn btn-outline-primary text-start" href="index.html">Targets</a>
                 <button class="btn btn-outline-primary text-start">Login</button>
-                <button class="btn btn-outline-primary text-start">Score</button>
+                <button class="btn btn-outline-primary text-start">Performance</button>
             </div>
         </div>
     </div>
@@ -48,67 +48,7 @@
             </button>
         </div>
 
-        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
-            <div class="col">
-                <article class="drill-ticket h-100">
-                    <div class="drill-ticket-heading">
-                        <span class="drill-ticket-label">Drill 01</span>
-                        <i class="bi bi-crosshair text-primary" aria-hidden="true"></i>
-                    </div>
-                    <h2 class="h4 mb-4">Test</h2>
-                    <dl class="drill-details">
-                        <div><dt>Name</dt><dd>Test</dd></div>
-                        <div><dt>Target Number</dt><dd>3</dd></div>
-                        <div><dt>Duration</dt><dd>00:30</dd></div>
-                        <div><dt>Owner</dt><dd>Connor</dd></div>
-                    </dl>
-                    <div class="drill-actions">
-                        <button class="btn btn-secondary" type="button"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Edit</button>
-                        <button class="btn btn-danger" type="button"><i class="bi bi-trash3 me-1" aria-hidden="true"></i>Delete</button>
-                    </div>
-                </article>
-            </div>
-
-            <div class="col">
-                <article class="drill-ticket h-100">
-                    <div class="drill-ticket-heading">
-                        <span class="drill-ticket-label">Drill 02</span>
-                        <i class="bi bi-crosshair text-primary" aria-hidden="true"></i>
-                    </div>
-                    <h2 class="h4 mb-4">Test 2</h2>
-                    <dl class="drill-details">
-                        <div><dt>Name</dt><dd>Test 2</dd></div>
-                        <div><dt>Target Number</dt><dd>3</dd></div>
-                        <div><dt>Duration</dt><dd>01:00</dd></div>
-                        <div><dt>Owner</dt><dd>Connor</dd></div>
-                    </dl>
-                    <div class="drill-actions">
-                        <button class="btn btn-secondary" type="button"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Edit</button>
-                        <button class="btn btn-danger" type="button"><i class="bi bi-trash3 me-1" aria-hidden="true"></i>Delete</button>
-                    </div>
-                </article>
-            </div>
-
-            <div class="col">
-                <article class="drill-ticket h-100">
-                    <div class="drill-ticket-heading">
-                        <span class="drill-ticket-label">Drill 03</span>
-                        <i class="bi bi-crosshair text-primary" aria-hidden="true"></i>
-                    </div>
-                    <h2 class="h4 mb-4">Test 3</h2>
-                    <dl class="drill-details">
-                        <div><dt>Name</dt><dd>Test 3</dd></div>
-                        <div><dt>Target Number</dt><dd>2</dd></div>
-                        <div><dt>Duration</dt><dd>00:45</dd></div>
-                        <div><dt>Owner</dt><dd>Connor</dd></div>
-                    </dl>
-                    <div class="drill-actions">
-                        <button class="btn btn-secondary" type="button"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Edit</button>
-                        <button class="btn btn-danger" type="button"><i class="bi bi-trash3 me-1" aria-hidden="true"></i>Delete</button>
-                    </div>
-                </article>
-            </div>
-        </div>
+        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4" id="drillList" aria-live="polite"></div>
     </main>
 
     <div class="modal fade" id="newDrillModal" tabindex="-1" aria-labelledby="newDrillModalLabel" aria-hidden="true">
@@ -118,29 +58,91 @@
                     <h5 class="modal-title" id="newDrillModalLabel">New Drill</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
-                    <form>
+                <form id="newDrillForm" novalidate>
+                    <div class="modal-body">
+                        <div class="form-validation-message" id="newDrillError" role="alert" aria-live="polite" hidden></div>
                         <div class="mb-3">
                             <label for="drillName" class="form-label">Name</label>
-                            <input type="text" class="form-control" id="drillName" placeholder="Enter drill name">
+                            <input type="text" class="form-control" id="drillName" name="drillName" placeholder="Enter drill name" required>
                         </div>
                         <div class="mb-3">
                             <label for="targetNumber" class="form-label">Target number</label>
-                            <input type="number" class="form-control" id="targetNumber" min="1" placeholder="e.g. 3">
+                            <input type="number" class="form-control" id="targetNumber" name="targetNumber" min="1" placeholder="e.g. 3" required>
                         </div>
                         <div class="mb-3">
                             <label for="drillDuration" class="form-label">Duration</label>
-                            <input type="text" class="form-control" id="drillDuration" placeholder="00:30">
+                            <input type="text" class="form-control" id="drillDuration" name="drillDuration" placeholder="00:30" required>
                         </div>
                         <div class="mb-3 mb-0">
                             <label for="drillOwner" class="form-label">Owner</label>
-                            <input type="text" class="form-control" id="drillOwner" placeholder="Enter owner name">
+                            <input type="text" class="form-control" id="drillOwner" name="drillOwner" placeholder="Enter owner name" required>
                         </div>
-                    </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Create</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="editDrillModal" tabindex="-1" aria-labelledby="editDrillModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editDrillModalLabel">Edit Drill</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-footer">
+                <form id="editDrillForm" novalidate>
+                    <div class="modal-body">
+                        <div class="form-validation-message" id="editDrillError" role="alert" aria-live="polite" hidden></div>
+                        <input type="hidden" id="editDrillId" name="editDrillId">
+                        <div class="mb-3">
+                            <label for="editDrillName" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="editDrillName" name="editDrillName" placeholder="Enter drill name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editTargetNumber" class="form-label">Target number</label>
+                            <input type="number" class="form-control" id="editTargetNumber" name="editTargetNumber" min="1" placeholder="e.g. 3" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editDrillDuration" class="form-label">Duration</label>
+                            <input type="text" class="form-control" id="editDrillDuration" name="editDrillDuration" placeholder="00:30" required>
+                        </div>
+                        <div class="mb-3 mb-0">
+                            <label for="editDrillOwner" class="form-label">Owner</label>
+                            <input type="text" class="form-control" id="editDrillOwner" name="editDrillOwner" placeholder="Enter owner name" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Edit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="deleteDrillModal" tabindex="-1" aria-labelledby="deleteDrillModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content delete-confirmation">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title" id="deleteDrillModalLabel">
+                        <i class="bi bi-exclamation-triangle-fill text-danger me-2" aria-hidden="true"></i>
+                        Delete drill?
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0">Are you sure you want to delete <strong id="deleteDrillName"></strong>? This cannot be undone.</p>
+                </div>
+                <div class="modal-footer border-0 pt-0">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary">Create</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteDrillButton">
+                        <i class="bi bi-trash3 me-1" aria-hidden="true"></i>
+                        Delete
+                    </button>
                 </div>
             </div>
         </div>
