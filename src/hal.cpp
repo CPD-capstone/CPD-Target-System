@@ -53,8 +53,9 @@ void SolenoidControlTask(void *pvParameters){
     for(;;){
         uint32_t now = millis(); // grab current ms for buffer
 
-        while (xQueueReceive(targetQueue, &cmd, 0) == pdTRUE){
-            if (cmd.targetId < 24) {
+        // Grab latest cmd from FreeRTOS and update each target's desired state
+        while(xQueueReceive(targetQueue, &cmd, 0) == pdTRUE){
+            if(cmd.targetId < 20) {
                 targets[cmd.targetId].desiredState = cmd.newState;
             }
         }

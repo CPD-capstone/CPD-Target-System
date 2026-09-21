@@ -54,10 +54,6 @@
 #define TARGET_18_PIN   1   // GPA1 (Pin 22)
 #define TARGET_19_PIN   2   // GPA2 (Pin 23)
 #define TARGET_20_PIN   3   // GPA3 (Pin 24)
-#define TARGET_21_PIN   4   // GPA4 (Pin 25)
-#define TARGET_22_PIN   5   // GPA5 (Pin 26)
-#define TARGET_23_PIN   6   // GPA6 (Pin 27)
-#define TARGET_24_PIN   7   // GPA7 (Pin 28)
 
 // =============================================================================
 // FIELD CONNECTOR (25-PIN) REFERENCE MATRIX

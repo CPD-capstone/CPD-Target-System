@@ -32,7 +32,7 @@ struct Target{
 
 // TEMP: WILL PROBABLY CHANGE
 struct TargetCommand { 
-    uint8_t targetId; // Target index (0 to 23)
+    uint8_t targetId; // Target index (0 to 19
     bool newState;    // true = UP/FLIP, false = DOWN/UNFLIP
 };
 
