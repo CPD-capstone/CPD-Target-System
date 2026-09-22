@@ -1,3 +1,24 @@
+const loginForm = document.getElementById('loginForm');
+
+if (loginForm) {
+    const loginError = document.getElementById('loginError');
+
+    loginForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+
+        if (username !== 'CPD Range Control' || password !== 'admin1234') {
+            loginError.hidden = false;
+            return;
+        }
+
+        loginError.hidden = true;
+        window.location.href = 'targets.html';
+    });
+}
+
 const drillStatus = document.getElementById('drillStatus');
 const targetCards = document.querySelectorAll('.target-card');
 const targetFilters = document.querySelectorAll('.target-filter');

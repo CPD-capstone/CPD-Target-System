@@ -3,90 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test Page--Connor</title>
+    <title>CPD Target System | Login</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="target-page">
-    <!--Header area with text (moved above sidebar) -->
-    <div id="drillStatus" class="p-3 text-white bg-primary text-center border-start border-5 border-secondary rounded-3 m-3" style="--bs-primary-rgb: 0, 87, 184;">
-        There are no active drills
-    </div>
-
-    <div class="target-controls d-flex align-items-center justify-content-between gap-3 m-3">
-        <!-- Menu Button -->
-        <button class="btn btn-outline-primary d-flex flex-column gap-1 p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#menuPanel" aria-controls="menuPanel" aria-label="Open menu">
-            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
-            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
-            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
-        </button>
-
-        <div class="target-toolbar">
-            <div class="btn-group" role="group" aria-label="Filter targets">
-                <button class="btn btn-outline-primary target-filter is-active" type="button" data-filter="all" aria-pressed="true">All</button>
-                <button class="btn btn-outline-primary target-filter" type="button" data-filter="odd" aria-pressed="false">Odd</button>
-                <button class="btn btn-outline-primary target-filter" type="button" data-filter="even" aria-pressed="false">Even</button>
-                <button class="btn btn-outline-primary target-filter" type="button" data-filter="random" aria-pressed="false">Random</button>
+<body>
+    <main class="login-page">
+        <div class="modal d-block position-static" tabindex="-1" aria-labelledby="loginModalTitle" aria-modal="true" role="dialog">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content login-modal">
+                    <div class="modal-header">
+                        <h1 class="modal-title fs-4" id="loginModalTitle">Sign in</h1>
+                    </div>
+                    <form id="loginForm">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label" for="username">Username</label>
+                                <input class="form-control" id="username" name="username" type="text" autocomplete="username" required autofocus>
+                            </div>
+                            <div>
+                                <label class="form-label" for="password">Password</label>
+                                <input class="form-control" id="password" name="password" type="password" autocomplete="current-password" required>
+                            </div>
+                            <div class="alert alert-danger mt-3 mb-0" id="loginError" hidden role="alert">
+                                Invalid username or password.
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-primary w-100" type="submit">Sign in</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
-    </div>
+    </main>
 
-    <div class="offcanvas offcanvas-start" tabindex="-1" id="menuPanel" aria-labelledby="menuPanelLabel">
-        <div class="offcanvas-header">
-            <h5 class="offcanvas-title" id="menuPanelLabel">Menu</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close menu"></button>
-        </div>
-        <div class="offcanvas-body">
-            <div class="d-grid gap-2">
-                <a class="btn btn-outline-primary text-start" href="drills.html">Drill</a>
-                <button class="btn btn-outline-primary text-start">Login</button>
-                <button class="btn btn-outline-primary text-start">Performance</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="container-fluid mt-3">
-        <div class="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-2 row-gap-5" id="targetGrid">
-            <div class="col d-flex justify-content-center" data-target-number="1">
-                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target 1 red">
-                    <span class="target-number" aria-hidden="true">1</span>
-                    <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
-                </button>
-            </div>
-            <div class="col d-flex justify-content-center" data-target-number="2">
-                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target 2 red">
-                    <span class="target-number" aria-hidden="true">2</span>
-                    <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
-                </button>
-            </div>
-            <div class="col d-flex justify-content-center" data-target-number="3">
-                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target 3 red">
-                    <span class="target-number" aria-hidden="true">3</span>
-                    <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
-                </button>
-            </div>
-            <div class="col d-flex justify-content-center" data-target-number="4">
-                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target 4 red">
-                    <span class="target-number" aria-hidden="true">4</span>
-                    <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
-                </button>
-            </div>
-            <div class="col d-flex justify-content-center" data-target-number="5">
-                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target 5 red">
-                    <span class="target-number" aria-hidden="true">5</span>
-                    <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <footer class="page-readout d-flex flex-column align-items-center" aria-label="Page indicator">
-        <strong>&lt;&lt; PG 1 &gt;&gt;</strong>
-        <span>5 / 24</span>
-    </footer>
-
-    
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
     <script src="script.js"></script>
