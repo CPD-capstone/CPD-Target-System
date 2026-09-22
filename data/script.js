@@ -6,10 +6,9 @@ if (loginForm) {
     loginForm.addEventListener('submit', (event) => {
         event.preventDefault();
 
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
+        const wifiPassword = document.getElementById('wifiPassword').value;
 
-        if (username !== 'CPD Range Control' || password !== 'admin1234') {
+        if (wifiPassword !== 'admin1234') {
             loginError.hidden = false;
             return;
         }
