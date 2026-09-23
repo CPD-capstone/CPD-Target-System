@@ -1,8 +1,25 @@
 const drillStatus = document.getElementById('drillStatus');
-const targetCards = document.querySelectorAll('.target-card');
 const targetFilters = document.querySelectorAll('.target-filter');
+const targetGrid = document.getElementById('targetGrid');
 
-if (targetCards.length && targetFilters.length) {
+const renderTargets = (targetIds) => {
+    if (!targetGrid) return;
+
+    targetGrid.innerHTML = targetIds.map((targetNumber) => `
+        <div class="col d-flex justify-content-center" data-target-number="${targetNumber}">
+            <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target ${targetNumber} red">
+                <span class="target-number" aria-hidden="true">${targetNumber}</span>
+                <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
+            </button>
+        </div>
+    `).join('');
+
+};
+
+const initializeTargetPage = (targetIds) => {
+    renderTargets(targetIds);
+
+    const targetCards = document.querySelectorAll('.target-card');
     const targetColumns = Array.from(targetCards, (targetCard) => targetCard.closest('[data-target-number]'));
 
     const applyTargetFilter = (filter) => {
@@ -40,9 +57,22 @@ if (targetCards.length && targetFilters.length) {
     targetFilters.forEach((button) => {
         button.addEventListener('click', () => applyTargetFilter(button.dataset.filter));
     });
+};
+
+if (targetGrid) {
+    fetch('database.json', { cache: 'no-store' })
+        .then((response) => response.json())
+        .then((payload) => {
+            const targetIds = (Array.isArray(payload?.targets) ? payload.targets : [])
+                .map((target) => Number(target?.id))
+                .filter((id) => Number.isInteger(id) && id >= 1 && id <= 20)
+                .sort((first, second) => first - second);
+            initializeTargetPage(targetIds.length ? targetIds : Array.from({ length: 20 }, (_, index) => index + 1));
+        })
+        .catch(() => initializeTargetPage(Array.from({ length: 20 }, (_, index) => index + 1)));
 }
 
-if (targetCards.length && drillStatus) {
+if (drillStatus && targetGrid) {
     const updateDrillStatus = () => {
         const hasRedTarget = document.querySelector('.target-card.is-red');
         drillStatus.classList.toggle('bg-danger', hasRedTarget !== null);
@@ -52,16 +82,17 @@ if (targetCards.length && drillStatus) {
             : 'There are no active drills';
     };
 
-    targetCards.forEach((targetCard) => {
-        targetCard.addEventListener('click', () => {
-            const isRed = targetCard.classList.toggle('is-red');
-            targetCard.setAttribute('aria-pressed', isRed);
-            const targetNumber = targetCard.closest('[data-target-number]')?.dataset.targetNumber;
-            targetCard.setAttribute('aria-label', isRed
-                ? `Return target ${targetNumber} to green`
-                : `Mark target ${targetNumber} red`);
-            updateDrillStatus();
-        });
+    targetGrid.addEventListener('click', (event) => {
+        const targetCard = event.target.closest('.target-card');
+        if (!targetCard) return;
+
+        const isRed = targetCard.classList.toggle('is-red');
+        targetCard.setAttribute('aria-pressed', isRed);
+        const targetNumber = targetCard.closest('[data-target-number]')?.dataset.targetNumber;
+        targetCard.setAttribute('aria-label', isRed
+            ? `Return target ${targetNumber} to green`
+            : `Mark target ${targetNumber} red`);
+        updateDrillStatus();
     });
 }
 
@@ -74,7 +105,16 @@ if (document.getElementById('drillList')) {
     const deleteDrillModal = deleteDrillModalElement ? new bootstrap.Modal(deleteDrillModalElement) : null;
     const deleteDrillName = document.getElementById('deleteDrillName');
     const confirmDeleteDrillButton = document.getElementById('confirmDeleteDrillButton');
+    const drillNameSelect = document.getElementById('drillName');
+    const editDrillNameSelect = document.getElementById('editDrillName');
+    const targetNumberSelect = document.getElementById('targetNumber');
+    const editTargetNumberSelect = document.getElementById('editTargetNumber');
+    const drillDurationSelect = document.getElementById('drillDuration');
+    const editDrillDurationSelect = document.getElementById('editDrillDuration');
+    const drillOwnerSelect = document.getElementById('drillOwner');
+    const editDrillOwnerSelect = document.getElementById('editDrillOwner');
     let pendingDeleteDrillId = null;
+    let databaseDrills = [];
 
     const showFormError = (form, message, invalidInputs) => {
         const errorMessage = document.getElementById(form.id === 'newDrillForm' ? 'newDrillError' : 'editDrillError');
@@ -90,7 +130,7 @@ if (document.getElementById('drillList')) {
 
         errorMessage.hidden = true;
         errorMessage.textContent = '';
-        form.querySelectorAll('input:not([type="hidden"])').forEach((input) => input.classList.remove('is-invalid'));
+        form.querySelectorAll('input:not([type="hidden"]), select').forEach((input) => input.classList.remove('is-invalid'));
     };
 
     const validateDrillFields = (form) => {
@@ -114,14 +154,80 @@ if (document.getElementById('drillList')) {
         };
     };
 
-    const normalizeDrillMap = (source = {}) => {
-        if (!source || typeof source !== 'object') {
+    const normalizeDrillMap = (source = []) => {
+        if (!Array.isArray(source)) {
             return {};
         }
 
-        return Object.fromEntries(
-            Object.entries(source).filter(([, value]) => value && typeof value === 'object')
-        );
+        return Object.fromEntries(source
+            .filter((drill) => drill && typeof drill.drillName === 'string' && drill.drillName.trim())
+            .map((drill, index) => [`database-drill-${index}`, {
+                name: drill.drillName.trim(),
+                sequence: Array.isArray(drill.sequence) ? drill.sequence : [],
+                duration: getDrillDuration(drill),
+                status: 'available'
+            }]));
+    };
+
+    const populateDrillSelects = (drills) => {
+        const selectedNames = [...new Set(Object.values(drills)
+            .map((drill) => drill?.name)
+            .filter(Boolean))];
+
+        [drillNameSelect, editDrillNameSelect].forEach((select) => {
+            if (!select) return;
+
+            select.replaceChildren(new Option('Select a drill', ''));
+            selectedNames.forEach((name) => select.add(new Option(name, name)));
+        });
+    };
+
+    const getDrillDuration = (drill) => {
+        const totalMilliseconds = (drill?.sequence || []).reduce((total, step) => (
+            total + (Number(step?.timeMs) || 0)
+        ), 0);
+
+        return Math.round(totalMilliseconds / 1000);
+    };
+
+    const populateSelect = (select, placeholder, options) => {
+        if (!select) return;
+
+        select.replaceChildren(new Option(placeholder, ''));
+        options.forEach(({ label, value }) => select.add(new Option(label, value)));
+    };
+
+    const populateDatabaseFields = (payload) => {
+        const targets = (Array.isArray(payload?.targets) ? payload.targets : [])
+            .map((target) => Number(target?.id))
+            .filter((id) => Number.isInteger(id) && id >= 1 && id <= 20)
+            .sort((first, second) => first - second);
+        const owners = (Array.isArray(payload?.Officers) ? payload.Officers : [])
+            .map((officer) => String(officer?.Name || '').trim())
+            .filter(Boolean);
+        const durations = [...new Set(databaseDrills
+            .map(getDrillDuration)
+            .filter((duration) => duration > 0))]
+            .sort((first, second) => first - second)
+            .map((duration) => ({ label: formatDuration(duration), value: String(duration) }));
+
+        const targetOptions = targets.map((target) => ({ label: `Target ${target}`, value: String(target) }));
+        const ownerOptions = [...new Set(owners)].map((owner) => ({ label: owner, value: owner }));
+        [targetNumberSelect, editTargetNumberSelect].forEach((select) => {
+            if (!select) return;
+            select.replaceChildren();
+            targetOptions.forEach(({ label, value }) => select.add(new Option(label, value)));
+        });
+        [drillOwnerSelect, editDrillOwnerSelect].forEach((select) => populateSelect(select, 'Select an owner', ownerOptions));
+        [drillDurationSelect, editDrillDurationSelect].forEach((select) => populateSelect(select, 'Select a duration', durations));
+    };
+
+    const setSelectedValues = (select, values) => {
+        if (!select) return;
+        const selectedValues = new Set(values.map((value) => String(value)));
+        Array.from(select.options).forEach((option) => {
+            option.selected = selectedValues.has(option.value);
+        });
     };
 
     const formatDuration = (seconds) => {
@@ -188,8 +294,8 @@ if (document.getElementById('drillList')) {
 
         document.getElementById('editDrillId').value = drillId;
         document.getElementById('editDrillName').value = drill.name || '';
-        document.getElementById('editTargetNumber').value = Array.isArray(drill.targets) && drill.targets.length ? drill.targets[0] : '';
-        document.getElementById('editDrillDuration').value = formatDuration(drill.duration);
+        setSelectedValues(editTargetNumberSelect, Array.isArray(drill.targets) ? drill.targets : []);
+        document.getElementById('editDrillDuration').value = drill.duration ? String(drill.duration) : '';
         document.getElementById('editDrillOwner').value = Array.isArray(drill.owners) && drill.owners.length ? drill.owners[0] : '';
 
         const editModal = new bootstrap.Modal(document.getElementById('editDrillModal'));
@@ -281,10 +387,14 @@ if (document.getElementById('drillList')) {
             const payload = await response.json();
             const fileDrills = normalizeDrillMap(payload?.drills);
             const mergedDrills = { ...fileDrills, ...savedDrills };
+            databaseDrills = Array.isArray(payload?.drills) ? payload.drills : [];
 
             saveDrills(mergedDrills);
+            populateDrillSelects(fileDrills);
+            populateDatabaseFields(payload);
             renderDrills(mergedDrills);
         } catch (error) {
+            populateDrillSelects(savedDrills || {});
             renderDrills(savedDrills || {});
         }
     };
@@ -294,7 +404,7 @@ if (document.getElementById('drillList')) {
 
         const formData = new FormData(drillForm);
         const name = String(formData.get('drillName') || '').trim();
-        const targetNumber = String(formData.get('targetNumber') || '').trim();
+        const targetNumbers = formData.getAll('targetNumber').map((value) => Number(value));
         const durationValue = String(formData.get('drillDuration') || '').trim();
         const owner = String(formData.get('drillOwner') || '').trim();
 
@@ -311,8 +421,9 @@ if (document.getElementById('drillList')) {
 
         currentDrills[nextDrillId] = {
             name,
+            sequence: databaseDrills.find((drill) => drill.drillName === name)?.sequence || [],
             owners: owner ? [owner] : [],
-            targets: targetNumber ? [Number(targetNumber)] : [],
+            targets: targetNumbers,
             duration: parseDuration(durationValue),
             status: 'available'
         };
@@ -334,7 +445,7 @@ if (document.getElementById('drillList')) {
         const formData = new FormData(editDrillForm);
         const drillId = String(formData.get('editDrillId') || '').trim();
         const name = String(formData.get('editDrillName') || '').trim();
-        const targetNumber = String(formData.get('editTargetNumber') || '').trim();
+        const targetNumbers = formData.getAll('editTargetNumber').map((value) => Number(value));
         const durationValue = String(formData.get('editDrillDuration') || '').trim();
         const owner = String(formData.get('editDrillOwner') || '').trim();
 
@@ -355,7 +466,7 @@ if (document.getElementById('drillList')) {
             ...currentDrills[drillId],
             name,
             owners: owner ? [owner] : [],
-            targets: targetNumber ? [Number(targetNumber)] : [],
+            targets: targetNumbers,
             duration: parseDuration(durationValue),
             status: 'available'
         };

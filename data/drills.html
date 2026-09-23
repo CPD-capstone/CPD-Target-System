@@ -62,19 +62,26 @@
                         <div class="form-validation-message" id="newDrillError" role="alert" aria-live="polite" hidden></div>
                         <div class="mb-3">
                             <label for="drillName" class="form-label">Name</label>
-                            <input type="text" class="form-control" id="drillName" name="drillName" placeholder="Enter drill name" required>
+                            <select class="form-select" id="drillName" name="drillName" required>
+                                <option value="">Select a drill</option>
+                            </select>
                         </div>
                         <div class="mb-3">
                             <label for="targetNumber" class="form-label">Target number</label>
-                            <input type="number" class="form-control" id="targetNumber" name="targetNumber" min="1" placeholder="e.g. 3" required>
+                            <select class="form-select" id="targetNumber" name="targetNumber" multiple size="6" required aria-describedby="targetNumberHelp"></select>
+                            <div class="form-text" id="targetNumberHelp">Select one or more targets.</div>
                         </div>
                         <div class="mb-3">
                             <label for="drillDuration" class="form-label">Duration</label>
-                            <input type="text" class="form-control" id="drillDuration" name="drillDuration" placeholder="00:30" required>
+                            <select class="form-select" id="drillDuration" name="drillDuration" required>
+                                <option value="">Select a duration</option>
+                            </select>
                         </div>
                         <div class="mb-3 mb-0">
                             <label for="drillOwner" class="form-label">Owner</label>
-                            <input type="text" class="form-control" id="drillOwner" name="drillOwner" placeholder="Enter owner name" required>
+                            <select class="form-select" id="drillOwner" name="drillOwner" required>
+                                <option value="">Select an owner</option>
+                            </select>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -99,19 +106,26 @@
                         <input type="hidden" id="editDrillId" name="editDrillId">
                         <div class="mb-3">
                             <label for="editDrillName" class="form-label">Name</label>
-                            <input type="text" class="form-control" id="editDrillName" name="editDrillName" placeholder="Enter drill name" required>
+                            <select class="form-select" id="editDrillName" name="editDrillName" required>
+                                <option value="">Select a drill</option>
+                            </select>
                         </div>
                         <div class="mb-3">
                             <label for="editTargetNumber" class="form-label">Target number</label>
-                            <input type="number" class="form-control" id="editTargetNumber" name="editTargetNumber" min="1" placeholder="e.g. 3" required>
+                            <select class="form-select" id="editTargetNumber" name="editTargetNumber" multiple size="6" required aria-describedby="editTargetNumberHelp"></select>
+                            <div class="form-text" id="editTargetNumberHelp">Select one or more targets.</div>
                         </div>
                         <div class="mb-3">
                             <label for="editDrillDuration" class="form-label">Duration</label>
-                            <input type="text" class="form-control" id="editDrillDuration" name="editDrillDuration" placeholder="00:30" required>
+                            <select class="form-select" id="editDrillDuration" name="editDrillDuration" required>
+                                <option value="">Select a duration</option>
+                            </select>
                         </div>
                         <div class="mb-3 mb-0">
                             <label for="editDrillOwner" class="form-label">Owner</label>
-                            <input type="text" class="form-control" id="editDrillOwner" name="editDrillOwner" placeholder="Enter owner name" required>
+                            <select class="form-select" id="editDrillOwner" name="editDrillOwner" required>
+                                <option value="">Select an owner</option>
+                            </select>
                         </div>
                     </div>
                     <div class="modal-footer">
