@@ -1,23 +1,3 @@
-const loginForm = document.getElementById('loginForm');
-
-if (loginForm) {
-    const loginError = document.getElementById('loginError');
-
-    loginForm.addEventListener('submit', (event) => {
-        event.preventDefault();
-
-        const wifiPassword = document.getElementById('wifiPassword').value;
-
-        if (wifiPassword !== 'admin1234') {
-            loginError.hidden = false;
-            return;
-        }
-
-        loginError.hidden = true;
-        window.location.href = 'targets.html';
-    });
-}
-
 const drillStatus = document.getElementById('drillStatus');
 const targetCards = document.querySelectorAll('.target-card');
 const targetFilters = document.querySelectorAll('.target-filter');
