@@ -135,13 +135,18 @@ if (document.getElementById('drillList')) {
 
     const validateDrillFields = (form) => {
         const isEditForm = form.id === 'editDrillForm';
+        const targetFieldName = isEditForm ? 'editTargetNumber' : 'targetNumber';
         const fields = [
             { input: document.getElementById(isEditForm ? 'editDrillName' : 'drillName'), label: 'Name' },
-            { input: document.getElementById(isEditForm ? 'editTargetNumber' : 'targetNumber'), label: 'Target number' },
+            {
+                input: document.getElementById(targetFieldName),
+                label: 'Target number',
+                valid: () => form.querySelector(`input[name="${targetFieldName}"]:checked`) !== null
+            },
             { input: document.getElementById(isEditForm ? 'editDrillDuration' : 'drillDuration'), label: 'Duration' },
             { input: document.getElementById(isEditForm ? 'editDrillOwner' : 'drillOwner'), label: 'Owner' }
         ];
-        const missingFields = fields.filter(({ input }) => !input?.value.trim());
+        const missingFields = fields.filter(({ input, valid }) => valid ? !valid() : !input?.value.trim());
 
         if (!missingFields.length) {
             return { valid: true };
@@ -213,10 +218,29 @@ if (document.getElementById('drillList')) {
 
         const targetOptions = targets.map((target) => ({ label: `Target ${target}`, value: String(target) }));
         const ownerOptions = [...new Set(owners)].map((owner) => ({ label: owner, value: owner }));
-        [targetNumberSelect, editTargetNumberSelect].forEach((select) => {
-            if (!select) return;
-            select.replaceChildren();
-            targetOptions.forEach(({ label, value }) => select.add(new Option(label, value)));
+        [
+            { container: targetNumberSelect, name: 'targetNumber' },
+            { container: editTargetNumberSelect, name: 'editTargetNumber' }
+        ].forEach(({ container, name }) => {
+            if (!container) return;
+
+            container.replaceChildren();
+            targetOptions.forEach(({ label, value }) => {
+                const wrapper = document.createElement('label');
+                wrapper.className = 'target-option';
+
+                const input = document.createElement('input');
+                input.className = 'form-check-input';
+                input.type = 'checkbox';
+                input.name = name;
+                input.value = value;
+
+                const text = document.createElement('span');
+                text.textContent = label;
+
+                wrapper.append(input, text);
+                container.append(wrapper);
+            });
         });
         [drillOwnerSelect, editDrillOwnerSelect].forEach((select) => populateSelect(select, 'Select an owner', ownerOptions));
         [drillDurationSelect, editDrillDurationSelect].forEach((select) => populateSelect(select, 'Select a duration', durations));
@@ -225,8 +249,8 @@ if (document.getElementById('drillList')) {
     const setSelectedValues = (select, values) => {
         if (!select) return;
         const selectedValues = new Set(values.map((value) => String(value)));
-        Array.from(select.options).forEach((option) => {
-            option.selected = selectedValues.has(option.value);
+        select.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+            input.checked = selectedValues.has(input.value);
         });
     };
 
