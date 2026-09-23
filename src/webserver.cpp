@@ -4,22 +4,24 @@ AsyncWebServer server(HTTP_PORT); //port 80 for https
 DNSServer dnsServer; // for autocapture
 
 void initWebserver(){
+    // Start up DNS server and route user directly to ESP32's IP
+    dnsServer.start(53, "*", WiFi.softAPIP());
     // Root route defaults to HTTP_GET automatically
     server.on("/", [](AsyncWebServerRequest *request){
-        if (LittleFS.exists("/index.html")) {
-            request->send(LittleFS, "/index.html", "text/html");
+        if (LittleFS.exists("/targets.html")) {
+            request->send(LittleFS, "/targets.html", "text/html");
         }else{
-            request->send(404, "text/plain", "Error: index.html not found in LittleFS");
+            request->send(404, "text/plain", "Error: targets.html not found in LittleFS");
         }
     });
 
     // Captive Portal OS probe redirects (omitting method defaults to GET)
     server.on("/generate_204", [](AsyncWebServerRequest *request){
-        request->send(LittleFS, "/index.html", "text/html");
+        request->send(LittleFS, "/targets.html", "text/html");
     });
 
     server.on("/redirect", [](AsyncWebServerRequest *request){
-        request->send(LittleFS, "/index.html", "text/html");
+        request->send(LittleFS, "/targets.html", "text/html");
     });
 
     // Serve static assets (CSS, JS, images)
@@ -27,10 +29,14 @@ void initWebserver(){
 
     // Fallback handler
     server.onNotFound([](AsyncWebServerRequest *request){
-        request->send(404, "text/plain", "404: Not Found");
+        request->send(LittleFS, "/index.html", "text/html");
     });
 
     // Start listening
     server.begin();
     Serial.println("Webserver initialized on port 80.");
+}
+
+void processCaptivePortalDNS(){
+    dnsServer.processNextRequest();
 }

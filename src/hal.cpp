@@ -6,9 +6,6 @@ Adafruit_MCP23X17 mcp1;
 Adafruit_MCP23X17 mcp2;
 Target targets[24] = {0};
 
-/**
- * Executes SPI write to the appropriate MCP23S17 chip
- */
 void updateTargetState(uint8_t targetIndex, bool newState){
     if(targetIndex < 16){
         // Targets 1-16 map to MCP1 (GPA0-7 and GPB0-7)
@@ -53,8 +50,9 @@ void SolenoidControlTask(void *pvParameters){
     for(;;){
         uint32_t now = millis(); // grab current ms for buffer
 
-        while (xQueueReceive(targetQueue, &cmd, 0) == pdTRUE){
-            if (cmd.targetId < 24) {
+        // Grab latest cmd from FreeRTOS and update each target's desired state
+        while(xQueueReceive(targetQueue, &cmd, 0) == pdTRUE){
+            if(cmd.targetId < 20) {
                 targets[cmd.targetId].desiredState = cmd.newState;
             }
         }

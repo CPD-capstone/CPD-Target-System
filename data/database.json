@@ -1,36 +1,865 @@
 {
-  "users": {
-    "userId": {
-      "badge number": "401",
-    
-      "performance": {
-        "totalDrillsCompleted": 0,
-        "totalTrainingTime": 0,
-        "averageHitsPerMinute": 0,
-        "averageAccuracy": 0
-      }
+  "Officers": [
+    { 
+      "Name": "Example",
+      "BadgeNum": 888,
+      "pistolQualScores": [
+        [99, "2026-09-18"], 
+        [98, "2026-03-15"], 
+        [95, "2025-12-08"]
+      ],
+      "rifleQualScores": [
+        [99, "2026-09-18"], 
+        [98, "2026-03-15"], 
+        [95, "2025-12-08"]
+      ],
+      "swatQualScores": [
+        [99, "2026-09-18"], 
+        [98, "2026-03-15"], 
+        [95, "2025-12-08"]
+      ]
+    },
+    { 
+      "Name": "Example2",
+      "BadgeNum": 888,
+      "pistolQualScores": [
+        [99, "2026-09-18"], 
+        [98, "2026-03-15"], 
+        [95, "2025-12-08"]
+      ],
+      "rifleQualScores": [
+        [99, "2026-09-18"], 
+        [98, "2026-03-15"], 
+        [95, "2025-12-08"]
+      ],
+      "swatQualScores": [
+        [99, "2026-09-18"], 
+        [98, "2026-03-15"], 
+        [95, "2025-12-08"]
+      ]
     }
-  },
+  ],
 
-  "drills": {
-    "drillId": {
-      "name": "Example Drill",
-      "owners": ["userId"],
-      
-      "targets": [1, 5, 9],
+  "drills": [
+    {"drillName": "Pistol Qual Stage 1", 
+      "sequence": [
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 4000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        },
+        {
+          "step": 4,
+          "action": "pause"
+        },
+        {
+          "step": 5,
+          "action": "present"
+        },
+        {
+          "step": 6,
+          "action": "delay",
+          "timeMs": 4000
+        },
+        {
+          "step": 7,
+          "action": "hide"
+        }
+      ] 
+    },  
+    { "drillName": "Pistol Qual Stage 2",
+      "sequence": [
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 3000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        },
+        {
+          "step": 4,
+          "action": "pause"
+        },
+        {
+          "step": 5,
+          "action": "present"
+        },
+        {
+          "step": 6,
+          "action": "delay",
+          "timeMs": 5000
+        },
+        {
+          "step": 7,
+          "action": "hide"
+        },
+        {
+          "step": 8,
+          "action": "pause"
+        },
+        {
+          "step": 9,
+          "action": "present"
+        },
+        {
+          "step": 10,
+          "action": "delay",
+          "timeMs": 4000
+        },
+        {
+          "step": 11,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "Pistol Qual Stage 3",
+      "sequence": [
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 5000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        },
+        {
+          "step": 4,
+          "action": "pause"
+        },
+        {
+          "step": 5,
+          "action": "present"
+        },
+        {
+          "step": 6,
+          "action": "delay",
+          "timeMs": 8000
+        },
+        {
+          "step": 7,
+          "action": "hide"
+        },
+        {
+          "step": 8,
+          "action": "pause"
+        },
+        {
+          "step": 9,
+          "action": "present"
+        },
+        {
+          "step": 10,
+          "action": "delay",
+          "timeMs": 4000
+        },
+        {
+          "step": 11,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "Pistol Qual Stage 4",
+      "sequence":[
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 6000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        },
+        {
+          "step": 4,
+          "action": "pause"
+        },
+        {
+          "step": 5,
+          "action": "present"
+        },
+        {
+          "step": 6,
+          "action": "delay",
+          "timeMs": 5000
+        },
+        {
+          "step": 7,
+          "action": "hide"
+        }
+      ]
+    },
+    {"drillName": "Pistol Qual Stage 5",
+      "sequence":[
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 20000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "Pistol Qual Full Drill",
+      "sequence":[
+        {
+          "step": 1,
+          "action": "Pistol Qual Stage 1"
+        },
+        {
+          "step": 2,
+          "action": "pause"
+        },
+        {
+          "step": 3,
+          "action": "Pistol Qual Stage 2"
+        },
+        {
+          "step": 4,
+          "action": "pause"
+        },
+        {
+          "step": 5,
+          "action": "Pistol Qual Stage 3"
+        },
+        {
+          "step": 6,
+          "action": "pause"
+        },
+        {
+          "step": 7,
+          "action": "Pistol Qual Stage 4"
+        },
+        {
+          "step": 8,
+          "action": "pause"
+        },
+        {
+          "step": 9,
+          "action": "Pistol Qual Stage 5"
+        }
+      ]
+    },
 
-      "duration": 60,
+    { "drillName": "Rifle Qual Stage 1",
+      "sequence":[
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action":"delay",
+          "timeMs": 60000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "Rifle Qual Stage 2",
+      "sequence":[
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 15000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "Rifle Qual Stage 3",
+      "sequence": [
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 6000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "Rifle Qual Stage 4",
+      "sequence":[
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 4000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        },
+        {
+          "step": 4,
+          "action": "pause"
+        },
+        {
+          "step": 5,
+          "action": "present"
+        },
+        {
+          "step": 6,
+          "action": "delay",
+          "timeMs": 3000
+        },
+        {
+          "step": 7,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "Rifle Qual Stage 5",
+      "sequence":[
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 3000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "Rifle Qual Full Drill",
+      "sequence":[
+        {
+          "step": 1,
+          "action": "Rifle Qual Stage 1"
+        },
+        {
+          "step": 2,
+          "action": "pause"
+        },
+        {
+          "step": 3,
+          "action": "Rifle Qual Stage 2"
+        },
+        {
+          "step": 4,
+          "action": "pause"
+        },
+        {
+          "step": 5,
+          "action": "Rifle Qual Stage 3"
+        },
+        {
+          "step": 6,
+          "action": "pause"
+        },
+        {
+          "step": 7,
+          "action": "Rifle Qual Stage 4"
+        },
+        {
+          "step": 8,
+          "action": "pause"
+        },
+        {
+          "step": 9,
+          "action": "Rifle Qual Stage 5"
+        }
+      ]
+    },
 
-      "status": "available"
+    { "drillName": "SWAT Qual Stage 1",
+      "sequence": [
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 10000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "SWAT Qual Stage 2",
+      "sequence": [
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 12000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "SWAT Qual Stage 3",
+      "sequence": [
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 12000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "SWAT Qual Stage 4",
+      "sequence": [
+        {
+          "step": 1,
+          "action": "present" 
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 6000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "SWAT Qual Stage 5",
+      "sequence": [
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 3000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "SWAT Qual Stage 6",
+      "sequence": [
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 3000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "SWAT Qual Stage 7",
+      "sequence": [
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 8000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "SWAT Qual Stage 8",
+      "sequence":[
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 2000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "SWAT Qual Stage 9",
+      "sequence":[
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 3000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "SWAT Qual Stage 10",
+      "sequence":[
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 2000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "SWAT Qual Stage 11",
+      "sequence":[
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 5000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "SWAT Qual Stage 12",
+      "sequence":[
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 4000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "SWAT Qual Stage 13",
+      "sequence":[
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 3000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "SWAT Qual Stage 14",
+      "sequence":[
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 8000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "SWAT Qual Stage 15",
+      "sequence":[
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 4000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "SWAT Qual Stage 16",
+      "sequence":[
+        {
+          "step": 1,
+          "action": "present"
+        },
+        {
+          "step": 2,
+          "action": "delay",
+          "timeMs": 5000
+        },
+        {
+          "step": 3,
+          "action": "hide"
+        }
+      ]
+    },
+    { "drillName": "SWAT Qual Stage 17",
+      "sequence":[
+            {
+              "step": 1,
+              "action": "present"
+            },
+            {
+              "step": 2,
+              "action": "delay",
+              "timeMs": 3000
+            },
+            {
+              "step": 3,
+              "action": "hide"
+            }
+          ]
+    },
+    {
+      "drillName": "SWAT Qual Full Drill",
+      "sequence":[
+        {
+          "step": 1,
+          "action": "SWAT Qual Stage 1"
+        },
+        {
+          "step": 2,
+          "action": "pause"
+        },
+        {
+          "step": 3,
+          "action": "SWAT Qual Stage 2"
+        },
+        {
+          "step": 4,
+          "action": "pause"
+        },
+        {
+          "step": 5,
+          "action": "SWAT Qual Stage 3"
+        },
+        {
+          "step": 6,
+          "action": "pause"
+        },
+        {
+          "step": 7,
+          "action": "SWAT Qual Stage 4"
+        },
+        {
+          "step": 8,
+          "action": "pause"
+        },
+        {
+          "step": 9,
+          "action": "SWAT Qual Stage 5"
+        },
+        {
+          "step": 10,
+          "action": "pause"
+        },
+        {
+          "step": 11,
+          "action": "SWAT Qual Stage 6"
+        },
+        {
+          "step": 12,
+          "action": "pause"
+        },
+        {
+          "step": 13,
+          "action": "SWAT Qual Stage 7"
+        },
+        {
+          "step": 14,
+          "action": "pause"
+        },
+        {
+          "step": 15,
+          "action": "SWAT Qual Stage 8"
+        },
+        {
+          "step": 16,
+          "action": "pause"
+        },
+        {
+          "step": 17,
+          "action": "SWAT Qual Stage 9"
+        },
+        {
+          "step": 18,
+          "action": "pause"
+        },
+        {
+          "step": 19,
+          "action": "SWAT Qual Stage 10"
+        },
+        {
+          "step": 20,
+          "action": "pause"
+        },
+        {
+          "step": 21,
+          "action": "SWAT Qual Stage 11"
+        },
+        {
+          "step": 22,
+          "action": "pause"
+        },
+        {
+          "step": 23,
+          "action": "SWAT Qual Stage 12"
+        },
+        {
+          "step": 24,
+          "action": "pause"
+        },
+        {
+          "step": 25,
+          "action": "SWAT Qual Stage 13"
+        },
+        {
+          "step": 26,
+          "action": "pause"
+        },
+        {
+          "step": 27,
+          "action": "SWAT Qual Stage 14"
+        },
+        {
+          "step": 28,
+          "action": "pause"
+        },
+        {
+          "step": 29,
+          "action": "SWAT Qual Stage 15"
+        },
+        {
+          "step": 30,
+          "action": "pause"
+        },
+        {
+          "step": 31,
+          "action": "SWAT Qual Stage 16"
+        },
+        {
+          "step": 32,
+          "action": "pause"
+        },
+        {
+          "step": 33,
+          "action": "SWAT Qual Stage 17"
+        }
+      ]
     }
-  },
+  ],
 
-  "targets": {
-    "targetId": {
-      "targetNumber": 1,
-      "status": "available",
-      "usedBy": null,
-      "currentDrill": null
-    }
-  }
+  "targets": [
+    { "id": 1, "working": true },
+    { "id": 2, "working": true },
+    { "id": 3, "working": true },
+    { "id": 4, "working": true },
+    { "id": 5, "working": true },
+    { "id": 6, "working": true },
+    { "id": 7, "working": true },
+    { "id": 8, "working": true },
+    { "id": 9, "working": true },
+    { "id": 10, "working": true },
+    { "id": 11, "working": true },
+    { "id": 12, "working": true },
+    { "id": 13, "working": true },
+    { "id": 14, "working": true },
+    { "id": 15, "working": true },
+    { "id": 16, "working": true },
+    { "id": 17, "working": true },
+    { "id": 18, "working": true },
+    { "id": 19, "working": true },
+    { "id": 20, "working": true }
+  ]
 }

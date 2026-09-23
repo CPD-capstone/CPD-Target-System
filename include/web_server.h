@@ -18,9 +18,11 @@
 extern AsyncWebServer server;
 extern AsyncWebSocket ws;
 
+/// @brief starts webserver
 void initWebserver();
+void processCaptivePortalDNS();
 
-// Call in loop() to handle Captive Portal DNS queries
+/// @brief to be called in loop() to handle DNS queries
 void webserver_loop();
 
 #endif
