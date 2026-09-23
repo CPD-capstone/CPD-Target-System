@@ -36,20 +36,21 @@ struct TargetCommand {
     bool newState;    // true = UP/FLIP, false = DOWN/UNFLIP
 };
 
-extern Target targets[24];
+extern Target targets[20];
 
 // =============================================================================
 // FUNCTION PROTOTYPES
 // =============================================================================
 
-/// @brief initializes the hardware abstraction layer
+/// @brief initializes the hardware abstraction layer. Pins the task and starts the queue
 void hal_init();
 
-// Function prototype for target actuation
+/// @brief This function is used by the solenoidControlTask to update a particular targets desired state it does this by executing SPI write to the appropriate MCP23S17 chip
+/// @param targetIndex the target to change
+/// @param newState the state to change the target to. true for facing, false for hiding
 void updateTargetState(uint8_t targetIndex, bool newState);
 
 /// @brief starts the solenoid control task; task continuously looks at the target array and updates solenoids accordingly (delay built in to prevent sheering of pins)
 void SolenoidControlTask(void);
-
 
 #endif
