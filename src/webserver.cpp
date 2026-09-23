@@ -4,6 +4,8 @@ AsyncWebServer server(HTTP_PORT); //port 80 for https
 DNSServer dnsServer; // for autocapture
 
 void initWebserver(){
+    // Start up DNS server and route user directly to ESP32's IP
+    dnsServer.start(53, "*", WiFi.softAPIP());
     // Root route defaults to HTTP_GET automatically
     server.on("/", [](AsyncWebServerRequest *request){
         if (LittleFS.exists("/index.html")) {
@@ -27,10 +29,14 @@ void initWebserver(){
 
     // Fallback handler
     server.onNotFound([](AsyncWebServerRequest *request){
-        request->send(404, "text/plain", "404: Not Found");
+        request->send(LittleFS, "/index.html", "text/html");
     });
 
     // Start listening
     server.begin();
     Serial.println("Webserver initialized on port 80.");
+}
+
+void processCaptivePortalDNS(){
+    dnsServer.processNextRequest();
 }

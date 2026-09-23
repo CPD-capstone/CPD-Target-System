@@ -19,6 +19,7 @@ extern AsyncWebServer server;
 extern AsyncWebSocket ws;
 
 void initWebserver();
+void processCaptivePortalDNS();
 
 // Call in loop() to handle Captive Portal DNS queries
 void webserver_loop();
