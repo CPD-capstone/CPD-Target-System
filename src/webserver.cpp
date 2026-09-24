@@ -28,6 +28,9 @@ void initWebserver(){
     server.serveStatic("/", LittleFS, "/");
 
     // Fallback handler
+    // TODO: /index.html no longer exists in data/ (it was the old name of the landing
+    // page, likely renamed to targets.html). Update this to the current landing page,
+    // otherwise unknown URLs will fail instead of redirecting.
     server.onNotFound([](AsyncWebServerRequest *request){
         request->send(LittleFS, "/index.html", "text/html");
     });

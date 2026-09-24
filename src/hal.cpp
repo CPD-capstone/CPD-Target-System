@@ -4,14 +4,14 @@ TaskHandle_t SolenoidTaskHandle = NULL;
 QueueHandle_t targetQueue;
 Adafruit_MCP23X17 mcp1;
 Adafruit_MCP23X17 mcp2;
-Target targets[24] = {0};
+Target targets[NUM_TARGETS] = {0};
 
 void updateTargetState(uint8_t targetIndex, bool newState){
     if(targetIndex < 16){
         // Targets 1-16 map to MCP1 (GPA0-7 and GPB0-7)
         mcp1.digitalWrite(targetIndex, newState ? HIGH : LOW);
     }else{
-        // Targets 17-24 map to MCP2 (GPA0-7)
+        // Targets 17-20 map to MCP2 (GPA0-3)
         uint8_t mcp2Pin = targetIndex - 16;
         mcp2.digitalWrite(mcp2Pin, newState ? HIGH : LOW);
     }
@@ -36,7 +36,8 @@ void initSPI(){
         mcp1.pinMode(i, OUTPUT);
         mcp1.digitalWrite(i, LOW);
     }
-    for(uint8_t i = 0; i < 8; i++){
+    // MCP2 only drives targets 17-20 (GPA0-3); remaining pins stay as default inputs
+    for(uint8_t i = 0; i < NUM_TARGETS - 16; i++){
         mcp2.pinMode(i, OUTPUT);
         mcp2.digitalWrite(i, LOW);
     }
@@ -52,13 +53,13 @@ void SolenoidControlTask(void *pvParameters){
 
         // Grab latest cmd from FreeRTOS and update each target's desired state
         while(xQueueReceive(targetQueue, &cmd, 0) == pdTRUE){
-            if(cmd.targetId < 20) {
+            if(cmd.targetId < NUM_TARGETS) {
                 targets[cmd.targetId].desiredState = cmd.newState;
             }
         }
 
         // loop through each target
-        for (uint8_t i = 0; i < 24; i++){
+        for (uint8_t i = 0; i < NUM_TARGETS; i++){
             // grab desired & current states
             bool desired = targets[i].desiredState;
             bool current = targets[i].currentState;
