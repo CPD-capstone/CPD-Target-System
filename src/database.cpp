@@ -1,11 +1,9 @@
 #include "database.h"
+#include "hal.h"
 
 /*
- * AI-assisted (Claude) review notes -- comments only, no code changed.
- *
- * data/database.json is the authoritative schema, and the functions below were written
- * against an older one (top-level OBJECTS keyed by ID: "targets", "users", "drills").
- * The real file uses top-level ARRAYS:
+ * AI-assisted (Claude): the CRUD functions below were migrated from an older object-keyed
+ * schema to the one in data/database.json, which is authoritative. It uses top-level ARRAYS:
  *
  *   "Officers": [ { "Name": str, "BadgeNum": int,
  *                   "pistolQualScores": [[score, "YYYY-MM-DD"], ...],   // newest first
@@ -16,14 +14,8 @@
  *                 OR the drillName of another drill (the "... Full Drill" entries compose stages)
  *   "targets":  [ { "id": 1..20, "working": bool } ]
  *
- * Because these are arrays, doc["targets"].as<JsonObject>() / containsKey(id) will always
- * come back null/false on the real file. Suggested shared change: add a lookup helper, e.g.
- *
- *   // returns index of the element whose [key] == value, or -1
- *   int findIndex(JsonArray arr, const char* key, int value);          // targets.id, Officers.BadgeNum
- *   int findIndex(JsonArray arr, const char* key, const char* value);  // drills.drillName
- *
- * and use arr[i] to edit, arr.remove(i) to delete, arr.add<JsonObject>() to append.
+ * Records are found with findIndex() (below), edited through arr[i], deleted with
+ * arr.remove(i), and appended with arr.add<JsonObject>().
  */
 
 void startLFS(){
@@ -33,27 +25,45 @@ void startLFS(){
     }
 }
 
-//Helper function for loading the data
-bool loadDatabase(JsonDocument& doc) {
-    File readFile = LittleFS.open("/database.json", "r");
-    if (!readFile) {
-        Serial.println("database.json not found");
-        return false;
-    }
+static const char* DB_PATH = "/database.json";
+static const char* TMP_PATH = "/database.tmp";
+
+//Parses the file at path into doc; false if it is missing or not valid JSON
+static bool readJsonFile(const char* path, JsonDocument& doc) {
+    File readFile = LittleFS.open(path, "r");
+    if (!readFile) return false;
 
     DeserializationError error = deserializeJson(doc, readFile);
     readFile.close();
 
     if (error) {
-        Serial.printf("Failed to parse database.json: %s\r\n", error.c_str());
+        Serial.printf("Failed to parse %s: %s\r\n", path, error.c_str());
         return false;
     }
     return true;
 }
 
+//Helper function for loading the data
+// AI-modified (Claude): if power was lost after a save's temp file was fully written but
+// before it replaced database.json, the temp file is the newest good copy -- restore it.
+bool loadDatabase(JsonDocument& doc) {
+    if (readJsonFile(DB_PATH, doc)) return true;
+
+    if (LittleFS.exists(TMP_PATH) && readJsonFile(TMP_PATH, doc)) {
+        Serial.println("Recovering database.json from database.tmp");
+        LittleFS.remove(DB_PATH);
+        LittleFS.rename(TMP_PATH, DB_PATH);
+        return true;
+    }
+
+    Serial.println("database.json missing or unreadable");
+    doc.clear();
+    return false;
+}
+
 //Helper function for writing new data
 bool saveDatabase(JsonDocument& doc) {
-    const char* tmpPath = "/database.tmp";
+    const char* tmpPath = TMP_PATH;
 
     File writeFile = LittleFS.open(tmpPath, "w");
     if (!writeFile) {
@@ -70,309 +80,333 @@ bool saveDatabase(JsonDocument& doc) {
         return false;
     }
 
-    LittleFS.remove("/database.json");
-    if (!LittleFS.rename(tmpPath, "/database.json")) {
-        Serial.println("Failed to rename temp file");
-        return false;
+    // AI-modified (Claude): LittleFS rename replaces an existing file atomically, so there is
+    // always a complete database.json. The remove-then-rename fallback is only for a VFS layer
+    // that refuses to overwrite; loadDatabase() recovers from the tmp file if power drops there.
+    if (!LittleFS.rename(tmpPath, DB_PATH)) {
+        LittleFS.remove(DB_PATH);
+        if (!LittleFS.rename(tmpPath, DB_PATH)) {
+            Serial.println("Failed to rename temp file");
+            return false;
+        }
     }
     return true;
 }
 
-// SUGGESTED CHANGE: iterate `for (JsonObject t : doc["targets"].as<JsonArray>())` and print
-// t["id"] and t["working"]; targetNumber/status/usedBy/currentDrill don't exist in the schema.
+// ---- AI-assisted (Claude): lookup and validation helpers ----------------------------------
+
+//Returns the index of the element whose [key] == value, or -1 (targets.id, Officers.BadgeNum)
+static int findIndex(JsonArrayConst arr, const char* key, int value) {
+    for (size_t i = 0; i < arr.size(); i++) {
+        JsonVariantConst field = arr[i][key];
+        if (field.is<int>() && field.as<int>() == value) return (int)i;
+    }
+    return -1;
+}
+
+//Returns the index of the element whose [key] == value, or -1 (drills.drillName)
+static int findIndex(JsonArrayConst arr, const char* key, const char* value) {
+    for (size_t i = 0; i < arr.size(); i++) {
+        const char* field = arr[i][key];
+        if (field && strcmp(field, value) == 0) return (int)i;
+    }
+    return -1;
+}
+
+static bool isBasicAction(const char* action) {
+    return strcmp(action, "present") == 0 || strcmp(action, "hide") == 0 ||
+           strcmp(action, "pause") == 0 || strcmp(action, "delay") == 0;
+}
+
+//True if drill `fromName` includes drill `targetName` as a step, directly or through nested drills.
+//depth caps the walk so a cycle already in the file can't recurse forever.
+static bool drillReferences(JsonArrayConst drills, const char* fromName, const char* targetName, uint8_t depth = 0) {
+    if (depth > 8) return true;
+    int i = findIndex(drills, "drillName", fromName);
+    if (i < 0) return false;
+
+    for (JsonObjectConst step : drills[i]["sequence"].as<JsonArrayConst>()) {
+        const char* action = step["action"];
+        if (!action || isBasicAction(action)) continue;
+        if (strcmp(action, targetName) == 0) return true;
+        if (drillReferences(drills, action, targetName, depth + 1)) return true;
+    }
+    return false;
+}
+
+//Checks every step of a sequence for drill `drillName`: action must be present/hide/pause/delay
+//(delay needs a positive timeMs) or the name of another existing drill that doesn't lead back here.
+static bool validateSequence(JsonArrayConst drills, const char* drillName, JsonArrayConst sequence) {
+    if (sequence.isNull() || sequence.size() == 0) {
+        Serial.printf("Drill %s has an empty sequence\r\n", drillName);
+        return false;
+    }
+
+    for (JsonVariantConst v : sequence) {
+        JsonObjectConst step = v.as<JsonObjectConst>();
+        const char* action = step["action"];
+        if (step.isNull() || !action) {
+            Serial.printf("Drill %s has a step with no action\r\n", drillName);
+            return false;
+        }
+
+        if (strcmp(action, "delay") == 0) {
+            if (!step["timeMs"].is<int>() || step["timeMs"].as<int>() <= 0) {
+                Serial.printf("Drill %s has a delay step without a positive timeMs\r\n", drillName);
+                return false;
+            }
+        } else if (!isBasicAction(action)) {
+            //Not a basic action, so it must name another drill (composite "Full Drill" entry)
+            if (strcmp(action, drillName) == 0 || findIndex(drills, "drillName", action) < 0) {
+                Serial.printf("Drill %s: unknown action or drill '%s'\r\n", drillName, action);
+                return false;
+            }
+            if (drillReferences(drills, action, drillName)) {
+                Serial.printf("Drill %s: including '%s' would create a loop\r\n", drillName, action);
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+// ---- Targets -------------------------------------------------------------------------------
+
+// AI-modified (Claude): targets are an array of { id, working }
 void readTargets() {
     JsonDocument doc;
     if (!loadDatabase(doc)) return;
 
-    JsonObject targets = doc["targets"];
+    JsonArray targets = doc["targets"];
     if (targets.isNull()) {
         Serial.println("No targets found");
         return;
     }
 
-    //Loop through each key value pair inside of targets
-    for (JsonPair kv : targets) {
-        const char* targetId = kv.key().c_str();
-        //Access individual attributes within a target
-        JsonObject target = kv.value().as<JsonObject>();
-
-        int targetNumber = target["targetNumber"];
-        const char* status = target["status"] | "unknown";
-        const char* usedBy = target["usedBy"] | "none";
-        const char* currentDrill = target["currentDrill"] | "none";
-
-        Serial.printf("Target %s | Number: %d | Status: %s | UsedBy: %s | Drill: %s\r\n", 
-        targetId, targetNumber, status, usedBy, currentDrill);
+    for (JsonObject t : targets) {
+        int id = t["id"];
+        bool working = t["working"] | false;
+        Serial.printf("Target %d | Working: %s\r\n", id, working ? "yes" : "no");
     }
 }
 
-// SUGGESTED CHANGE: the range has a fixed set of 20 targets (NUM_TARGETS in hal.h), so this
-// may not be needed. If kept: addTarget(int id, bool working), reject id outside 1..20 or an
-// id already present (findIndex), then targets.add<JsonObject>() with "id" and "working".
-bool addTarget(const char* targetId, int targetNumber, const char* status, const char* usedBy, const char* currentDrill) {
-    JsonDocument doc;
-    if (!loadDatabase(doc)) {
-        doc.clear();
+// AI-modified (Claude): the range has a fixed set of NUM_TARGETS, so only ids 1..NUM_TARGETS
+// that aren't already present can be added
+bool addTarget(int id, bool working) {
+    if (id < 1 || id > NUM_TARGETS) {
+        Serial.printf("Target id %d out of range 1..%d\r\n", id, NUM_TARGETS);
+        return false;
     }
 
-    JsonObject targets = doc["targets"];
-    //Check if targets exist, if not create an object to hold targets
+    JsonDocument doc;
+    if (!loadDatabase(doc)) return false;
+
+    JsonArray targets = doc["targets"];
+    //Check if targets exist, if not create an array to hold targets
     if (targets.isNull()) {
-        targets = doc["targets"].to<JsonObject>();
+        targets = doc["targets"].to<JsonArray>();
     }
 
     //Check if a target already has this ID, if so return to prevent an overwrite
-    if (targets.containsKey(targetId)) {
-        Serial.printf("Target %s already exists\r\n", targetId);
+    if (findIndex(targets, "id", id) >= 0) {
+        Serial.printf("Target %d already exists\r\n", id);
         return false;
     }
 
-    //Create a new target object
-    JsonObject target = targets[targetId].to<JsonObject>();
-    target["targetNumber"] = targetNumber;
-    target["status"] = status;
-
-    if (usedBy) target["usedBy"] = usedBy;
-    else target["usedBy"] = nullptr;
-
-    if (currentDrill) target["currentDrill"] = currentDrill;
-    else target["currentDrill"] = nullptr;
+    JsonObject target = targets.add<JsonObject>();
+    target["id"] = id;
+    target["working"] = working;
 
     return saveDatabase(doc);
 }
 
-// SUGGESTED CHANGE: editTarget(int id, bool working) -- findIndex(targets, "id", id) and set
-// targets[i]["working"]. This is how a broken target gets marked out of service.
-bool editTarget(const char* targetId, const char* status, const char* usedBy, const char* currentDrill) {
+// AI-modified (Claude): this is how a broken target gets marked out of service
+bool editTarget(int id, bool working) {
     JsonDocument doc;
     if (!loadDatabase(doc)) return false;
 
-    //Look for the specified target via ID
-    JsonObject targets = doc["targets"];
-    if (targets.isNull() || !targets.containsKey(targetId)) {
-        Serial.printf("No target found: %s\r\n", targetId);
+    JsonArray targets = doc["targets"];
+    int i = findIndex(targets, "id", id);
+    if (i < 0) {
+        Serial.printf("No target found: %d\r\n", id);
         return false;
     }
 
-    //Update the following fields
-    JsonObject target = targets[targetId];
-    target["status"] = status;
-    target["usedBy"] = usedBy;             
-    target["currentDrill"] = currentDrill; 
-
+    targets[i]["working"] = working;
     return saveDatabase(doc);
 }
 
-// SUGGESTED CHANGE: deleteTarget(int id) -- findIndex by "id", then targets.remove(i).
-// Probably better to set working=false than delete, since the hardware always has 20.
-bool deleteTarget(const char* targetID) {
-    JsonDocument doc;
-    if(!loadDatabase(doc)) return false;
-
-    //Loop through the targets to find the target we want to delete
-    JsonObject targets = doc["targets"];
-    if (targets.isNull() || !targets.containsKey(targetID)) {
-        Serial.printf("No target found: %s\r\n", targetID);
-        return false;
-    }
-
-    targets.remove(targetID);
-    return saveDatabase(doc);
+// AI-modified (Claude): the hardware always has NUM_TARGETS, so "deleting" a target marks it
+// working=false instead of removing its entry
+bool deleteTarget(int id) {
+    return editTarget(id, false);
 }
 
-// SUGGESTED CHANGE: users live in "Officers" (array), identified by BadgeNum.
-// addOfficer(int badgeNum, const char* name): reject duplicate BadgeNum (note: both example
-// officers in database.json currently share 888), then append { "Name", "BadgeNum",
-// "pistolQualScores": [], "rifleQualScores": [], "swatQualScores": [] }. No email/performance.
-bool addUser(const char* userId, const char* email, const char* name) {
-    JsonDocument doc;
-    if (!loadDatabase(doc)) {
-        doc.clear();
-    }
+// ---- Officers ------------------------------------------------------------------------------
 
-    JsonObject users = doc["users"];
-    if (users.isNull()) {
-        users = doc["users"].to<JsonObject>();
-    }
-
-    if (users.containsKey(userId)) {
-        Serial.printf("User %s already exists\r\n", userId);
-        return false;
-    }
-
-    JsonObject user = users[userId].to<JsonObject>();
-    user["email"] = email;
-    user["name"] = name;
-
-    //Creates another object inside of user for performance
-    JsonObject perf = user["performance"].to<JsonObject>();
-    perf["totalDrillsCompleted"] = 0;
-    perf["totalTrainingTime"] = 0;
-    perf["averageHitsPerMinute"] = 0;
-    perf["averageAccuracy"] = 0;
-
-    return saveDatabase(doc);
-}
-
-//This function does not touch performance, instead that is left up to a seperate function
-// SUGGESTED CHANGE: editOfficer(int badgeNum, const char* name) -- findIndex(officers,
-// "BadgeNum", badgeNum) and update "Name". There is no email field in the schema.
-bool editUser(const char* userId, const char* email, const char* name) {
+// AI-modified (Claude): officers are identified by BadgeNum and start with empty score lists
+bool addOfficer(int badgeNum, const char* name) {
     JsonDocument doc;
     if (!loadDatabase(doc)) return false;
 
-    JsonObject users = doc["users"];
-    if (users.isNull() || !users.containsKey(userId)) {
-        Serial.printf("No user found: %s\r\n", userId);
+    JsonArray officers = doc["Officers"];
+    if (officers.isNull()) {
+        officers = doc["Officers"].to<JsonArray>();
+    }
+
+    if (findIndex(officers, "BadgeNum", badgeNum) >= 0) {
+        Serial.printf("Officer with badge %d already exists\r\n", badgeNum);
         return false;
     }
 
-    JsonObject user = users[userId];
-    user["email"] = email;
-    user["name"] = name;
+    JsonObject officer = officers.add<JsonObject>();
+    officer["Name"] = name;
+    officer["BadgeNum"] = badgeNum;
+    officer["pistolQualScores"].to<JsonArray>();
+    officer["rifleQualScores"].to<JsonArray>();
+    officer["swatQualScores"].to<JsonArray>();
 
     return saveDatabase(doc);
 }
 
-//Seperate function for editig the performance of a user
-// SUGGESTED CHANGE: replace with addQualScore(int badgeNum, const char* qualType, int score,
-// const char* date) where qualType is "pistol" | "rifle" | "swat" -> "<type>QualScores".
-// Scores are stored newest-first as [score, "YYYY-MM-DD"], so insert at the front (ArduinoJson
-// has no insert-at-index: build a new array with the new entry first, then copy the old ones).
-bool editUserPerformance(const char* userId, int drillsCompleted, int trainingTime, float hitsPerMinute, float accuracy) {
+// AI-modified (Claude): scores are edited separately with addQualScore()
+bool editOfficer(int badgeNum, const char* name) {
     JsonDocument doc;
     if (!loadDatabase(doc)) return false;
 
-    JsonObject users = doc["users"];
-    if (users.isNull() || !users.containsKey(userId)) {
-        Serial.printf("No user found: %s\r\n", userId);
+    JsonArray officers = doc["Officers"];
+    int i = findIndex(officers, "BadgeNum", badgeNum);
+    if (i < 0) {
+        Serial.printf("No officer found with badge %d\r\n", badgeNum);
         return false;
     }
 
-    JsonObject perf = users[userId]["performance"];
-    perf["totalDrillsCompleted"] = drillsCompleted;
-    perf["totalTrainingTime"] = trainingTime;
-    perf["averageHitsPerMinute"] = hitsPerMinute;
-    perf["averageAccuracy"] = accuracy;
-
+    officers[i]["Name"] = name;
     return saveDatabase(doc);
 }
 
-// SUGGESTED CHANGE: deleteOfficer(int badgeNum) -- findIndex by "BadgeNum", officers.remove(i).
-bool deleteUser(const char* userId) {
+// AI-modified (Claude): replaces editUserPerformance. Scores are stored newest-first, and
+// ArduinoJson has no insert-at-index, so the old list is copied aside and re-added after the new entry.
+bool addQualScore(int badgeNum, const char* qualType, int score, const char* date) {
+    if (strcmp(qualType, "pistol") != 0 && strcmp(qualType, "rifle") != 0 && strcmp(qualType, "swat") != 0) {
+        Serial.printf("Unknown qualification type: %s\r\n", qualType);
+        return false;
+    }
+    //Expect "YYYY-MM-DD"
+    if (!date || strlen(date) != 10 || date[4] != '-' || date[7] != '-') {
+        Serial.printf("Date must be YYYY-MM-DD: %s\r\n", date ? date : "(null)");
+        return false;
+    }
+
     JsonDocument doc;
     if (!loadDatabase(doc)) return false;
 
-    //Loop through users to find the right one
-    JsonObject users = doc["users"];
-    if (users.isNull() || !users.containsKey(userId)) {
-        Serial.printf("No user found: %s\r\n", userId);
+    JsonArray officers = doc["Officers"];
+    int i = findIndex(officers, "BadgeNum", badgeNum);
+    if (i < 0) {
+        Serial.printf("No officer found with badge %d\r\n", badgeNum);
         return false;
     }
 
-    users.remove(userId);
+    char key[24];
+    snprintf(key, sizeof(key), "%sQualScores", qualType);
+
+    JsonDocument oldScores;
+    oldScores.set(officers[i][key]);
+
+    //to<JsonArray>() empties the field, then the new entry goes in first
+    JsonArray scores = officers[i][key].to<JsonArray>();
+    JsonArray entry = scores.add<JsonArray>();
+    entry.add(score);
+    entry.add(date);
+    for (JsonVariantConst old : oldScores.as<JsonArrayConst>()) {
+        scores.add(old);
+    }
+
     return saveDatabase(doc);
 }
 
-// SUGGESTED CHANGE: addDrill(const char* drillName, JsonArrayConst sequence). Drills have no
-// id/owners/targets/duration/status -- just "drillName" + "sequence". Reject a duplicate
-// drillName, and validate each step: action is present/hide/pause/delay (delay needs timeMs)
-// or the name of an existing drill (for composite "Full Drill" entries).
-bool addDrill(const char* drillId, const char* name, const char* owners[], size_t ownerCount, const int targets[], size_t targetCount, int duration) {
+// AI-modified (Claude)
+bool deleteOfficer(int badgeNum) {
     JsonDocument doc;
-    if (!loadDatabase(doc)) {
-        doc.clear();
+    if (!loadDatabase(doc)) return false;
+
+    JsonArray officers = doc["Officers"];
+    int i = findIndex(officers, "BadgeNum", badgeNum);
+    if (i < 0) {
+        Serial.printf("No officer found with badge %d\r\n", badgeNum);
+        return false;
     }
 
-    JsonObject drills = doc["drills"];
+    officers.remove(i);
+    return saveDatabase(doc);
+}
+
+// ---- Drills --------------------------------------------------------------------------------
+
+// AI-modified (Claude): drills are just "drillName" + a validated "sequence"
+bool addDrill(const char* drillName, JsonArrayConst sequence) {
+    JsonDocument doc;
+    if (!loadDatabase(doc)) return false;
+
+    JsonArray drills = doc["drills"];
     if (drills.isNull()) {
-        drills = doc["drills"].to<JsonObject>();
+        drills = doc["drills"].to<JsonArray>();
     }
 
-    if (drills.containsKey(drillId)) {
-        Serial.printf("Drill %s already exists\r\n", drillId);
+    if (findIndex(drills, "drillName", drillName) >= 0) {
+        Serial.printf("Drill %s already exists\r\n", drillName);
         return false;
     }
+    if (!validateSequence(drills, drillName, sequence)) return false;
 
-    JsonObject drill = drills[drillId].to<JsonObject>();
-    drill["name"] = name;
-    drill["duration"] = duration;
-    drill["status"] = "available";
-
-    //Creates a nested array for owners
-    JsonArray ownersArr = drill["owners"].to<JsonArray>();
-    for (size_t i = 0; i < ownerCount; i++) {
-        ownersArr.add(owners[i]);
-    }
-
-    //Creates a nested array for targets
-    JsonArray targetsArr = drill["targets"].to<JsonArray>();
-    for (size_t i = 0; i < targetCount; i++) {
-        targetsArr.add(targets[i]);
-    }
+    JsonObject drill = drills.add<JsonObject>();
+    drill["drillName"] = drillName;
+    drill["sequence"] = sequence;
 
     return saveDatabase(doc);
 }
 
-//Does not touch owners or targets
-// SUGGESTED CHANGE: editDrill(const char* drillName, JsonArrayConst newSequence) -- findIndex
-// by "drillName" and replace "sequence" (same validation as addDrill). If renaming is allowed,
-// also update any Full Drill whose steps reference the old name.
-bool editDrill(const char* drillId, const char* name, int duration, const char* status) {
+// AI-modified (Claude): replaces the sequence only; renaming isn't supported, so Full Drills
+// that reference this drill by name stay valid
+bool editDrill(const char* drillName, JsonArrayConst newSequence) {
     JsonDocument doc;
     if (!loadDatabase(doc)) return false;
 
-    JsonObject drills = doc["drills"];
-    if (drills.isNull() || !drills.containsKey(drillId)) {
-        Serial.printf("No drill found: %s\r\n", drillId);
+    JsonArray drills = doc["drills"];
+    int i = findIndex(drills, "drillName", drillName);
+    if (i < 0) {
+        Serial.printf("No drill found: %s\r\n", drillName);
         return false;
     }
+    if (!validateSequence(drills, drillName, newSequence)) return false;
 
-    JsonObject drill = drills[drillId];
-    drill["name"] = name;
-    drill["duration"] = duration;
-    drill["status"] = status;
-
+    drills[i]["sequence"] = newSequence;
     return saveDatabase(doc);
 }
 
-//Seperate function that adds a userID to drill owners to keep from having duplicates
-// SUGGESTED CHANGE: drills have no "owners" in the schema -- this can likely be removed.
-bool addDrillOwner(const char* drillId, const char* userId) {
+// AI-modified (Claude): refuses while another drill still includes this one as a step
+bool deleteDrill(const char* drillName) {
     JsonDocument doc;
     if (!loadDatabase(doc)) return false;
 
-    JsonObject drills = doc["drills"];
-    if (drills.isNull() || !drills.containsKey(drillId)) {
-        Serial.printf("No drill found: %s\r\n", drillId);
+    JsonArray drills = doc["drills"];
+    int i = findIndex(drills, "drillName", drillName);
+    if (i < 0) {
+        Serial.printf("No drill found: %s\r\n", drillName);
         return false;
     }
 
-    //Iterate through drill owners to prevent adding a duplicate ID
-    JsonArray owners = drills[drillId]["owners"];
-    for (const char* owner : owners) {
-        if (strcmp(owner, userId) == 0) {
-            return true; 
+    for (JsonObjectConst drill : drills) {
+        for (JsonObjectConst step : drill["sequence"].as<JsonArrayConst>()) {
+            const char* action = step["action"];
+            if (action && strcmp(action, drillName) == 0) {
+                Serial.printf("Drill %s is still used by %s\r\n", drillName, (const char*)drill["drillName"]);
+                return false;
+            }
         }
     }
-    owners.add(userId);
 
+    drills.remove(i);
     return saveDatabase(doc);
 }
-
-// SUGGESTED CHANGE: deleteDrill(const char* drillName) -- findIndex by "drillName",
-// drills.remove(i). Consider refusing if a Full Drill still references it as a step.
-bool deleteDrill(const char* drillId) {
-    JsonDocument doc;
-    if (!loadDatabase(doc)) return false;
-
-    JsonObject drills = doc["drills"];
-    if (drills.isNull() || !drills.containsKey(drillId)) {
-        Serial.printf("No drill found: %s\r\n", drillId);
-        return false;
-    }
-
-    drills.remove(drillId);
-    return saveDatabase(doc);
-}
-    
