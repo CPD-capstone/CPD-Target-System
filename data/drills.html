@@ -4,6 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Drills</title>
+    <!--
+        NOTE (offline AP issue): Bootstrap and Bootstrap Icons load from the jsDelivr CDN, but
+        phones joined to the "CPD Range Control" access point have no internet, so these fail
+        and the page renders unstyled. Fix: download the files into data/ and serve them from
+        LittleFS instead, e.g.
+          data/vendor/bootstrap.min.css.gz
+          data/vendor/bootstrap.bundle.min.js.gz
+          data/vendor/bootstrap-icons.min.css.gz
+          data/vendor/fonts/bootstrap-icons.woff2   (icons CSS expects ./fonts/ next to it)
+        then change these tags to href="vendor/bootstrap.min.css" etc. serveStatic() will
+        automatically send the .gz version, keeping flash usage to roughly 250 KB total.
+    -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <link rel="stylesheet" href="style.css">

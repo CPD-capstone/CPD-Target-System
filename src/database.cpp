@@ -1,5 +1,31 @@
 #include "database.h"
 
+/*
+ * AI-assisted (Claude) review notes -- comments only, no code changed.
+ *
+ * data/database.json is the authoritative schema, and the functions below were written
+ * against an older one (top-level OBJECTS keyed by ID: "targets", "users", "drills").
+ * The real file uses top-level ARRAYS:
+ *
+ *   "Officers": [ { "Name": str, "BadgeNum": int,
+ *                   "pistolQualScores": [[score, "YYYY-MM-DD"], ...],   // newest first
+ *                   "rifleQualScores":  [...], "swatQualScores": [...] } ]
+ *   "drills":   [ { "drillName": str,
+ *                   "sequence": [ { "step": int, "action": str, "timeMs"?: int } ] } ]
+ *                 action is "present" | "hide" | "pause" | "delay" (delay requires timeMs),
+ *                 OR the drillName of another drill (the "... Full Drill" entries compose stages)
+ *   "targets":  [ { "id": 1..20, "working": bool } ]
+ *
+ * Because these are arrays, doc["targets"].as<JsonObject>() / containsKey(id) will always
+ * come back null/false on the real file. Suggested shared change: add a lookup helper, e.g.
+ *
+ *   // returns index of the element whose [key] == value, or -1
+ *   int findIndex(JsonArray arr, const char* key, int value);          // targets.id, Officers.BadgeNum
+ *   int findIndex(JsonArray arr, const char* key, const char* value);  // drills.drillName
+ *
+ * and use arr[i] to edit, arr.remove(i) to delete, arr.add<JsonObject>() to append.
+ */
+
 void startLFS(){
     if (!LittleFS.begin(true)){
         Serial.println("LittleFS mount failed");
@@ -52,6 +78,8 @@ bool saveDatabase(JsonDocument& doc) {
     return true;
 }
 
+// SUGGESTED CHANGE: iterate `for (JsonObject t : doc["targets"].as<JsonArray>())` and print
+// t["id"] and t["working"]; targetNumber/status/usedBy/currentDrill don't exist in the schema.
 void readTargets() {
     JsonDocument doc;
     if (!loadDatabase(doc)) return;
@@ -78,6 +106,9 @@ void readTargets() {
     }
 }
 
+// SUGGESTED CHANGE: the range has a fixed set of 20 targets (NUM_TARGETS in hal.h), so this
+// may not be needed. If kept: addTarget(int id, bool working), reject id outside 1..20 or an
+// id already present (findIndex), then targets.add<JsonObject>() with "id" and "working".
 bool addTarget(const char* targetId, int targetNumber, const char* status, const char* usedBy, const char* currentDrill) {
     JsonDocument doc;
     if (!loadDatabase(doc)) {
@@ -110,6 +141,8 @@ bool addTarget(const char* targetId, int targetNumber, const char* status, const
     return saveDatabase(doc);
 }
 
+// SUGGESTED CHANGE: editTarget(int id, bool working) -- findIndex(targets, "id", id) and set
+// targets[i]["working"]. This is how a broken target gets marked out of service.
 bool editTarget(const char* targetId, const char* status, const char* usedBy, const char* currentDrill) {
     JsonDocument doc;
     if (!loadDatabase(doc)) return false;
@@ -130,6 +163,8 @@ bool editTarget(const char* targetId, const char* status, const char* usedBy, co
     return saveDatabase(doc);
 }
 
+// SUGGESTED CHANGE: deleteTarget(int id) -- findIndex by "id", then targets.remove(i).
+// Probably better to set working=false than delete, since the hardware always has 20.
 bool deleteTarget(const char* targetID) {
     JsonDocument doc;
     if(!loadDatabase(doc)) return false;
@@ -145,6 +180,10 @@ bool deleteTarget(const char* targetID) {
     return saveDatabase(doc);
 }
 
+// SUGGESTED CHANGE: users live in "Officers" (array), identified by BadgeNum.
+// addOfficer(int badgeNum, const char* name): reject duplicate BadgeNum (note: both example
+// officers in database.json currently share 888), then append { "Name", "BadgeNum",
+// "pistolQualScores": [], "rifleQualScores": [], "swatQualScores": [] }. No email/performance.
 bool addUser(const char* userId, const char* email, const char* name) {
     JsonDocument doc;
     if (!loadDatabase(doc)) {
@@ -176,6 +215,8 @@ bool addUser(const char* userId, const char* email, const char* name) {
 }
 
 //This function does not touch performance, instead that is left up to a seperate function
+// SUGGESTED CHANGE: editOfficer(int badgeNum, const char* name) -- findIndex(officers,
+// "BadgeNum", badgeNum) and update "Name". There is no email field in the schema.
 bool editUser(const char* userId, const char* email, const char* name) {
     JsonDocument doc;
     if (!loadDatabase(doc)) return false;
@@ -194,6 +235,10 @@ bool editUser(const char* userId, const char* email, const char* name) {
 }
 
 //Seperate function for editig the performance of a user
+// SUGGESTED CHANGE: replace with addQualScore(int badgeNum, const char* qualType, int score,
+// const char* date) where qualType is "pistol" | "rifle" | "swat" -> "<type>QualScores".
+// Scores are stored newest-first as [score, "YYYY-MM-DD"], so insert at the front (ArduinoJson
+// has no insert-at-index: build a new array with the new entry first, then copy the old ones).
 bool editUserPerformance(const char* userId, int drillsCompleted, int trainingTime, float hitsPerMinute, float accuracy) {
     JsonDocument doc;
     if (!loadDatabase(doc)) return false;
@@ -213,6 +258,7 @@ bool editUserPerformance(const char* userId, int drillsCompleted, int trainingTi
     return saveDatabase(doc);
 }
 
+// SUGGESTED CHANGE: deleteOfficer(int badgeNum) -- findIndex by "BadgeNum", officers.remove(i).
 bool deleteUser(const char* userId) {
     JsonDocument doc;
     if (!loadDatabase(doc)) return false;
@@ -228,6 +274,10 @@ bool deleteUser(const char* userId) {
     return saveDatabase(doc);
 }
 
+// SUGGESTED CHANGE: addDrill(const char* drillName, JsonArrayConst sequence). Drills have no
+// id/owners/targets/duration/status -- just "drillName" + "sequence". Reject a duplicate
+// drillName, and validate each step: action is present/hide/pause/delay (delay needs timeMs)
+// or the name of an existing drill (for composite "Full Drill" entries).
 bool addDrill(const char* drillId, const char* name, const char* owners[], size_t ownerCount, const int targets[], size_t targetCount, int duration) {
     JsonDocument doc;
     if (!loadDatabase(doc)) {
@@ -265,6 +315,9 @@ bool addDrill(const char* drillId, const char* name, const char* owners[], size_
 }
 
 //Does not touch owners or targets
+// SUGGESTED CHANGE: editDrill(const char* drillName, JsonArrayConst newSequence) -- findIndex
+// by "drillName" and replace "sequence" (same validation as addDrill). If renaming is allowed,
+// also update any Full Drill whose steps reference the old name.
 bool editDrill(const char* drillId, const char* name, int duration, const char* status) {
     JsonDocument doc;
     if (!loadDatabase(doc)) return false;
@@ -284,6 +337,7 @@ bool editDrill(const char* drillId, const char* name, int duration, const char* 
 }
 
 //Seperate function that adds a userID to drill owners to keep from having duplicates
+// SUGGESTED CHANGE: drills have no "owners" in the schema -- this can likely be removed.
 bool addDrillOwner(const char* drillId, const char* userId) {
     JsonDocument doc;
     if (!loadDatabase(doc)) return false;
@@ -306,6 +360,8 @@ bool addDrillOwner(const char* drillId, const char* userId) {
     return saveDatabase(doc);
 }
 
+// SUGGESTED CHANGE: deleteDrill(const char* drillName) -- findIndex by "drillName",
+// drills.remove(i). Consider refusing if a Full Drill still references it as a step.
 bool deleteDrill(const char* drillId) {
     JsonDocument doc;
     if (!loadDatabase(doc)) return false;
