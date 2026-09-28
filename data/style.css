@@ -1,3 +1,25 @@
+.login-page {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+    background: #f8f9fa;
+}
+
+.login-modal {
+    border-top: 4px solid #0d6efd;
+    box-shadow: 0 0.75rem 2rem rgba(33, 37, 41, 0.12);
+}
+
+.login-modal .modal-header {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.login-modal .modal-footer {
+    border-top: 0;
+}
+
 .target-page {
     min-height: 100vh;
     display: flex;
