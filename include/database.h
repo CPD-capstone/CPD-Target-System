@@ -10,6 +10,21 @@ void startLFS();
 // AI-assisted (Claude): declarations for the CRUD functions in database.cpp. Every function
 // loads /database.json, applies the change, and writes it back atomically.
 
+/// @brief Loads the whole of /database.json, restoring it from /database.tmp if a save was
+///        interrupted. Prefer the get* functions below when only one section is needed.
+/// @param doc document to fill; cleared on failure
+/// @return true if the database was read and parsed
+bool loadDatabase(JsonDocument& doc);
+
+// AI-assisted (Claude): read functions for the web API. Each loads only the section it needs and
+// makes the requested data the root of `out`, ready for serializeJson(out, ...). `out` is
+// cleared when they return false.
+
+/// @brief Reads the targets array: [ { "id", "working" }, ... ].
+/// @param out document to fill
+/// @return true if the targets section exists and was copied
+bool getTargets(JsonDocument& out);
+
 /// @brief Prints every target's id and working flag to Serial.
 void readTargets();
 
@@ -30,6 +45,17 @@ bool editTarget(int id, bool working);
 /// @param id target number
 /// @return true if the target exists and the change was saved
 bool deleteTarget(int id);
+
+/// @brief Reads the Officers array, including each officer's score lists.
+/// @param out document to fill
+/// @return true if the Officers section exists and was copied
+bool getOfficers(JsonDocument& out);
+
+/// @brief Reads one officer: { "Name", "BadgeNum", "pistolQualScores", ... }.
+/// @param badgeNum badge number of the officer
+/// @param out document to fill
+/// @return true if the officer exists and was copied
+bool getOfficer(int badgeNum, JsonDocument& out);
 
 /// @brief Adds an officer with empty pistol/rifle/swat score lists.
 /// @param badgeNum badge number; must not already exist
@@ -55,6 +81,17 @@ bool addQualScore(int badgeNum, const char* qualType, int score, const char* dat
 /// @param badgeNum badge number of the officer
 /// @return true if the officer existed and the change was saved
 bool deleteOfficer(int badgeNum);
+
+/// @brief Reads the drills array: [ { "drillName", "sequence" }, ... ].
+/// @param out document to fill
+/// @return true if the drills section exists and was copied
+bool getDrills(JsonDocument& out);
+
+/// @brief Reads one drill: { "drillName", "sequence" }. Nested drills are not expanded.
+/// @param drillName name of the drill
+/// @param out document to fill
+/// @return true if the drill exists and was copied
+bool getDrill(const char* drillName, JsonDocument& out);
 
 /// @brief Adds a drill. Each step's action must be present/hide/pause/delay (delay needs a
 ///        positive timeMs) or the name of another existing drill, without forming a loop.

@@ -29,11 +29,14 @@ static const char* DB_PATH = "/database.json";
 static const char* TMP_PATH = "/database.tmp";
 
 //Parses the file at path into doc; false if it is missing or not valid JSON
-static bool readJsonFile(const char* path, JsonDocument& doc) {
+// AI-modified (Claude): optional filter keeps only the matching fields, to save RAM
+static bool readJsonFile(const char* path, JsonDocument& doc, const JsonDocument* filter = nullptr) {
     File readFile = LittleFS.open(path, "r");
     if (!readFile) return false;
 
-    DeserializationError error = deserializeJson(doc, readFile);
+    DeserializationError error = filter
+        ? deserializeJson(doc, readFile, DeserializationOption::Filter(*filter))
+        : deserializeJson(doc, readFile);
     readFile.close();
 
     if (error) {
@@ -43,13 +46,14 @@ static bool readJsonFile(const char* path, JsonDocument& doc) {
     return true;
 }
 
-//Helper function for loading the data
+// Helper function for loading the data
 // AI-modified (Claude): if power was lost after a save's temp file was fully written but
 // before it replaced database.json, the temp file is the newest good copy -- restore it.
-bool loadDatabase(JsonDocument& doc) {
-    if (readJsonFile(DB_PATH, doc)) return true;
+// Renamed for simplicity
+static bool loadDatabaseFiltered(JsonDocument& doc, const JsonDocument* filter) {
+    if (readJsonFile(DB_PATH, doc, filter)) return true;
 
-    if (LittleFS.exists(TMP_PATH) && readJsonFile(TMP_PATH, doc)) {
+    if (LittleFS.exists(TMP_PATH) && readJsonFile(TMP_PATH, doc, filter)) {
         Serial.println("Recovering database.json from database.tmp");
         LittleFS.remove(DB_PATH);
         LittleFS.rename(TMP_PATH, DB_PATH);
@@ -59,6 +63,28 @@ bool loadDatabase(JsonDocument& doc) {
     Serial.println("database.json missing or unreadable");
     doc.clear();
     return false;
+}
+
+bool loadDatabase(JsonDocument& doc) {
+    return loadDatabaseFiltered(doc, nullptr);
+}
+
+// AI-assisted (Claude): loads only the top-level array `key` ("targets", "Officers" or "drills")
+// and returns it; the array is null if the section is missing
+static JsonArray loadSection(JsonDocument& doc, const char* key) {
+    JsonDocument filter;
+    filter[key] = true;
+    if (!loadDatabaseFiltered(doc, &filter)) return JsonArray();
+    return doc[key];
+}
+
+// AI-assisted (Claude): copies `src` into `out` so it becomes the root of `out`; false if src
+// is null or `out` ran out of memory
+static bool copyInto(JsonDocument& out, JsonVariantConst src) {
+    out.clear();
+    if (src.isNull()) return false;
+    out.set(src);
+    return !out.overflowed();
 }
 
 //Helper function for writing new data
@@ -190,6 +216,12 @@ void readTargets() {
     }
 }
 
+// Getter for targets
+bool getTargets(JsonDocument& out) {
+    JsonDocument doc;
+    return copyInto(out, loadSection(doc, "targets"));
+}
+
 // AI-modified (Claude): the range has a fixed set of NUM_TARGETS, so only ids 1..NUM_TARGETS
 // that aren't already present can be added
 bool addTarget(int id, bool working) {
@@ -243,6 +275,24 @@ bool deleteTarget(int id) {
 }
 
 // ---- Officers ------------------------------------------------------------------------------
+
+// Getter for officers (all of them)
+bool getOfficers(JsonDocument& out) {
+    JsonDocument doc;
+    return copyInto(out, loadSection(doc, "Officers"));
+}
+
+// Getter for officer (just one)
+bool getOfficer(int badgeNum, JsonDocument& out) {
+    JsonDocument doc;
+    JsonArray officers = loadSection(doc, "Officers");
+    int i = findIndex(officers, "BadgeNum", badgeNum);
+    if (i < 0) {
+        out.clear();
+        return false;
+    }
+    return copyInto(out, officers[i]);
+}
 
 // AI-modified (Claude): officers are identified by BadgeNum and start with empty score lists
 bool addOfficer(int badgeNum, const char* name) {
@@ -343,6 +393,24 @@ bool deleteOfficer(int badgeNum) {
 }
 
 // ---- Drills --------------------------------------------------------------------------------
+
+// Getter for drills (all of them)
+bool getDrills(JsonDocument& out) {
+    JsonDocument doc;
+    return copyInto(out, loadSection(doc, "drills"));
+}
+
+// Getter for drill (just one, not expanded)
+bool getDrill(const char* drillName, JsonDocument& out) {
+    JsonDocument doc;
+    JsonArray drills = loadSection(doc, "drills");
+    int i = findIndex(drills, "drillName", drillName);
+    if (i < 0) {
+        out.clear();
+        return false;
+    }
+    return copyInto(out, drills[i]);
+}
 
 // AI-modified (Claude): drills are just "drillName" + a validated "sequence"
 bool addDrill(const char* drillName, JsonArrayConst sequence) {
