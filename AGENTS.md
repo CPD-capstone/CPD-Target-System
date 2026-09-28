@@ -131,3 +131,9 @@ A staff user should be able to:
 6. Keep that mark after refreshing the page.
 
 This is the intended pattern for target availability in the system: clear state, minimal confusion, and no accidental drill assignment.
+
+Team conventions
+Five-person team; work happens on feature branches (hardware, backend, drill_changes, …) merged toward main via PRs.
+The PR template (.github/PULL_REQUEST_TEMPLATE.md) requires AI-use disclosure: tool/model, files touched, and the exact prompts, and AI-generated or AI-modified code must be identified with comments. When writing code here, mark AI-generated sections with a comment so the author can fill in the PR template accurately.
+Functions are documented with /// @brief / @param / @return Doxygen comments in headers.
+Never commit or push unless the user explicitly asks.
