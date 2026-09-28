@@ -65,20 +65,6 @@ Follow the project’s visual conventions and avoid introducing custom design la
 - Do not add decorative elements or clutter in the target representation.
 - Keep controls deliberate and explicit; users should not accidentally trigger destructive or disabling actions.
 
-### Defective target behavior
-The defective-target feature is a key business requirement for this project. When implementing it, follow these rules:
-
-1. A target can be marked as defective/unavailable.
-2. The defect state must be visually distinct from the active drill/red state.
-3. The target should remain visible in the grid, but should be clearly unavailable.
-4. The defect control should be intentionally placed and clearly labeled, not incidental or easy to trigger accidentally.
-5. The target should not be usable in odd, even, or random selection groups.
-6. The target should still appear under the “All” view so staff can clearly see it is present but unavailable.
-7. A defective target must be blocked from drill creation and drill editing.
-8. The defective state should persist across refreshes using localStorage or an equivalent client-side persistence mechanism.
-9. Accessibility is required: update aria labels and keyboard behavior to match the visual state.
-10. Do not put a large warning icon in the middle of the target graphic; keep the target clean and minimal.
-
 ## Database schema and business rules
 
 `data/database.json` is the authoritative schema. Treat it as the source of truth for:
