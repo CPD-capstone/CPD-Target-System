@@ -27,7 +27,7 @@
 //   POST   /api/drill/pause                             -> pauseDrill (freezes the drill clock)
 //   POST   /api/drill/resume                            -> resumeDrill (after a pause or pause step)
 //   GET    /api/drill/status     -> {state, drillName, step, stepCount, stepAction, targets,
-//                                    lastOutcome, stopped}
+//                                    lastOutcome, stopped, hardwareReady}
 //   POST   /api/targets/present  {targets?}             -> setTargets(.., true)  (refused mid-drill/stopped)
 //   POST   /api/targets/hide     {targets?}             -> setTargets(.., false) (refused mid-drill/stopped)
 //   GET    /api/targets/state    -> {facing: [n, ...]}

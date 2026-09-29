@@ -18,14 +18,45 @@
 // bit 19 = target 20. A 1 bit means facing (solenoid valve powered), 0 means hidden.
 // Using a mask lets one command move any group of targets at once, and lets the
 // expander write happen in one shot so a group flips at exactly the same moment.
+//
+// AI-modified (Claude): the relay boards are active-low (RELAY_ACTIVE_LOW in pins.h), so
+// "powered" is a LOW pin. That inversion happens ONLY in writeOutputs(); every mask in this
+// file and the rest of the firmware still means 1 = powered = facing.
 
 TaskHandle_t SolenoidTaskHandle = NULL;
 QueueHandle_t targetQueue = NULL;   // stays NULL until hal_init() runs; hal_isReady() checks this
-Adafruit_MCP23X17 mcp1;             // expander #1: targets 1-16
-Adafruit_MCP23X17 mcp2;             // expander #2: targets 17-20
 
 // Anything in this unnamed namespace is private to hal.cpp (other files can't see or change it)
 namespace{
+    // AI-assisted (Claude): Adafruit's begin_SPI() only sets up the ESP32's SPI peripheral and
+    // never talks to the chip, so on its own it can't tell whether an expander is actually
+    // there. This subclass adds single-register read/write (built exactly the way the library
+    // builds its own register accesses) so the HAL can read registers back and check.
+    class Expander : public Adafruit_MCP23X17 {
+    public:
+        /// @brief reads one 8-bit register, e.g. readRegister(MCP23XXX_IODIR, 1) = IODIRB
+        uint8_t readRegister(uint8_t reg, uint8_t port){
+            Adafruit_BusIO_Register r(i2c_dev, spi_dev, MCP23XXX_SPIREG, getRegister(reg, port));
+            return (uint8_t)r.read();
+        }
+        /// @brief writes one 8-bit register
+        void writeRegister(uint8_t reg, uint8_t port, uint8_t value){
+            Adafruit_BusIO_Register r(i2c_dev, spi_dev, MCP23XXX_SPIREG, getRegister(reg, port));
+            r.write(value);
+        }
+    };
+
+    // AI-modified (Claude): moved in here from global scope -- nothing outside hal.cpp may touch them
+    Expander mcp1; // expander #1: targets 1-16
+    Expander mcp2; // expander #2: targets 17-20
+
+    // AI-assisted (Claude): how often SolenoidControlTask re-checks that both expanders are
+    // still present and configured (see checkExpanders())
+    constexpr uint32_t HEALTH_CHECK_MS = 1000;
+
+    // The pin levels last written by writeOutputs() (after the active-low inversion), so the
+    // health check knows what the output latches should read back as
+    uint32_t writtenPins = 0;
     // Which targets are physically facing right now (what was last written to the expanders).
     // Only SolenoidControlTask writes this; other tasks read it through hal_getTargetStates().
     // "volatile" tells the compiler another task may read it at any time, so it must really
@@ -33,8 +64,8 @@ namespace{
     // ESP32, so a reader can never see a half-updated value (no lock needed).
     volatile uint32_t currentMask = 0;
 
-    // Set if an expander fails to start; makes hal_isReady() return false so no one queues
-    // commands that will never be carried out.
+    // Set if an expander fails its startup or periodic health check; makes hal_isReady() return
+    // false so no one queues commands that will never be carried out.
     volatile bool expanderFailed = false;
 
     // AI-assisted (Claude): emergency hold (see hal_hold()).
@@ -48,54 +79,127 @@ namespace{
     volatile uint32_t holdLoops = 0;
 
     /// @brief writes the full output state to both expanders (one SPI write per chip)
+    /// @param mask relays to energize (bit set = powered = target facing). Bits above
+    ///             ALL_TARGETS_MASK must be 0; they keep the spare relays on MCP2 GPA4-7 off.
     void writeOutputs(uint32_t mask){
+        // AI-modified (Claude): convert "energized" bits to pin levels. On active-low relay
+        // boards a relay is ON when its pin is LOW, so every bit is inverted (~). This also
+        // turns the always-0 spare bits (MCP2 GPA4-7) into HIGH = off.
+        uint32_t pins = RELAY_ACTIVE_LOW ? ~mask : mask;
+        writtenPins = pins; // remembered for the health check
+
         // Targets 1-16 map to MCP1 (GPA0-7 and GPB0-7).
-        // The low 16 bits of the mask line up exactly with MCP1's 16 output pins:
+        // The low 16 bits line up exactly with MCP1's 16 output pins:
         // bits 0-7 -> port A (targets 1-8), bits 8-15 -> port B (targets 9-16).
         // writeGPIOAB sets all 16 pins in a single SPI transaction.
-        mcp1.writeGPIOAB(mask & 0xFFFF);
+        mcp1.writeGPIOAB(pins & 0xFFFF);
 
-        // Targets 17-20 map to MCP2 (GPA0-3).
-        // Shift bits 16-19 down to bits 0-3 and keep only those 4 bits (0x0F).
-        // GPA4-7 are inputs so their output bits are ignored.
-        mcp2.writeGPIOA((mask >> 16) & 0x0F);
+        // Targets 17-20 map to MCP2 GPA0-3; GPA4-7 drive the unused relays IN5-8.
+        // Shift bits 16-23 down to bits 0-7 and write the whole port so the spare relays
+        // are always held at their "off" level.
+        mcp2.writeGPIOA((pins >> 16) & 0xFF);
     }
 
-    /// @brief starts the SPI bus and both expanders, sets target pins as outputs, and hides every target
-    /// @return false if either expander fails to start
+    /// @brief AI-assisted (Claude): checks that one expander is really on the bus and still set up
+    ///        the way the HAL left it. Two steps:
+    ///        1. Write two test patterns to DEFVALA and read each back. DEFVAL is only used for
+    ///           interrupt-on-change, which this firmware never enables, so this can't affect any
+    ///           output. With no chip answering, MISO floats and can't echo both 0xA5 and 0x5A.
+    ///        2. Read back the direction (IODIR) and output latch (OLAT) registers. A chip that
+    ///           lost power and reset comes back with every pin an input, which this catches.
+    /// @param mcp the expander to check
+    /// @param name label for the serial log
+    /// @param iodir expected IODIR, port B in the high byte (0 bit = output)
+    /// @param olat expected output latch, port B in the high byte
+    /// @param olatMask which OLAT bits to compare (ports/pins this firmware never writes are skipped)
+    /// @return true if every read-back matched
+    bool expanderHealthy(Expander& mcp, const char* name, uint16_t iodir, uint16_t olat, uint16_t olatMask){
+        for(uint8_t pattern : {0xA5, 0x5A}){
+            mcp.writeRegister(MCP23XXX_DEFVAL, 0, pattern);
+            uint8_t readBack = mcp.readRegister(MCP23XXX_DEFVAL, 0);
+            if(readBack != pattern){
+                Serial.printf("hal: expander %s not responding (wrote 0x%02X, read 0x%02X)\r\n",
+                    name, pattern, readBack);
+                return false;
+            }
+        }
+        mcp.writeRegister(MCP23XXX_DEFVAL, 0, 0x00); // back to its power-on value
+
+        uint16_t iodirRead = mcp.readRegister(MCP23XXX_IODIR, 0) | (mcp.readRegister(MCP23XXX_IODIR, 1) << 8);
+        uint16_t olatRead  = mcp.readRegister(MCP23XXX_OLAT, 0)  | (mcp.readRegister(MCP23XXX_OLAT, 1) << 8);
+        if(iodirRead != iodir || (olatRead & olatMask) != (olat & olatMask)){
+            Serial.printf("hal: expander %s lost its configuration (IODIR 0x%04X, expected 0x%04X; "
+                "OLAT 0x%04X, expected 0x%04X) -- did it lose power?\r\n",
+                name, iodirRead, iodir, olatRead & olatMask, olat & olatMask);
+            return false;
+        }
+        return true;
+    }
+
+    /// @brief AI-assisted (Claude): runs expanderHealthy() on both chips against what the HAL wrote
+    /// @return true if both expanders are present and configured as expected
+    bool checkExpanders(){
+        // MCP1: all 16 pins are outputs, latch = the pins last written for targets 1-16
+        bool ok1 = expanderHealthy(mcp1, "#1", 0x0000, writtenPins & 0xFFFF, 0xFFFF);
+        // MCP2: port A outputs, port B untouched inputs (0xFF); only port A's latch is written
+        bool ok2 = expanderHealthy(mcp2, "#2", 0xFF00, (writtenPins >> 16) & 0xFF, 0x00FF);
+        return ok1 && ok2; // both always run, so the log names every failed chip
+    }
+
+    /// @brief starts the SPI bus and both expanders, sets relay pins as outputs, and hides every target
+    /// @return false if either expander is missing or didn't take its configuration
     bool initSPI(){
         // Initialize SPI Bus and Expanders on Core 1 (pin numbers come from pins.h)
         SPI.begin(PIN_SPI_SCK, PIN_SPI_MISO, PIN_SPI_MOSI);
 
-        // Start expander #1 on its own chip-select pin
+        // Set up each expander's chip-select pin (same SPI bus). NOTE: this only configures the
+        // ESP32 side -- it succeeds even if no chip is connected. Presence is checked below.
         if(!mcp1.begin_SPI(PIN_MCP1_CS, &SPI)){
             Serial.println("Error: Expansion Board #1 Failed!");
             return false;
         }
-
-        // Start expander #2 on its own chip-select pin (same SPI bus)
         if(!mcp2.begin_SPI(PIN_MCP2_CS, &SPI)){
             Serial.println("Error: Expansion Board #2 Failed!");
             return false;
         }
 
-        // Set modes, then drive every target LOW (hidden) in one write
+        // AI-modified (Claude): ORDER MATTERS. Load the "all relays off" pattern into the output
+        // latches FIRST, while the pins are still inputs, and only then switch them to outputs.
+        // A freshly powered MCP23S17 has its latches at 0 (LOW), which on active-low relay
+        // boards means ON -- switching to outputs first would energize every relay and present
+        // every target at boot. Writing the GPIO register sets the latch even for input pins.
+        // This also covers an ESP32-only reset (crash/brownout) while the expanders stay
+        // powered: the relays keep their last state until this runs, then all turn off.
+        writeOutputs(0);
+
         // All 16 MCP1 pins drive relays for targets 1-16
         for(uint8_t i = 0; i < 16; i++){
             mcp1.pinMode(i, OUTPUT);
         }
-        // MCP2 only drives targets 17-20 (GPA0-3); remaining pins stay as default inputs
-        for(uint8_t i = 0; i < NUM_TARGETS - 16; i++){
+        // MCP2 port A: GPA0-3 drive targets 17-20, GPA4-7 drive the spare relays (held off
+        // so they never float). Port B (GPB0-7) is unconnected and stays as default inputs.
+        for(uint8_t i = 0; i < 8; i++){
             mcp2.pinMode(i, OUTPUT);
         }
-        // Known safe starting point: all valves off, all targets hidden (matches currentMask = 0)
+
+        // Write again now that the pins are outputs: known safe starting point, all valves off,
+        // all targets hidden (matches currentMask = 0)
         writeOutputs(0);
+
+        // AI-modified (Claude): only now confirm both chips are really there and took the setup.
+        // Checked last on purpose: the all-off sequence above has already run on whichever
+        // chip IS present, so a missing chip #2 never leaves chip #1's relays in an old state.
+        if(!checkExpanders()){
+            Serial.println("Error: expansion board check failed; target control disabled");
+            return false;
+        }
         return true;
     }
 }
 
 bool hal_isReady(){
-    // Ready once hal_init() has created the queue, as long as the expanders didn't fail to start
+    // Ready once hal_init() has created the queue, as long as the expanders didn't fail their
+    // startup or periodic health check
     return targetQueue != NULL && !expanderFailed;
 }
 
@@ -135,6 +239,11 @@ bool hal_hold(){
     // Only then is it certain that no more SPI writes will happen.
     constexpr uint32_t CONFIRM_TIMEOUT_MS = 100;
     for(uint32_t waited = 0; holdLoops == startLoops; waited++){
+        // AI-modified (Claude): the task shuts itself down if an expander check fails; once
+        // it has, it will never write again, so the hold is effectively confirmed
+        if(!hal_isReady()){
+            return true;
+        }
         if(waited >= CONFIRM_TIMEOUT_MS){
             Serial.println("hal_hold: WARNING solenoid task did not confirm the hold");
             return false;
@@ -166,8 +275,27 @@ void SolenoidControlTask(void *pvParameters){
     // Buffer that each queued command is copied into
     TargetCommand cmd;
 
+    // AI-assisted (Claude): when the expanders were last checked (see HEALTH_CHECK_MS)
+    uint32_t lastHealthCheckMs = millis();
+
     for(;;){
         uint32_t now = millis(); // grab current ms for buffer
+
+        // AI-assisted (Claude): periodic health check -- catches an expander that came loose or
+        // lost power after boot. On failure the HAL shuts down WITHOUT writing anything: a chip
+        // that reset has already turned every relay off (its pins revert to inputs), a missing
+        // chip can't be written anyway, and a write into an unknown state could move targets.
+        // hal_isReady() goes false, so a running drill fails and new commands are refused until
+        // the system is rebooted. Runs during an emergency hold too (it only reads registers
+        // and writes DEFVAL, which can't move a target).
+        if(now - lastHealthCheckMs >= HEALTH_CHECK_MS){
+            lastHealthCheckMs = now;
+            if(!checkExpanders()){
+                Serial.println("hal: expander health check failed; target control disabled until reboot");
+                expanderFailed = true;
+                vTaskDelete(NULL);
+            }
+        }
 
         // AI-modified (Claude): emergency hold. Throw away every queued command and make the
         // desired state equal what is physically out there, so nothing is "pending" -- including
