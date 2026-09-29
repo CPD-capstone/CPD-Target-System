@@ -73,7 +73,7 @@ Follow the project’s visual conventions and avoid introducing custom design la
 - `drills` definitions
 - `targets` working/availability state
 
-Do not modify older legacy firmware code without explicit reason or team confirmation. The code in `src/database.cpp` is still tied to an older schema and is not the current target for new feature work unless directed by the project owner.
+Do not modify older legacy firmware code without explicit reason or team confirmation. 
 
 ## Known issues and constraints
 
@@ -121,7 +121,7 @@ For frontend changes, validate behavior in the browser by checking:
 
 ## Example of the desired target-defect workflow
 
-A staff user should be able to:
+A user should be able to:
 
 1. Open the target grid.
 2. Toggle a target as defective with one clear, deliberate action.
