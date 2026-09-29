@@ -38,7 +38,7 @@ Nothing outside `hal.cpp` touches SPI or the queue directly — use `hal_sendCom
 
 ### Web UI (`data/`)
 
-Static pages (`targets.html`, `drills.html`, `uspsa-target-status.html`) share `script.js` / `style.css`. The frontend still reads `database.json` directly via `fetch` and keeps edits in localStorage; it has not been moved to the `/api/*` routes yet. There is no WebSocket (`ws` is declared `extern` in `web_server.h` but never defined), so drill status must be polled from `GET /api/drill/status`. Bootstrap and icons load from jsDelivr CDN, which won't resolve for clients on the offline AP — the fix (vendor gzipped copies into `data/vendor/`) is described in a comment in each page's `<head>`.
+Static pages (`targets.html`, `drills.html`, `uspsa-target-status.html`) share `script.js` / `style.css`. The frontend still reads `database.json` directly via `fetch` and keeps edits in localStorage; it has not been moved to the `/api/*` routes yet. Drill status is **polled** from `GET /api/drill/status` (about every 500 ms while a drill is active, slower when idle); there is deliberately no WebSocket. Only one phone connects at a time, and captive-portal browsers often suspend or drop connections, which polling survives without any reconnect logic. Stop, Pause and Reset are ordinary POSTs, so the polling rate never delays them. Bootstrap and icons load from jsDelivr CDN, which won't resolve for clients on the offline AP — the fix (vendor gzipped copies into `data/vendor/`) is described in a comment in each page's `<head>`.
 
 ## Database schema
 
