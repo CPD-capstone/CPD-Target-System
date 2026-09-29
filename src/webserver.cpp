@@ -1,4 +1,5 @@
 #include "web_server.h"
+#include "api.h"
 
 AsyncWebServer server(HTTP_PORT); //port 80 for https
 DNSServer dnsServer; // for autocapture
@@ -28,11 +29,8 @@ void initWebserver(){
     server.serveStatic("/", LittleFS, "/");
 
     // Fallback handler
-    // TODO: /index.html no longer exists in data/ (it was the old name of the landing
-    // page, likely renamed to targets.html). Update this to the current landing page,
-    // otherwise unknown URLs will fail instead of redirecting.
     server.onNotFound([](AsyncWebServerRequest *request){
-        request->send(LittleFS, "/index.html", "text/html");
+        request->send(LittleFS, "/targets.html", "text/html");
     });
 
     // Start listening
