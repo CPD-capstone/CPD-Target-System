@@ -41,7 +41,7 @@ Static pages (`targets.html`, `drills.html`, `uspsa-target-status.html`) share `
 
 ## Database schema
 
-`data/database.json` is the **authoritative** schema: top-level arrays `Officers` (keyed by `BadgeNum`, with `pistol/rifle/swatQualScores` as newest-first `[score, "YYYY-MM-DD"]` pairs), `drills` (`drillName` + `sequence` of steps whose `action` is `present`/`hide`/`pause`/`delay`+`timeMs`, or another drill's name for composite "Full Drill" entries), and `targets` (`{id, working}`). `src/database.cpp` still targets an older object-keyed schema and is owned by another team member — do not modify its code; its header comment and per-function `SUGGESTED CHANGE` comments describe the migration.
+`data/database.json` is the **authoritative** schema: top-level arrays `Officers` (keyed by `BadgeNum`, with `pistol/rifle/swatQualScores` as newest-first `[score, "YYYY-MM-DD"]` pairs), `drills` (`drillName` + `sequence` of steps whose `action` is `present`/`hide`/`pause`/`delay`+`timeMs`, or another drill's name for composite "Full Drill" entries), and `targets` (`{id, working}`).
 
 ## Known issues
 
