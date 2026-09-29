@@ -69,6 +69,6 @@ Static pages (`targets.html`, `drills.html`, `uspsa-target-status.html`) share `
 ## Team conventions
 
 - Five-person team; work happens on feature branches (`hardware`, `backend`, `drill_changes`, …) merged toward `main` via PRs.
-- The PR template (`.github/PULL_REQUEST_TEMPLATE.md`) requires AI-use disclosure: tool/model, files touched, and the exact prompts, and AI-generated or AI-modified code must be **identified with comments**. When writing code here, mark AI-generated sections with a comment so the author can fill in the PR template accurately.
+- The PR template (`.github/PULL_REQUEST_TEMPLATE.md`) requires AI-use disclosure (tool/model, how it was credited, and files touched; prompts are not included), and AI-generated or AI-modified code must be **identified with comments**. When writing code here, mark AI-generated sections with a comment so the author can fill in the PR template accurately.
 - Functions are documented with `/// @brief` / `@param` / `@return` Doxygen comments in headers.
 - Never commit or push unless the user explicitly asks.
