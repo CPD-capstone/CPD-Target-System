@@ -37,6 +37,16 @@ namespace{
     // commands that will never be carried out.
     volatile bool expanderFailed = false;
 
+    // AI-assisted (Claude): emergency hold (see hal_hold()).
+    // holdRequested is set by hal_hold() on any task and cleared by hal_release().
+    // holdLoops is incremented ONLY by SolenoidControlTask, once per loop spent in its hold
+    // branch. If it changes after hal_hold() set holdRequested, the task has reached the hold
+    // branch, so no further SPI write can happen until the hold is released. (Any write that
+    // was already in progress finished before that.) A counter is used instead of a flag so a
+    // value left over from an earlier hold can't be mistaken for a fresh confirmation.
+    volatile bool holdRequested = false;
+    volatile uint32_t holdLoops = 0;
+
     /// @brief writes the full output state to both expanders (one SPI write per chip)
     void writeOutputs(uint32_t mask){
         // Targets 1-16 map to MCP1 (GPA0-7 and GPB0-7).
@@ -90,8 +100,9 @@ bool hal_isReady(){
 }
 
 bool hal_sendCommand(uint32_t targetMask, bool newState, TickType_t waitTicks){
-    // Refuse commands if the HAL isn't running; they would sit in the queue and never happen
-    if(!hal_isReady()){
+    // Refuse commands if the HAL isn't running; they would sit in the queue and never happen.
+    // AI-modified (Claude): also refuse while held, so nothing can move after an emergency stop.
+    if(!hal_isReady() || holdRequested){
         return false;
     }
 
@@ -107,6 +118,34 @@ bool hal_sendCommand(uint32_t targetMask, bool newState, TickType_t waitTicks){
 uint32_t hal_getTargetStates(){
     // Single 32-bit read; safe from any task (see currentMask above)
     return currentMask;
+}
+
+// AI-assisted (Claude): emergency hold
+bool hal_hold(){
+    // From this moment hal_sendCommand() refuses everything
+    holdRequested = true;
+    uint32_t startLoops = holdLoops;
+
+    // Solenoid task isn't running, so nothing can move anyway
+    if(!hal_isReady()){
+        return true;
+    }
+
+    // Wait for the solenoid task to pass through its hold branch (it checks every 10 ms loop).
+    // Only then is it certain that no more SPI writes will happen.
+    constexpr uint32_t CONFIRM_TIMEOUT_MS = 100;
+    for(uint32_t waited = 0; holdLoops == startLoops; waited++){
+        if(waited >= CONFIRM_TIMEOUT_MS){
+            Serial.println("hal_hold: WARNING solenoid task did not confirm the hold");
+            return false;
+        }
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
+    return true;
+}
+
+void hal_release(){
+    holdRequested = false;
 }
 
 void SolenoidControlTask(void *pvParameters){
@@ -129,6 +168,18 @@ void SolenoidControlTask(void *pvParameters){
 
     for(;;){
         uint32_t now = millis(); // grab current ms for buffer
+
+        // AI-modified (Claude): emergency hold. Throw away every queued command and make the
+        // desired state equal what is physically out there, so nothing is "pending" -- including
+        // a flip that was waiting on its cooldown. Outputs are NOT written, so no target moves.
+        // Because desiredMask == currentMask on release, releasing doesn't move anything either.
+        if(holdRequested){
+            while(xQueueReceive(targetQueue, &cmd, 0) == pdTRUE){} // discard
+            desiredMask = currentMask;
+            holdLoops = holdLoops + 1; // tells hal_hold() the task is safely here
+            vTaskDelay(pdMS_TO_TICKS(10));
+            continue;
+        }
 
         // Step 2: apply every queued command, in order, to the desired state.
         // Timeout 0 = don't wait; stop as soon as the queue is empty.

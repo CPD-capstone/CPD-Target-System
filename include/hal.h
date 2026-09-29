@@ -68,11 +68,25 @@ bool hal_isReady();
 /// @param targetMask targets to change (bits outside ALL_TARGETS_MASK are ignored)
 /// @param newState true for facing, false for hiding
 /// @param waitTicks how long to wait if the queue is full
-/// @return true if the command was queued
+/// @return true if the command was queued; false if the queue stayed full, the HAL isn't
+///         ready, or the outputs are held (see hal_hold())
 bool hal_sendCommand(uint32_t targetMask, bool newState, TickType_t waitTicks = pdMS_TO_TICKS(50));
 
 /// @brief snapshot of which targets are physically facing right now (bit set = facing)
 uint32_t hal_getTargetStates();
+
+// AI-assisted (Claude): emergency hold for the operator's Stop button.
+
+/// @brief freezes every target where it is: discards queued commands, cancels any flip still
+///        waiting on its MECHANICAL_BUFFER cooldown, and refuses new commands until hal_release().
+///        Outputs are left as they are (not turned off), so no target moves.
+///        Blocks up to ~100 ms until the solenoid task confirms it has stopped writing.
+/// @return true once the hold is confirmed (or the HAL isn't running, so nothing can move);
+///         false if the solenoid task didn't confirm in time
+bool hal_hold();
+
+/// @brief ends a hal_hold(); commands are accepted again. Nothing moves until a new command arrives.
+void hal_release();
 
 /// @brief starts the solenoid control task; task continuously looks at the target array and updates solenoids accordingly (delay built in to prevent sheering of pins)
 /// @param pvParameters unused; required by the FreeRTOS TaskFunction_t signature for xTaskCreatePinnedToCore

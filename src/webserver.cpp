@@ -25,6 +25,9 @@ void initWebserver(){
         request->send(LittleFS, "/targets.html", "text/html");
     });
 
+    // REST API (see api.h). AI-modified (Claude): must be registered before serveStatic
+    registerApiRoutes(server);
+
     // Serve static assets (CSS, JS, images)
     server.serveStatic("/", LittleFS, "/");
 
