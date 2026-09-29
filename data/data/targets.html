@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Targets</title>
+    <!--
+        NOTE (offline AP issue): Bootstrap and Bootstrap Icons load from the jsDelivr CDN, but
+        phones joined to the "CPD Range Control" access point have no internet, so these fail
+        and the page renders unstyled. Fix: download the files into data/ and serve them from
+        LittleFS instead, e.g.
+          data/vendor/bootstrap.min.css.gz
+          data/vendor/bootstrap.bundle.min.js.gz
+          data/vendor/bootstrap-icons.min.css.gz
+          data/vendor/fonts/bootstrap-icons.woff2   (icons CSS expects ./fonts/ next to it)
+        then change these tags to href="vendor/bootstrap.min.css" etc. serveStatic() will
+        automatically send the .gz version, keeping flash usage to roughly 250 KB total.
+    -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="target-page">
+    <!--Header area with text (moved above sidebar) -->
+    <div id="drillStatus" class="p-3 text-white bg-primary text-center border-start border-5 border-secondary rounded-3 m-3" style="--bs-primary-rgb: 0, 87, 184;">
+        There are no active drills
+    </div>
+
+    <div id="liveDrillStatusCard" class="live-drill-status card border-0 shadow-sm mx-3 mb-3" aria-live="polite">
+        <div class="card-header bg-light border-0 d-flex justify-content-between align-items-center py-2 px-3">
+            <span class="fw-semibold text-uppercase small text-secondary">Active Drill</span>
+            <span id="liveDrillStatusBadge" class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis">Idle</span>
+        </div>
+        <div class="card-body p-3">
+            <div class="row g-2 align-items-center">
+                <div class="col-12">
+                    <div class="text-muted small text-uppercase">Drill Name</div>
+                    <div id="liveDrillName" class="fs-6 fw-semibold text-dark">No active drill</div>
+                </div>
+                <div class="col-6">
+                    <div class="text-muted small text-uppercase">Status</div>
+                    <div id="liveDrillStatus" class="fw-semibold">Idle</div>
+                </div>
+                <div class="col-6">
+                    <div class="text-muted small text-uppercase">Current Step</div>
+                    <div id="liveDrillStep" class="fw-semibold">—</div>
+                </div>
+                <div class="col-6">
+                    <div class="text-muted small text-uppercase">Target Activity</div>
+                    <div id="liveTargetActivity" class="fw-semibold">All targets idle</div>
+                </div>
+                <div class="col-6">
+                    <div class="text-muted small text-uppercase">Progress</div>
+                    <div id="liveDrillProgress" class="fw-semibold">—</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="target-controls d-flex align-items-center justify-content-between gap-3 m-3">
+        <!-- Menu Button -->
+        <button class="btn btn-outline-primary d-flex flex-column gap-1 p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#menuPanel" aria-controls="menuPanel" aria-label="Open menu">
+            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
+            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
+            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
+        </button>
+
+        <div class="target-toolbar">
+            <div class="btn-group" role="group" aria-label="Filter targets">
+                <button class="btn btn-outline-primary target-filter is-active" type="button" data-filter="all" aria-pressed="true">All</button>
+                <button class="btn btn-outline-primary target-filter" type="button" data-filter="odd" aria-pressed="false">Odd</button>
+                <button class="btn btn-outline-primary target-filter" type="button" data-filter="even" aria-pressed="false">Even</button>
+                <button class="btn btn-outline-primary target-filter" type="button" data-filter="random" aria-pressed="false">Random</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="menuPanel" aria-labelledby="menuPanelLabel">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="menuPanelLabel">Menu</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close menu"></button>
+        </div>
+        <div class="offcanvas-body">
+            <div class="d-grid gap-2">
+                <a class="btn btn-outline-primary text-start" href="drills.html">Drills</a>
+                <button class="btn btn-outline-primary text-start">Performance</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="drillAssignmentModal" tabindex="-1" aria-labelledby="drillAssignmentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="drillAssignmentModalLabel">Assign drill(s) to target</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3" id="drillAssignmentTargetLabel">Target 1</p>
+                    <div id="drillAssignmentList" class="d-grid gap-2"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveDrillAssignments">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid mt-3">
+        <div class="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-2 row-gap-5" id="targetGrid">
+            <div class="col d-flex justify-content-center" data-target-number="1">
+                <div class="target-card" tabindex="0" role="button" aria-pressed="false" aria-label="Mark target 1 red">
+                    <button class="target-defect-toggle" type="button" aria-label="Mark target 1 defective" title="Mark target 1 defective">
+                        <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                        <span>Defect</span>
+                    </button>
+                    <span class="target-number" aria-hidden="true">1</span>
+                    <span class="target-defect-indicator" aria-hidden="true">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                    </span>
+                    <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
+                </div>
+            </div>
+            <div class="col d-flex justify-content-center" data-target-number="2">
+                <div class="target-card" tabindex="0" role="button" aria-pressed="false" aria-label="Mark target 2 red">
+                    <button class="target-defect-toggle" type="button" aria-label="Mark target 2 defective" title="Mark target 2 defective">
+                        <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                        <span>Defect</span>
+                    </button>
+                    <span class="target-number" aria-hidden="true">2</span>
+                    <span class="target-defect-indicator" aria-hidden="true">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                    </span>
+                    <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
+                </div>
+            </div>
+            <div class="col d-flex justify-content-center" data-target-number="3">
+                <div class="target-card" tabindex="0" role="button" aria-pressed="false" aria-label="Mark target 3 red">
+                    <button class="target-defect-toggle" type="button" aria-label="Mark target 3 defective" title="Mark target 3 defective">
+                        <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                        <span>Defect</span>
+                    </button>
+                    <span class="target-number" aria-hidden="true">3</span>
+                    <span class="target-defect-indicator" aria-hidden="true">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                    </span>
+                    <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
+                </div>
+            </div>
+            <div class="col d-flex justify-content-center" data-target-number="4">
+                <div class="target-card" tabindex="0" role="button" aria-pressed="false" aria-label="Mark target 4 red">
+                    <button class="target-defect-toggle" type="button" aria-label="Mark target 4 defective" title="Mark target 4 defective">
+                        <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                        <span>Defect</span>
+                    </button>
+                    <span class="target-number" aria-hidden="true">4</span>
+                    <span class="target-defect-indicator" aria-hidden="true">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                    </span>
+                    <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
+                </div>
+            </div>
+            <div class="col d-flex justify-content-center" data-target-number="5">
+                <div class="target-card" tabindex="0" role="button" aria-pressed="false" aria-label="Mark target 5 red">
+                    <button class="target-defect-toggle" type="button" aria-label="Mark target 5 defective" title="Mark target 5 defective">
+                        <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                        <span>Defect</span>
+                    </button>
+                    <span class="target-number" aria-hidden="true">5</span>
+                    <span class="target-defect-indicator" aria-hidden="true">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                    </span>
+                    <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="page-readout d-flex flex-column align-items-center" aria-label="Page indicator">
+        <strong>&lt;&lt; PG 1 &gt;&gt;</strong>
+        <span>5 / 20</span>
+    </footer>
+
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="script.js"></script>
+
+</body>
+</html>
