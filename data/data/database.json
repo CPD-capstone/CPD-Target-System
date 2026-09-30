@@ -1,0 +1,75 @@
+{
+  "Officers": [
+    {
+      "Name": "Example",
+      "BadgeNum": 888,
+      "pistolQualScores": [
+        [99, "2026-09-18"],
+        [98, "2026-03-15"],
+        [95, "2025-12-08"]
+      ],
+      "rifleQualScores": [
+        [99, "2026-09-18"],
+        [98, "2026-03-15"],
+        [95, "2025-12-08"]
+      ],
+      "swatQualScores": [
+        [99, "2026-09-18"],
+        [98, "2026-03-15"],
+        [95, "2025-12-08"]
+      ]
+    },
+    {
+      "Name": "Example2",
+      "BadgeNum": 888,
+      "pistolQualScores": [
+        [99, "2026-09-18"],
+        [98, "2026-03-15"],
+        [95, "2025-12-08"]
+      ],
+      "rifleQualScores": [
+        [99, "2026-09-18"],
+        [98, "2026-03-15"],
+        [95, "2025-12-08"]
+      ],
+      "swatQualScores": [
+        [99, "2026-09-18"],
+        [98, "2026-03-15"],
+        [95, "2025-12-08"]
+      ]
+    }
+  ],
+  "drills": [
+    {
+      "drillName": "Pistol Qual Stage 1",
+      "sequence": [
+        {
+          "step": 1,
+          "action": "present"
+        }
+      ]
+    }
+  ],
+  "targets": [
+    { "id": 1, "working": true },
+    { "id": 2, "working": true },
+    { "id": 3, "working": true },
+    { "id": 4, "working": true },
+    { "id": 5, "working": true },
+    { "id": 6, "working": true },
+    { "id": 7, "working": true },
+    { "id": 8, "working": true },
+    { "id": 9, "working": true },
+    { "id": 10, "working": true },
+    { "id": 11, "working": true },
+    { "id": 12, "working": true },
+    { "id": 13, "working": true },
+    { "id": 14, "working": true },
+    { "id": 15, "working": true },
+    { "id": 16, "working": true },
+    { "id": 17, "working": true },
+    { "id": 18, "working": true },
+    { "id": 19, "working": true },
+    { "id": 20, "working": true }
+  ]
+}
