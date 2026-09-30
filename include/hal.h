@@ -32,11 +32,11 @@ struct Target{
 
 // TEMP: WILL PROBABLY CHANGE
 struct TargetCommand { 
-    uint8_t targetId; // Target index (0 to 19
+    uint8_t targetId; // Target index (0 to 23)
     bool newState;    // true = UP/FLIP, false = DOWN/UNFLIP
 };
 
-extern Target targets[20];
+extern Target targets[24];
 
 // =============================================================================
 // FUNCTION PROTOTYPES
