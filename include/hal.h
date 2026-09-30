@@ -34,26 +34,13 @@ constexpr uint32_t TARGET_FACE_TRAVEL_MS = 0;
 // total number of targets on the range (MCP1 drives 1-16, MCP2 drives 17-20)
 constexpr uint8_t NUM_TARGETS = 20;
 
-// bitmask with one bit per target: bit 0 = target 1 ... bit 19 = target 20
-// (1 << 20) - 1 = 0xFFFFF = the lowest 20 bits all set = every target.
-// Building a mask for specific targets, e.g. targets 1, 2 and 5:
-//     uint32_t mask = targetBit(1) | targetBit(2) | targetBit(5);   // = 0b10011 = 0x13
-constexpr uint32_t ALL_TARGETS_MASK = (1UL << NUM_TARGETS) - 1;
-
-/// @brief converts a 1-based target number (as shown on the range / in database.json) to its mask bit
-constexpr uint32_t targetBit(uint8_t targetNumber){
-    return 1UL << (targetNumber - 1);
-}
-
-// AI-modified (Claude): the MCP23S17 objects (mcp1/mcp2) are now private to hal.cpp;
-// nothing outside the HAL may talk to the expanders.
-
-// One request sitting in targetQueue. Created by hal_sendCommand(), consumed by
-// SolenoidControlTask. It is copied into the queue, so the caller's variable can go away.
-struct TargetCommand {
-    uint32_t targetMask; // which targets this command applies to (see targetBit())
-    bool newState;       // true = UP/FACING, false = DOWN/HIDDEN
+// TEMP: WILL PROBABLY CHANGE
+struct TargetCommand { 
+    uint8_t targetId; // Target index (0 to 23)
+    bool newState;    // true = UP/FLIP, false = DOWN/UNFLIP
 };
+
+extern Target targets[24];
 
 // =============================================================================
 // FUNCTION PROTOTYPES
