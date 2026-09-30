@@ -18,8 +18,12 @@
 //    the web server is never stuck waiting while a drill runs.
 // 4. DrillRunner walks the list: present/hide send a command to the HAL queue (hal.cpp),
 //    delay waits, pause waits for resumeDrill().
-// 5. resumeDrill() and stopDrill() talk to DrillRunner with FreeRTOS "task notifications":
-//    a small set of flag bits that can wake a task instantly, even in the middle of a delay.
+// 5. pauseDrill(), resumeDrill() and stopDrill() talk to DrillRunner with FreeRTOS "task
+//    notifications": a small set of flag bits that can wake a task instantly, even in the
+//    middle of a delay.
+// 6. stopDrill() is the operator's emergency stop. It first freezes the HAL (hal_hold()) so
+//    no target can move, then tells the runner to end WITHOUT hiding anything, and latches
+//    (stopLatched) so nothing can move again until resetTargets() hides every target.
 //
 // Task notifications work like this: xTaskNotify(task, BITS, eSetBits) ORs BITS into that
 // task's notification value and wakes it if it's waiting. xTaskNotifyWait(0, ULONG_MAX,
@@ -46,6 +50,7 @@ namespace{
     constexpr uint32_t NOTIFY_START  = 1UL << 0; // executeDrill(): a new drill is ready to run
     constexpr uint32_t NOTIFY_RESUME = 1UL << 1; // resumeDrill(): continue past a pause step
     constexpr uint32_t NOTIFY_STOP   = 1UL << 2; // stopDrill(): abort the drill now
+    constexpr uint32_t NOTIFY_PAUSE  = 1UL << 3; // pauseDrill(): freeze the drill clock (AI-added, Claude)
 
     // The DrillRunner task; created the first time a drill runs, then kept for reuse
     TaskHandle_t drillTaskHandle = NULL;
@@ -65,8 +70,35 @@ namespace{
     std::vector<DrillStep> activeSteps; // the flattened drill
     uint32_t activeMask = 0;            // which targets this drill uses (bit 0 = target 1)
 
+    // AI-assisted (Claude): progress/outcome reported by getDrillStatus(). Written under
+    // runnerLock so a status snapshot never mixes two drills.
+    char activeName[DRILL_NAME_MAX] = "";               // drill being (or last) run
+    uint16_t activeStepCount = 0;                       // activeSteps.size(), safe to read under the lock
+    volatile uint16_t currentStep = 0;                  // 1-based; 0 when idle
+    volatile StepType currentType = StepType::Present;  // type of currentStep
+    volatile DrillOutcome lastOutcome = DrillOutcome::None;
+    // set by the runner when it aborts because of the hardware rather than stopDrill()
+    bool drillFailed = false;
+
+    // AI-assisted (Claude): emergency stop latch. Set by stopDrill() (before it freezes the HAL)
+    // and cleared only by resetTargets(). While set, executeDrill() and setTargets() refuse,
+    // and a drill that ends does not send its usual final hide.
+    volatile bool stopLatched = false;
+
+    /// @brief action name of a step type, as written in database.json
+    const char* stepActionName(StepType type){
+        switch(type){
+            case StepType::Present: return "present";
+            case StepType::Hide:    return "hide";
+            case StepType::Delay:   return "delay";
+            case StepType::Pause:   return "pause";
+        }
+        return "";
+    }
+
     /// @brief loads only the drills and targets sections of the database (Officers can grow large)
-    bool loadDrillData(JsonDocument& doc){
+    /// @param includeDrills false to load just the targets section (for setTargets())
+    bool loadDrillData(JsonDocument& doc, bool includeDrills = true){
         // Open the database stored in the ESP32's flash filesystem (uploaded from data/)
         File file = LittleFS.open("/database.json", "r");
         if(!file){
@@ -78,9 +110,11 @@ namespace{
         // skipped without using memory. "[0]" means "apply to every element of this array".
         // We keep: each drill's name and each step's action/timeMs, plus each target's id/working.
         JsonDocument filter;
-        filter["drills"][0]["drillName"] = true;
-        filter["drills"][0]["sequence"][0]["action"] = true;
-        filter["drills"][0]["sequence"][0]["timeMs"] = true;
+        if(includeDrills){
+            filter["drills"][0]["drillName"] = true;
+            filter["drills"][0]["sequence"][0]["action"] = true;
+            filter["drills"][0]["sequence"][0]["timeMs"] = true;
+        }
         filter["targets"][0]["id"] = true;
         filter["targets"][0]["working"] = true;
 
@@ -175,8 +209,37 @@ namespace{
         return mask;
     }
 
+    /// @brief blocks until resumeDrill() (true) or stopDrill() (false)
+    bool waitForResume(){
+        for(;;){
+            // Sleep with no timeout (portMAX_DELAY) until any notification arrives
+            uint32_t bits = 0;
+            xTaskNotifyWait(0, ULONG_MAX, &bits, portMAX_DELAY);
+            // Stop is checked first so that it wins if both arrive together
+            if(bits & NOTIFY_STOP){
+                return false;
+            }
+            if(bits & NOTIFY_RESUME){
+                return true;
+            }
+            // anything else (e.g. a second pause press): keep waiting
+        }
+    }
+
+    /// @brief AI-assisted (Claude): reports Paused so the web UI can show a Resume button, waits
+    ///        for the operator, then goes back to Running. Used by "pause" steps and pauseDrill().
+    /// @return true if resumed, false if stopped while paused
+    bool pauseUntilResumed(){
+        drillState = DrillState::Paused;
+        bool resumed = waitForResume();
+        drillState = DrillState::Running;
+        return resumed;
+    }
+
     /// @brief waits ms, returning early with false if the drill is stopped
     /// Used instead of vTaskDelay() so that stopDrill() can cut a long delay short.
+    /// AI-modified (Claude): pauseDrill() freezes the countdown; after resume, the wait continues
+    /// with the time it had left (time spent paused doesn't count).
     bool waitMs(uint32_t ms){
         // FreeRTOS measures time in "ticks" (1 tick = 1 ms on the ESP32 Arduino core)
         TickType_t start = xTaskGetTickCount();
@@ -193,8 +256,19 @@ namespace{
             // Sleep until a notification arrives or the remaining time runs out.
             // pdTRUE means we were woken by a notification (not the timeout).
             uint32_t bits = 0;
-            if(xTaskNotifyWait(0, ULONG_MAX, &bits, total - elapsed) == pdTRUE && (bits & NOTIFY_STOP)){
-                return false; // stopDrill() was called
+            if(xTaskNotifyWait(0, ULONG_MAX, &bits, total - elapsed) == pdTRUE){
+                if(bits & NOTIFY_STOP){
+                    return false; // stopDrill() was called
+                }
+                if(bits & NOTIFY_PAUSE){
+                    // Operator pause: sit here until resumed, then push the start time forward
+                    // by however long we were paused, so "elapsed" only counts unpaused time
+                    TickType_t pausedAt = xTaskGetTickCount();
+                    if(!pauseUntilResumed()){
+                        return false; // stopped while paused
+                    }
+                    start += xTaskGetTickCount() - pausedAt;
+                }
             }
             // any other notification (e.g. a stray resume) just continues the wait
         }
@@ -216,6 +290,7 @@ namespace{
             // Something is wrong with the hardware task; abort instead of running with bad timing
             if(waited >= TIMEOUT_MS){
                 Serial.println("executeDrill: targets did not fire, aborting drill");
+                drillFailed = true; // AI-modified (Claude): reported as DrillOutcome::Failed
                 return false;
             }
             if(!waitMs(POLL_MS)){
@@ -229,31 +304,23 @@ namespace{
         return waitMs(TARGET_FACE_TRAVEL_MS);
     }
 
-    /// @brief blocks until resumeDrill() (true) or stopDrill() (false)
-    bool waitForResume(){
-        for(;;){
-            // Sleep with no timeout (portMAX_DELAY) until any notification arrives
-            uint32_t bits = 0;
-            xTaskNotifyWait(0, ULONG_MAX, &bits, portMAX_DELAY);
-            // Stop is checked first so that it wins if both arrive together
-            if(bits & NOTIFY_STOP){
-                return false;
-            }
-            if(bits & NOTIFY_RESUME){
-                return true;
-            }
-            // anything else: keep waiting
-        }
-    }
-
     /// @brief runs activeSteps; returns false if stopped or a command couldn't be queued
     bool runSteps(){
-        for(const DrillStep& step : activeSteps){
+        for(size_t i = 0; i < activeSteps.size(); i++){
+            const DrillStep& step = activeSteps[i];
+
+            // AI-modified (Claude): publish progress for getDrillStatus()
+            portENTER_CRITICAL(&runnerLock);
+            currentStep = i + 1;
+            currentType = step.type;
+            portEXIT_CRITICAL(&runnerLock);
+
             switch(step.type){
                 case StepType::Present:
                     // Ask the HAL to turn this drill's targets to face the shooter
                     if(!hal_sendCommand(activeMask, true)){
-                        Serial.println("executeDrill: target queue full, aborting drill");
+                        Serial.println("executeDrill: target command not accepted (queue full or stopped), aborting drill");
+                        drillFailed = true; // AI-modified (Claude)
                         return false;
                     }
                     // drill delays are timed from when the targets are fully facing
@@ -265,7 +332,8 @@ namespace{
                 case StepType::Hide:
                     // Ask the HAL to turn this drill's targets away from the shooter
                     if(!hal_sendCommand(activeMask, false)){
-                        Serial.println("executeDrill: target queue full, aborting drill");
+                        Serial.println("executeDrill: target command not accepted (queue full or stopped), aborting drill");
+                        drillFailed = true; // AI-modified (Claude)
                         return false;
                     }
                     break;
@@ -277,17 +345,12 @@ namespace{
                     }
                     break;
 
-                case StepType::Pause: {
-                    // Report Paused so the web UI can show a Resume button, wait for the
-                    // operator, then go back to Running
-                    drillState = DrillState::Paused;
-                    bool resumed = waitForResume();
-                    drillState = DrillState::Running;
-                    if(!resumed){
+                case StepType::Pause:
+                    // Wait for the operator to press Resume
+                    if(!pauseUntilResumed()){
                         return false; // stopped while paused
                     }
                     break;
-                }
             }
         }
         return true; // every step ran
@@ -306,12 +369,25 @@ namespace{
 
             // a stop that arrived before we woke up cancels the drill before it starts.
             // (&& short-circuits: if STOP is set, runSteps() is never called.)
+            drillFailed = false;
             bool completed = !(bits & NOTIFY_STOP) && runSteps();
-            Serial.println(completed ? "Drill complete" : "Drill stopped");
+            // AI-modified (Claude): distinguish an operator stop from a hardware abort.
+            // stopLatched is checked before drillFailed because a stop freezes the HAL, which
+            // makes the runner's next command fail -- that is still a stop, not a hardware fault.
+            bool stopped = stopLatched;
+            DrillOutcome outcome = completed ? DrillOutcome::Completed
+                                 : stopped ? DrillOutcome::Stopped
+                                 : drillFailed ? DrillOutcome::Failed
+                                 : DrillOutcome::Stopped;
+            Serial.println(outcome == DrillOutcome::Completed ? "Drill complete"
+                         : outcome == DrillOutcome::Failed ? "Drill failed"
+                         : "Drill stopped (targets frozen)");
 
-            // always leave the drill's targets hidden, whether it finished or was stopped.
-            // Wait up to 1 s for queue space, since this command matters for safety.
-            if(!hal_sendCommand(activeMask, false, pdMS_TO_TICKS(1000))){
+            // Leave the drill's targets hidden when it finished or failed. Wait up to 1 s for
+            // queue space, since this command matters for safety.
+            // AI-modified (Claude): NOT after an emergency stop -- the operator stopped because
+            // something was unsafe, so nothing may move until they press Reset.
+            if(!stopped && !hal_sendCommand(activeMask, false, pdMS_TO_TICKS(1000))){
                 Serial.println("executeDrill: WARNING could not queue final hide command");
             }
 
@@ -323,28 +399,38 @@ namespace{
             // never sees one updated without the other
             portENTER_CRITICAL(&runnerLock);
             drillState = DrillState::Idle;
+            currentStep = 0;
+            lastOutcome = outcome;
             runnerBusy = false;
             portEXIT_CRITICAL(&runnerLock);
         }
     }
 
     /// @brief loads, validates and flattens the drill into activeSteps/activeMask
-    bool prepareDrill(const String& drillName, uint32_t targetMask){
+    /// AI-modified (Claude): returns the reason for failure instead of false
+    DrillStartResult prepareDrill(const String& drillName, uint32_t targetMask){
         // Step 1: read the drills and targets from flash
         JsonDocument doc;
         if(!loadDrillData(doc)){
-            return false;
+            return DrillStartResult::DatabaseError;
         }
 
         // Step 2: flatten the requested drill (and any drills inside it) into one step list.
         // Built in a local list first so a failure part-way through doesn't touch activeSteps.
+        // The top-level lookup is checked separately so "no such drill" can be reported apart
+        // from "the drill is broken".
+        JsonArrayConst drills = doc["drills"].as<JsonArrayConst>();
+        if(findDrill(drills, drillName.c_str()).isNull()){
+            Serial.printf("executeDrill: drill \"%s\" not found\r\n", drillName.c_str());
+            return DrillStartResult::NotFound;
+        }
         std::vector<DrillStep> steps;
-        if(!expandDrill(doc["drills"].as<JsonArrayConst>(), drillName.c_str(), 1, steps)){
-            return false;
+        if(!expandDrill(drills, drillName.c_str(), 1, steps)){
+            return DrillStartResult::InvalidDrill;
         }
         if(steps.empty()){
             Serial.printf("executeDrill: drill \"%s\" has no steps\r\n", drillName.c_str());
-            return false;
+            return DrillStartResult::InvalidDrill;
         }
 
         // Step 3: work out which targets to use. targetMask 0 means "all"; otherwise take the
@@ -354,24 +440,30 @@ namespace{
         uint32_t mask = requested & workingTargetsMask(doc["targets"].as<JsonArrayConst>());
         if(mask == 0){
             Serial.println("executeDrill: no working targets selected");
-            return false;
+            return DrillStartResult::NoWorkingTargets;
         }
 
         // Step 4: hand the result to the runner. std::move transfers the list without copying it.
         activeSteps = std::move(steps);
+        // AI-modified (Claude): publish name/mask/step count for getDrillStatus() under the
+        // lock, since it can be called from the web server at any moment
+        portENTER_CRITICAL(&runnerLock);
         activeMask = mask;
+        activeStepCount = activeSteps.size();
+        strlcpy(activeName, drillName.c_str(), sizeof(activeName));
+        portEXIT_CRITICAL(&runnerLock);
         // %05lX prints the mask in hex, e.g. 0xFFFFF = all 20 targets
         Serial.printf("Starting drill \"%s\": %u steps, target mask 0x%05lX\r\n",
             drillName.c_str(), (unsigned)activeSteps.size(), (unsigned long)activeMask);
-        return true;
+        return DrillStartResult::Started;
     }
 }
 
-bool executeDrill(const String& drillName, uint32_t targetMask){
+DrillStartResult executeDrill(const String& drillName, uint32_t targetMask){
     // Nothing can move without the HAL, so fail fast and say why
     if(!hal_isReady()){
         Serial.println("executeDrill: HAL not initialized (is hal_init() called?)");
-        return false;
+        return DrillStartResult::HalNotReady;
     }
 
     // claim the runner so only one drill can be set up or running at a time.
@@ -384,18 +476,28 @@ bool executeDrill(const String& drillName, uint32_t targetMask){
 
     if(alreadyBusy){
         Serial.println("executeDrill: a drill is already running");
-        return false;
+        return DrillStartResult::Busy;
+    }
+
+    // AI-modified (Claude): refuse early while the emergency stop is latched (re-checked
+    // before starting, in case Stop is pressed while the drill is being loaded)
+    if(stopLatched){
+        portENTER_CRITICAL(&runnerLock);
+        runnerBusy = false;
+        portEXIT_CRITICAL(&runnerLock);
+        Serial.println("executeDrill: emergency stop is latched, press Reset first");
+        return DrillStartResult::Stopped;
     }
 
     // Load and validate the drill. This happens here (not in the runner) so the caller gets an
-    // immediate true/false answer. It runs outside the lock because reading flash takes time,
+    // immediate answer. It runs outside the lock because reading flash takes time,
     // and runnerBusy = true already keeps everyone else out.
-    bool ok = prepareDrill(drillName, targetMask);
+    DrillStartResult result = prepareDrill(drillName, targetMask);
 
     // runner task is created on first use and lives for the rest of the program
     // (never deleting it means drillTaskHandle is always safe to notify once set)
-    if(ok && drillTaskHandle == NULL){
-        ok = xTaskCreatePinnedToCore(
+    if(result == DrillStartResult::Started && drillTaskHandle == NULL){
+        bool created = xTaskCreatePinnedToCore(
             DrillRunnerTask,   // Function to run
             "DrillRunner",     // Name of task
             4096,              // Stack size in bytes (ESP-IDF FreeRTOS)
@@ -404,24 +506,52 @@ bool executeDrill(const String& drillName, uint32_t targetMask){
             &drillTaskHandle,  // Task handle
             1                  // Pin to Core 1
         ) == pdPASS;
+        if(!created){
+            Serial.println("executeDrill: could not create DrillRunner task");
+            result = DrillStartResult::TaskFailed;
+        }
     }
 
     // Anything failed: release the runner again so the next executeDrill() can try
-    if(!ok){
+    if(result != DrillStartResult::Started){
         portENTER_CRITICAL(&runnerLock);
         runnerBusy = false;
         portEXIT_CRITICAL(&runnerLock);
-        return false;
+        return result;
     }
 
-    // Everything is ready: mark Running and wake the runner to start the drill
-    drillState = DrillState::Running;
+    // Everything is ready: mark Running and wake the runner to start the drill.
+    // AI-modified (Claude): the stop latch is checked here, under the same lock stopDrill() uses,
+    // so either we see the stop and don't start, or stopDrill() sees Running and stops us.
+    portENTER_CRITICAL(&runnerLock);
+    bool stoppedMeanwhile = stopLatched;
+    if(stoppedMeanwhile){
+        runnerBusy = false;
+    }else{
+        drillState = DrillState::Running;
+    }
+    portEXIT_CRITICAL(&runnerLock);
+    if(stoppedMeanwhile){
+        Serial.println("executeDrill: emergency stop is latched, press Reset first");
+        return DrillStartResult::Stopped;
+    }
     xTaskNotify(drillTaskHandle, NOTIFY_START, eSetBits);
+    return DrillStartResult::Started;
+}
+
+// AI-assisted (Claude): operator pause
+bool pauseDrill(){
+    // Only a running drill can be paused (a paused one already is)
+    if(drillState != DrillState::Running){
+        return false;
+    }
+    // The runner acts on this at its next wait (see waitMs())
+    xTaskNotify(drillTaskHandle, NOTIFY_PAUSE, eSetBits);
     return true;
 }
 
 bool resumeDrill(){
-    // Only meaningful while the runner is waiting at a pause step
+    // Only meaningful while the runner is paused (by a pause step or pauseDrill())
     if(drillState != DrillState::Paused){
         return false;
     }
@@ -429,16 +559,132 @@ bool resumeDrill(){
     return true;
 }
 
+// AI-modified (Claude): emergency stop -- freezes targets instead of hiding them
 bool stopDrill(){
-    // Nothing to stop if no drill is running
-    if(drillState == DrillState::Idle){
-        return false;
+    // Step 1: latch, and see whether a drill is running, in one locked step (pairs with the
+    // check at the end of executeDrill())
+    portENTER_CRITICAL(&runnerLock);
+    stopLatched = true;
+    bool drillActive = drillState != DrillState::Idle;
+    portEXIT_CRITICAL(&runnerLock);
+
+    // Step 2: freeze the hardware FIRST, so nothing moves even while the runner is waking up.
+    // This also cancels any flip still waiting on its cooldown.
+    bool frozen = hal_hold();
+
+    // Step 3: wake the runner from any delay or pause; it ends the drill without hiding
+    if(drillActive){
+        xTaskNotify(drillTaskHandle, NOTIFY_STOP, eSetBits);
     }
-    // Wakes the runner from any delay or pause; it then hides the targets and goes idle
-    xTaskNotify(drillTaskHandle, NOTIFY_STOP, eSetBits);
-    return true;
+    Serial.println(frozen ? "EMERGENCY STOP: targets frozen"
+                          : "EMERGENCY STOP: WARNING freeze not confirmed by solenoid task");
+    return frozen;
+}
+
+// AI-assisted (Claude): Reset button -- clears the stop latch and hides everything
+TargetCommandResult resetTargets(){
+    // Claim the runner so no drill or manual move can start while we reset. If it's busy:
+    // after a stop, the drill is just winding down, so wait briefly; without a stop, a drill
+    // (or manual move) is genuinely running and the operator must stop it first.
+    constexpr uint32_t WIND_DOWN_MS = 500;
+    constexpr uint32_t POLL_MS = 10;
+    for(uint32_t waited = 0; ; waited += POLL_MS){
+        portENTER_CRITICAL(&runnerLock);
+        bool busy = runnerBusy;
+        if(!busy){
+            runnerBusy = true;
+        }
+        bool latched = stopLatched;
+        portEXIT_CRITICAL(&runnerLock);
+
+        if(!busy){
+            break; // claimed
+        }
+        if(!latched || waited >= WIND_DOWN_MS){
+            return TargetCommandResult::DrillRunning;
+        }
+        vTaskDelay(pdMS_TO_TICKS(POLL_MS));
+    }
+
+    // Clear the latch and unfreeze the HAL. Nothing moves on release (see hal_release()), and
+    // nothing else can queue a command before our hide because we hold the runner.
+    stopLatched = false;
+    hal_release();
+
+    // Hide every target, including ones marked not working: "reset" means everything down.
+    // Wait up to 1 s for queue space, like the runner's final hide.
+    TargetCommandResult result = TargetCommandResult::Sent;
+    if(!hal_isReady()){
+        result = TargetCommandResult::HalNotReady;
+    }else if(!hal_sendCommand(ALL_TARGETS_MASK, false, pdMS_TO_TICKS(1000))){
+        result = TargetCommandResult::QueueFull;
+    }
+    Serial.println(result == TargetCommandResult::Sent ? "Reset: hiding all targets"
+                                                       : "Reset: WARNING could not queue hide");
+
+    portENTER_CRITICAL(&runnerLock);
+    runnerBusy = false;
+    portEXIT_CRITICAL(&runnerLock);
+    return result;
 }
 
 DrillState getDrillState(){
     return drillState;
+}
+
+// AI-assisted (Claude): status snapshot and manual target control for the web API
+
+DrillStatus getDrillStatus(){
+    DrillStatus status;
+    // copy everything under the lock so the snapshot can't mix two drills or two steps
+    portENTER_CRITICAL(&runnerLock);
+    status.state = drillState;
+    memcpy(status.drillName, activeName, sizeof(status.drillName));
+    status.step = currentStep;
+    status.stepCount = activeStepCount;
+    status.stepAction = currentStep ? stepActionName(currentType) : "";
+    status.targetMask = activeMask;
+    status.lastOutcome = lastOutcome;
+    status.stopped = stopLatched;
+    portEXIT_CRITICAL(&runnerLock);
+    return status;
+}
+
+TargetCommandResult setTargets(uint32_t targetMask, bool present){
+    if(!hal_isReady()){
+        return TargetCommandResult::HalNotReady;
+    }
+
+    // Claim the runner exactly like executeDrill() does, so a drill can't start while we are
+    // moving targets by hand (and we can't move them while a drill owns them)
+    portENTER_CRITICAL(&runnerLock);
+    bool alreadyBusy = runnerBusy;
+    runnerBusy = true;
+    portEXIT_CRITICAL(&runnerLock);
+    if(alreadyBusy){
+        return TargetCommandResult::DrillRunning;
+    }
+
+    // Same target rules as a drill: 0 = all, and never move a target marked not working.
+    // Nothing moves while the emergency stop is latched (the HAL would refuse anyway).
+    TargetCommandResult result = TargetCommandResult::Sent;
+    JsonDocument doc;
+    if(stopLatched){
+        result = TargetCommandResult::Stopped;
+    }else if(!loadDrillData(doc, false)){
+        result = TargetCommandResult::DatabaseError;
+    }else{
+        uint32_t requested = targetMask ? (targetMask & ALL_TARGETS_MASK) : ALL_TARGETS_MASK;
+        uint32_t mask = requested & workingTargetsMask(doc["targets"].as<JsonArrayConst>());
+        if(mask == 0){
+            result = TargetCommandResult::NoWorkingTargets;
+        }else if(!hal_sendCommand(mask, present)){
+            result = TargetCommandResult::QueueFull;
+        }
+    }
+
+    portENTER_CRITICAL(&runnerLock);
+    runnerBusy = false;
+    portEXIT_CRITICAL(&runnerLock);
+    return result;
 }
