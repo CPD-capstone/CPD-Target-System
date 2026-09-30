@@ -9,7 +9,7 @@
 // REST API between UI and backend
 //   GET    /api/drills                     -> drills array
 //   POST   /api/drills                     {drillName, sequence}  -> addDrill
-//   PUT    /api/drills?name=<drillName>    {sequence}             -> editDrill
+//   PUT    /api/drills?name=<drillName>    {sequence?, drillName?} -> editDrill / renameDrill
 //   DELETE /api/drills?name=<drillName>                           -> deleteDrill
 //   GET    /api/targets                    -> targets array
 //   PUT    /api/targets?id=<n>             {working}              -> editTarget

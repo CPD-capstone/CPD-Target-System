@@ -86,14 +86,44 @@ static void handleAddDrill(AsyncWebServerRequest* request, JsonVariant& json) {
     sendOk(request);
 }
 
-// PUT /api/drills?name=<n>  {sequence}
+// AI-modified (Claude): also renames the drill when the body has a new drillName
+// PUT /api/drills?name=<n>  {sequence?, drillName?}   (at least one; drillName renames the drill)
 static void handleEditDrill(AsyncWebServerRequest* request, JsonVariant& json) {
     String name;
     if (!getQueryString(request, "name", name)) return sendError(request, 400, "name is required");
+
     JsonArrayConst sequence = json["sequence"].as<JsonArrayConst>();
-    if (sequence.isNull()) return sendError(request, 400, "sequence is required");
-    if (!editDrill(name.c_str(), sequence)) {
-        return sendError(request, 400, "Edit rejected: drill not found or invalid sequence");
+    JsonVariantConst newNameField = json["drillName"];
+    if (sequence.isNull() && newNameField.isNull()) {
+        return sendError(request, 400, "sequence or drillName is required");
+    }
+
+    // Sending the current name back unchanged is not a rename
+    String newName = newNameField | name.c_str();
+    newName.trim();
+    bool renaming = newName != name;
+
+    // Check everything a rename can fail on before saving anything, so a rejected name never
+    // leaves the sequence edit half applied
+    JsonDocument existing;
+    if (!getDrill(name.c_str(), existing)) return sendError(request, 404, "Drill not found");
+    if (renaming) {
+        if (newName.isEmpty()) return sendError(request, 400, "drillName cannot be empty");
+        if (isReservedDrillName(newName.c_str())) {
+            return sendError(request, 400, "drillName cannot be present, hide, pause or delay");
+        }
+        if (getDrill(newName.c_str(), existing)) {
+            return sendError(request, 409, "A drill with that name already exists");
+        }
+    }
+
+    // The sequence is saved under the old name, then the rename updates it and every Full Drill
+    // that includes it
+    if (!sequence.isNull() && !editDrill(name.c_str(), sequence)) {
+        return sendError(request, 400, "Edit rejected: invalid sequence");
+    }
+    if (renaming && !renameDrill(name.c_str(), newName.c_str())) {
+        return sendError(request, 500, "Could not rename the drill");
     }
     sendOk(request);
 }

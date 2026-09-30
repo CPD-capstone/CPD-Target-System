@@ -95,7 +95,7 @@ bool getDrill(const char* drillName, JsonDocument& out);
 
 /// @brief Adds a drill. Each step's action must be present/hide/pause/delay (delay needs a
 ///        positive timeMs) or the name of another existing drill, without forming a loop.
-/// @param drillName unique drill name
+/// @param drillName unique, non-empty drill name other than present/hide/pause/delay
 /// @param sequence array of { "step", "action", "timeMs"? } objects
 /// @return true if the drill is valid and was saved
 bool addDrill(const char* drillName, JsonArrayConst sequence);
@@ -105,6 +105,18 @@ bool addDrill(const char* drillName, JsonArrayConst sequence);
 /// @param newSequence replacement sequence
 /// @return true if the drill exists, the sequence is valid, and the change was saved
 bool editDrill(const char* drillName, JsonArrayConst newSequence);
+
+/// @brief Checks whether a name is reserved for a step action (present/hide/pause/delay) and so
+///        can't be used as a drill name.
+/// @param drillName name to check
+/// @return true if the name is reserved
+bool isReservedDrillName(const char* drillName);
+
+/// @brief Renames a drill and updates every step in other drills that includes it by name.
+/// @param oldName current name of the drill
+/// @param newName new name; must be non-empty, unused, and not present/hide/pause/delay
+/// @return true if the drill exists, the new name is valid, and the change was saved
+bool renameDrill(const char* oldName, const char* newName);
 
 /// @brief Deletes a drill, refusing while another drill still includes it as a step.
 /// @param drillName name of the drill to delete

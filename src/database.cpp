@@ -196,6 +196,29 @@ static bool validateSequence(JsonArrayConst drills, const char* drillName, JsonA
     return true;
 }
 
+// AI-assisted (Claude): public wrapper so the API can report a reserved name before saving anything
+bool isReservedDrillName(const char* drillName) {
+    return drillName && isBasicAction(drillName);
+}
+
+// AI-assisted (Claude): a new drill name must be non-empty, unused, and not a basic action --
+// a drill named "delay" would be read as a delay step wherever another drill includes it
+static bool isValidDrillName(JsonArrayConst drills, const char* drillName) {
+    if (!drillName || !*drillName) {
+        Serial.println("Drill name is empty");
+        return false;
+    }
+    if (isBasicAction(drillName)) {
+        Serial.printf("Drill name %s is reserved for a step action\r\n", drillName);
+        return false;
+    }
+    if (findIndex(drills, "drillName", drillName) >= 0) {
+        Serial.printf("Drill %s already exists\r\n", drillName);
+        return false;
+    }
+    return true;
+}
+
 // ---- Targets -------------------------------------------------------------------------------
 
 // AI-modified (Claude): targets are an array of { id, working }
@@ -422,10 +445,7 @@ bool addDrill(const char* drillName, JsonArrayConst sequence) {
         drills = doc["drills"].to<JsonArray>();
     }
 
-    if (findIndex(drills, "drillName", drillName) >= 0) {
-        Serial.printf("Drill %s already exists\r\n", drillName);
-        return false;
-    }
+    if (!isValidDrillName(drills, drillName)) return false;
     if (!validateSequence(drills, drillName, sequence)) return false;
 
     JsonObject drill = drills.add<JsonObject>();
@@ -435,7 +455,7 @@ bool addDrill(const char* drillName, JsonArrayConst sequence) {
     return saveDatabase(doc);
 }
 
-// AI-modified (Claude): replaces the sequence only; renaming isn't supported, so Full Drills
+// AI-modified (Claude): replaces the sequence only (see renameDrill for the name), so Full Drills
 // that reference this drill by name stay valid
 bool editDrill(const char* drillName, JsonArrayConst newSequence) {
     JsonDocument doc;
@@ -450,6 +470,32 @@ bool editDrill(const char* drillName, JsonArrayConst newSequence) {
     if (!validateSequence(drills, drillName, newSequence)) return false;
 
     drills[i]["sequence"] = newSequence;
+    return saveDatabase(doc);
+}
+
+// AI-assisted (Claude): renames a drill and every step that includes it, in one save, so Full
+// Drills that reference it stay valid
+bool renameDrill(const char* oldName, const char* newName) {
+    JsonDocument doc;
+    if (!loadDatabase(doc)) return false;
+
+    JsonArray drills = doc["drills"];
+    int i = findIndex(drills, "drillName", oldName);
+    if (i < 0) {
+        Serial.printf("No drill found: %s\r\n", oldName);
+        return false;
+    }
+    if (!isValidDrillName(drills, newName)) return false;
+
+    // Update references first: comparing against drills[i]["drillName"] would change under us
+    for (JsonObject drill : drills) {
+        for (JsonObject step : drill["sequence"].as<JsonArray>()) {
+            const char* action = step["action"];
+            if (action && strcmp(action, oldName) == 0) step["action"] = newName;
+        }
+    }
+    drills[i]["drillName"] = newName;
+
     return saveDatabase(doc);
 }
 
