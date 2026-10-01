@@ -5,24 +5,28 @@ const targetStatusStorageKey = 'cpd-target-status';
 const drillLibraryStorageKey = 'cpd-drill-library';
 const activeDemoDrillStorageKey = 'cpd-active-demo-drill';
 const pausedDemoDrillStorageKey = 'cpd-paused-demo-drill';
-const defaultDrillLimit = 5;
 let targetAssignmentDrills = {};
 let activeDemoDrillId = localStorage.getItem(activeDemoDrillStorageKey) || '';
 let activeDemoDrillPaused = localStorage.getItem(pausedDemoDrillStorageKey) === 'true';
 
-const filterDefaultDrillEntries = (drills) => Object.fromEntries(
-    Object.entries(drills || {}).filter(([drillId]) => {
-        const match = String(drillId).match(/^database-drill-(\d+)$/);
-        return !match || Number(match[1]) < defaultDrillLimit;
-    })
-);
+// AI-generated (Claude): a "full drill" is a composite whose sequence runs other drills by
+// name (e.g. "Pistol Qual Full Drill"); everything else is a single stage.
+const basicDrillActions = new Set(['present', 'hide', 'pause', 'delay']);
+const isFullDrill = (drill) => (Array.isArray(drill?.sequence) ? drill.sequence : [])
+    .some((step) => typeof step?.action === 'string' && !basicDrillActions.has(step.action));
 
+// AI-generated (Claude): 'custom' = created with the New Drill form (database drills have ids
+// like "database-drill-3"); otherwise 'full' or 'stages'.
+const getDrillCategory = (drillId, drill) => {
+    if (!String(drillId).startsWith('database-drill-')) return 'custom';
+    return isFullDrill(drill) ? 'full' : 'stages';
+};
+
+// AI-modified (Claude): removed the five-drill limit so every database drill is listed.
 const getSavedDrillLibrary = () => {
     try {
         const stored = JSON.parse(localStorage.getItem(drillLibraryStorageKey) || '{}');
-        return stored && typeof stored === 'object' && !Array.isArray(stored)
-            ? filterDefaultDrillEntries(stored)
-            : {};
+        return stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
     } catch (error) {
         return {};
     }
@@ -30,7 +34,6 @@ const getSavedDrillLibrary = () => {
 
 const getTargetDrillLibrary = (databaseDrills = []) => {
     const defaults = (Array.isArray(databaseDrills) ? databaseDrills : [])
-        .slice(0, defaultDrillLimit)
         .filter((drill) => drill && typeof drill.drillName === 'string' && drill.drillName.trim())
         .map((drill, index) => [`database-drill-${index}`, {
             name: drill.drillName.trim(),
@@ -119,7 +122,13 @@ const updateDrillStatus = () => {
     const startDrillButton = document.getElementById('startDrillButton');
     const startDrillLabel = document.getElementById('startDrillLabel');
     const pauseDrillButton = document.getElementById('pauseDrillButton');
+    const stopDrillButton = document.getElementById('stopDrillButton');
     const drillSelect = document.getElementById('drillSelect');
+
+    // AI-generated (Claude): Stop is available whenever a drill is running or paused.
+    if (stopDrillButton) {
+        stopDrillButton.disabled = !(hasRedTarget && activeDemoDrillId);
+    }
 
     if (hasRedTarget) {
         const drill = targetAssignmentDrills[activeDemoDrillId];
@@ -200,16 +209,26 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
     let activeTargetNumber = null;
 
     if (drillSelect) {
-        const options = Object.entries(targetAssignmentDrills)
-            .filter(([, drill]) => drill && typeof (drill.name || drill.drillName) === 'string')
-            .map(([drillId, drill]) => {
-                const drillName = drill.name || drill.drillName;
-                const option = document.createElement('option');
-                option.value = drillId;
-                option.textContent = drillName;
-                return option;
+        // AI-modified (Claude): options are grouped into full drills, stages and custom drills.
+        const drillEntries = Object.entries(targetAssignmentDrills)
+            .filter(([, drill]) => drill && typeof (drill.name || drill.drillName) === 'string');
+        const drillGroups = [
+            { label: 'Full drills', category: 'full' },
+            { label: 'Stages', category: 'stages' },
+            { label: 'Custom', category: 'custom' }
+        ]
+            .map(({ label, category }) => ({
+                label,
+                entries: drillEntries.filter(([drillId, drill]) => getDrillCategory(drillId, drill) === category)
+            }))
+            .filter(({ entries }) => entries.length)
+            .map(({ label, entries }) => {
+                const group = document.createElement('optgroup');
+                group.label = label;
+                group.append(...entries.map(([drillId, drill]) => new Option(drill.name || drill.drillName, drillId)));
+                return group;
             });
-        drillSelect.replaceChildren(new Option('Select a drill', ''), ...options);
+        drillSelect.replaceChildren(new Option('Select a drill', ''), ...drillGroups);
         if (activeDemoDrillId && targetAssignmentDrills[activeDemoDrillId]) {
             drillSelect.value = activeDemoDrillId;
         } else if (activeDemoDrillId) {
@@ -246,8 +265,6 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             }
             if (activeDemoDrillId) return;
 
-            const drillName = drill.name || drill.drillName;
-
             const assignedTargets = Array.isArray(drill.targets)
                 ? [...new Set(drill.targets.map(Number).filter((targetNumber) => Number.isInteger(targetNumber) && targetNumber >= 1 && targetNumber <= 20))]
                 : [];
@@ -258,13 +275,25 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
                 targetGrid.querySelector(`[data-target-number="${targetNumber}"] .target-card`)
             ));
 
-            if (!assignedTargets.length || !availableTargets.length) {
-                drillLaunchMessage.textContent = assignedTargets.length
-                    ? 'All targets assigned to this drill are defective or unavailable.'
-                    : 'This drill has no targets assigned.';
+            // AI-modified (Claude): a drill with no assigned targets asks which targets to run.
+            if (!assignedTargets.length) {
+                openDrillTargetPicker(drillId);
+                return;
+            }
+            if (!availableTargets.length) {
+                drillLaunchMessage.textContent = 'All targets assigned to this drill are defective or unavailable.';
                 drillLaunchMessage.hidden = false;
                 return;
             }
+
+            runDrillOnTargets(drillId, availableTargets);
+        });
+
+        // AI-modified (Claude): moved out of the Start click handler so the target picker can
+        // start a drill too. Body is unchanged.
+        const runDrillOnTargets = (drillId, availableTargets) => {
+            const drill = targetAssignmentDrills[drillId];
+            const drillName = drill.name || drill.drillName;
 
             startDrillButton.disabled = true;
             try {
@@ -314,12 +343,108 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             } finally {
                 startDrillButton.disabled = !drillSelect.value || Boolean(activeDemoDrillId && !activeDemoDrillPaused);
             }
+        };
+
+        // AI-generated (Claude): picker for drills that have no targets assigned. Lists every
+        // target that isn't defective or unavailable; the choice applies to this run only and
+        // isn't saved to the drill.
+        const pickerModalElement = document.getElementById('drillTargetPickerModal');
+        const pickerList = document.getElementById('drillTargetPickerList');
+        const pickerError = document.getElementById('drillTargetPickerError');
+        let pickerDrillId = '';
+
+        const openDrillTargetPicker = (drillId) => {
+            if (!pickerModalElement || !bootstrapModal) return;
+            pickerDrillId = drillId;
+            const drill = targetAssignmentDrills[drillId];
+            document.getElementById('drillTargetPickerDrillName').textContent = drill.name || drill.drillName;
+            pickerError.hidden = true;
+
+            const defectiveTargets = new Set(getDefectiveTargetNumbers());
+            const pickableTargets = targetColumns
+                .map((column) => Number(column.dataset.targetNumber))
+                .filter((targetNumber) => !defectiveTargets.has(targetNumber) && !unavailableTargets.has(targetNumber));
+
+            if (!pickableTargets.length) {
+                pickerList.textContent = 'No targets are currently available.';
+            } else {
+                pickerList.replaceChildren(...pickableTargets.map((targetNumber) => {
+                    const wrapper = document.createElement('label');
+                    wrapper.className = 'target-option';
+                    const input = document.createElement('input');
+                    input.className = 'form-check-input';
+                    input.type = 'checkbox';
+                    input.value = String(targetNumber);
+                    const text = document.createElement('span');
+                    text.textContent = `Target ${targetNumber}`;
+                    wrapper.append(input, text);
+                    return wrapper;
+                }));
+            }
+            bootstrapModal.getOrCreateInstance(pickerModalElement).show();
+        };
+
+        document.getElementById('drillTargetPickerSelectAll')?.addEventListener('click', () => {
+            const boxes = Array.from(pickerList.querySelectorAll('input[type="checkbox"]'));
+            const selectAll = boxes.some((box) => !box.checked);
+            boxes.forEach((box) => { box.checked = selectAll; });
+        });
+
+        document.getElementById('drillTargetPickerStart')?.addEventListener('click', () => {
+            const selectedTargets = Array.from(
+                pickerList.querySelectorAll('input[type="checkbox"]:checked'),
+                (box) => Number(box.value)
+            );
+            if (!selectedTargets.length) {
+                pickerError.textContent = 'Select at least one target.';
+                pickerError.hidden = false;
+                return;
+            }
+            bootstrapModal.getInstance(pickerModalElement)?.hide();
+            if (pickerDrillId && !activeDemoDrillId) {
+                runDrillOnTargets(pickerDrillId, selectedTargets);
+            }
         });
 
         pauseDrillButton.addEventListener('click', () => {
             if (!activeDemoDrillId || activeDemoDrillPaused || !targetGrid.querySelector('.target-card.is-red')) return;
             activeDemoDrillPaused = true;
             localStorage.setItem(pausedDemoDrillStorageKey, 'true');
+            updateDrillStatus();
+        });
+
+        // AI-generated (Claude): ends the running or paused drill and returns its targets to green.
+        // On the real controller, /api/stop freezes the targets where they are and a separate
+        // Reset hides them; demo mode does both in one step.
+        document.getElementById('stopDrillButton')?.addEventListener('click', () => {
+            if (!activeDemoDrillId) return;
+
+            /* ESP32 API call disabled for frontend-only demo mode:
+            await fetch('/api/stop', { method: 'POST' });
+            await fetch('/api/reset', { method: 'POST' });
+            */
+
+            const drill = targetAssignmentDrills[activeDemoDrillId];
+            const drillName = drill ? drill.name || drill.drillName : 'Drill';
+            const status = getSavedTargetStatus();
+
+            targetGrid.querySelectorAll('.target-card.is-red').forEach((targetCard) => {
+                const targetColumn = targetCard.closest('[data-target-number]');
+                const targetNumber = targetColumn.dataset.targetNumber;
+                targetCard.classList.remove('is-red');
+                targetCard.setAttribute('aria-pressed', 'false');
+                targetCard.setAttribute('aria-label', `Mark target ${targetNumber} red`);
+                targetColumn.querySelector('.target-defect-toggle').disabled = false;
+                status[targetNumber] = { ...(status[targetNumber] || {}), red: false };
+            });
+
+            saveTargetStatus(status);
+            activeDemoDrillId = '';
+            activeDemoDrillPaused = false;
+            localStorage.removeItem(activeDemoDrillStorageKey);
+            localStorage.removeItem(pausedDemoDrillStorageKey);
+            drillLaunchMessage.textContent = `${drillName} stopped.`;
+            drillLaunchMessage.hidden = false;
             updateDrillStatus();
         });
     }
@@ -791,6 +916,7 @@ if (document.getElementById('drillList')) {
     const targetNumberSelect = document.getElementById('targetNumber');
     const editTargetNumberSelect = document.getElementById('editTargetNumber');
     let pendingDeleteDrillId = null;
+    let activeDrillFilter = 'all';
     let databaseDrills = [];
     let databaseUnavailableTargets = new Set();
 
@@ -821,16 +947,7 @@ if (document.getElementById('drillList')) {
                 input: document.getElementById(targetFieldName),
                 label: 'Target numbers',
                 valid: () => form.querySelector(`input[name="${targetFieldName}"]:checked`) !== null
-            },
-            {
-                input: document.getElementById(isEditForm ? 'editDrillDuration' : 'drillDuration'),
-                label: 'Duration in seconds',
-                valid: () => {
-                    const seconds = Number(form.querySelector(`#${isEditForm ? 'editDrillDuration' : 'drillDuration'}`)?.value);
-                    return Number.isSafeInteger(seconds) && seconds > 0;
-                }
-            },
-            { input: document.getElementById(isEditForm ? 'editDrillOwner' : 'drillOwner'), label: 'Owner' }
+            }
         ];
         const missingFields = fields.filter(({ input, valid }) => valid ? !valid() : !input?.value.trim());
 
@@ -861,21 +978,11 @@ if (document.getElementById('drillList')) {
 
         return Object.fromEntries(source
             .filter((drill) => drill && typeof drill.drillName === 'string' && drill.drillName.trim())
-            .slice(0, defaultDrillLimit)
             .map((drill, index) => [`database-drill-${index}`, {
                 name: drill.drillName.trim(),
                 sequence: Array.isArray(drill.sequence) ? drill.sequence : [],
-                duration: getDrillDuration(drill),
                 status: 'available'
             }]));
-    };
-
-    const getDrillDuration = (drill) => {
-        const totalMilliseconds = (drill?.sequence || []).reduce((total, step) => (
-            total + (Number(step?.timeMs) || 0)
-        ), 0);
-
-        return Math.round(totalMilliseconds / 1000);
     };
 
     const populateDatabaseFields = (payload) => {
@@ -930,22 +1037,10 @@ if (document.getElementById('drillList')) {
         });
     };
 
-    const formatDuration = (seconds) => {
-        const totalSeconds = Number(seconds) || 0;
-        return `${totalSeconds} ${totalSeconds === 1 ? 'second' : 'seconds'}`;
-    };
-
-    const parseDuration = (value) => {
-        const seconds = Number(String(value || '').trim());
-        return Number.isSafeInteger(seconds) && seconds > 0 ? seconds : 0;
-    };
-
-    const getOwners = (drill) => {
-        if (Array.isArray(drill?.owners) && drill.owners.length > 0) {
-            return drill.owners.join(', ');
-        }
-
-        return 'Unassigned';
+    // AI-generated (Claude): one-line summary of a drill's sequence for its card.
+    const getSequenceSummary = (drill) => {
+        const steps = Array.isArray(drill?.sequence) ? drill.sequence.length : 0;
+        return steps ? `${steps} ${steps === 1 ? 'step' : 'steps'}` : 'Not built yet';
     };
 
     const getTargets = (drill) => {
@@ -964,9 +1059,7 @@ if (document.getElementById('drillList')) {
 
         try {
             const parsed = JSON.parse(stored);
-            return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-                ? filterDefaultDrillEntries(parsed)
-                : {};
+            return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
         } catch (error) {
             return {};
         }
@@ -987,8 +1080,6 @@ if (document.getElementById('drillList')) {
         document.getElementById('editDrillId').value = drillId;
         document.getElementById('editDrillName').value = drill.name || '';
         setSelectedValues(editTargetNumberSelect, Array.isArray(drill.targets) ? drill.targets : []);
-        document.getElementById('editDrillDuration').value = drill.duration ? String(drill.duration) : '';
-        document.getElementById('editDrillOwner').value = Array.isArray(drill.owners) && drill.owners.length ? drill.owners[0] : '';
 
         const editModal = new bootstrap.Modal(document.getElementById('editDrillModal'));
         editModal.show();
@@ -1002,13 +1093,17 @@ if (document.getElementById('drillList')) {
         renderDrills(drills);
     };
 
+    // AI-modified (Claude): the list is narrowed by the All / Full drills / Stages / Custom filter.
     const renderDrills = (drills) => {
-        const entries = Object.entries(drills || {});
+        const allEntries = Object.entries(drills || {});
+        const entries = allEntries.filter(([drillId, drill]) => (
+            activeDrillFilter === 'all' || getDrillCategory(drillId, drill) === activeDrillFilter
+        ));
 
         if (!entries.length) {
             drillList.innerHTML = `
                 <div class="col-12">
-                    <div class="alert alert-info mb-0">No drills have been added yet.</div>
+                    <div class="alert alert-info mb-0">${allEntries.length ? 'No drills match this filter.' : 'No drills have been added yet.'}</div>
                 </div>
             `;
             return;
@@ -1025,8 +1120,7 @@ if (document.getElementById('drillList')) {
                     <dl class="drill-details">
                         <div><dt>Name</dt><dd>${(drill?.name || 'Untitled Drill').replace(/</g, '&lt;')}</dd></div>
                         <div><dt>Target Numbers</dt><dd>${getTargets(drill)}</dd></div>
-                        <div><dt>Duration</dt><dd>${formatDuration(drill?.duration)}</dd></div>
-                        <div><dt>Owner</dt><dd>${getOwners(drill).replace(/</g, '&lt;')}</dd></div>
+                        <div><dt>Sequence</dt><dd>${getSequenceSummary(drill)}</dd></div>
                     </dl>
                     <div class="drill-actions">
                         <button class="btn btn-secondary edit-drill-btn" type="button" data-drill-id="${drillId}"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Edit</button>
@@ -1080,7 +1174,7 @@ if (document.getElementById('drillList')) {
             const payload = await response.json();
             const fileDrills = normalizeDrillMap(payload?.drills);
             const mergedDrills = { ...fileDrills, ...savedDrills };
-            databaseDrills = Array.isArray(payload?.drills) ? payload.drills.slice(0, defaultDrillLimit) : [];
+            databaseDrills = Array.isArray(payload?.drills) ? payload.drills : [];
 
             saveDrills(mergedDrills);
             populateDatabaseFields(payload);
@@ -1096,8 +1190,6 @@ if (document.getElementById('drillList')) {
         const formData = new FormData(drillForm);
         const name = String(formData.get('drillName') || '').trim();
         const targetNumbers = formData.getAll('targetNumber').map((value) => Number(value));
-        const durationValue = String(formData.get('drillDuration') || '').trim();
-        const owner = String(formData.get('drillOwner') || '').trim();
 
         const validation = validateDrillFields(drillForm);
         if (!validation.valid) {
@@ -1120,9 +1212,7 @@ if (document.getElementById('drillList')) {
         currentDrills[nextDrillId] = {
             name,
             sequence: databaseDrills.find((drill) => drill.drillName === name)?.sequence || [],
-            owners: owner ? [owner] : [],
             targets: targetNumbers,
-            duration: parseDuration(durationValue),
             status: 'available'
         };
 
@@ -1145,8 +1235,6 @@ if (document.getElementById('drillList')) {
         const drillId = String(formData.get('editDrillId') || '').trim();
         const name = String(formData.get('editDrillName') || '').trim();
         const targetNumbers = formData.getAll('editTargetNumber').map((value) => Number(value));
-        const durationValue = String(formData.get('editDrillDuration') || '').trim();
-        const owner = String(formData.get('editDrillOwner') || '').trim();
 
         const validation = validateDrillFields(editDrillForm);
         if (!drillId || !validation.valid) {
@@ -1171,9 +1259,7 @@ if (document.getElementById('drillList')) {
         currentDrills[drillId] = {
             ...currentDrills[drillId],
             name,
-            owners: owner ? [owner] : [],
             targets: targetNumbers,
-            duration: parseDuration(durationValue),
             status: 'available'
         };
 
@@ -1187,6 +1273,19 @@ if (document.getElementById('drillList')) {
         }
 
         editDrillForm.reset();
+    });
+
+    // AI-generated (Claude): All / Full drills / Stages filter buttons.
+    document.querySelectorAll('.drill-filter').forEach((button) => {
+        button.addEventListener('click', () => {
+            activeDrillFilter = button.dataset.drillFilter;
+            document.querySelectorAll('.drill-filter').forEach((other) => {
+                const isActive = other === button;
+                other.classList.toggle('active', isActive);
+                other.setAttribute('aria-pressed', String(isActive));
+            });
+            renderDrills(getDrills());
+        });
     });
 
     loadDrills();

@@ -58,6 +58,11 @@
             <i class="bi bi-pause-fill" aria-hidden="true"></i>
             Pause
         </button>
+        <!-- AI-generated (Claude): stop button for the active drill. -->
+        <button class="btn btn-danger" id="stopDrillButton" type="button" aria-label="Stop drill" title="Stop drill" disabled>
+            <i class="bi bi-stop-fill" aria-hidden="true"></i>
+            Stop
+        </button>
     </div>
     <div class="alert alert-warning mx-3 mb-3" id="drillLaunchMessage" role="status" aria-live="polite" hidden></div>
 
@@ -68,6 +73,8 @@
         </div>
         <div class="offcanvas-body">
             <div class="d-grid gap-2">
+                <!-- AI-modified (Claude): same menu on every page, current page highlighted. -->
+                <a class="btn btn-outline-primary text-start active" href="targets.html" aria-current="page">Targets</a>
                 <a class="btn btn-outline-primary text-start" href="drills.html">Drills</a>
                 <a class="btn btn-outline-primary text-start" href="Performance.html">Performance</a>
             </div>
@@ -93,6 +100,33 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-primary" id="saveDrillAssignments">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI-generated (Claude): asks which targets to run when the selected drill has none assigned. -->
+    <div class="modal fade" id="drillTargetPickerModal" tabindex="-1" aria-labelledby="drillTargetPickerModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="drillTargetPickerModalLabel">Which targets should run?</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">
+                        <strong id="drillTargetPickerDrillName"></strong> has no targets assigned. Choose targets for this run.
+                    </p>
+                    <div class="alert alert-warning py-2" id="drillTargetPickerError" role="alert" hidden></div>
+                    <div class="target-options" id="drillTargetPickerList" role="group" aria-label="Targets to run"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-primary me-auto" id="drillTargetPickerSelectAll">Select all</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="drillTargetPickerStart">
+                        <i class="bi bi-play-fill" aria-hidden="true"></i>
+                        Start drill
+                    </button>
                 </div>
             </div>
         </div>

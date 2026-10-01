@@ -41,7 +41,9 @@
         </div>
         <div class="offcanvas-body">
             <div class="d-grid gap-2">
+                <!-- AI-modified (Claude): same menu on every page, current page highlighted. -->
                 <a class="btn btn-outline-primary text-start" href="targets.html">Targets</a>
+                <a class="btn btn-outline-primary text-start active" href="drills.html" aria-current="page">Drills</a>
                 <a class="btn btn-outline-primary text-start" href="Performance.html">Performance</a>
             </div>
         </div>
@@ -57,6 +59,15 @@
                 <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>
                 New Drill
             </button>
+        </div>
+
+        <!-- AI-generated (Claude): filter between full drill sequences, individual stages and
+             drills created with the New Drill form. -->
+        <div class="btn-group mb-4" role="group" aria-label="Filter drills">
+            <button class="btn btn-outline-primary drill-filter active" type="button" data-drill-filter="all" aria-pressed="true">All</button>
+            <button class="btn btn-outline-primary drill-filter" type="button" data-drill-filter="full" aria-pressed="false">Full drills</button>
+            <button class="btn btn-outline-primary drill-filter" type="button" data-drill-filter="stages" aria-pressed="false">Stages</button>
+            <button class="btn btn-outline-primary drill-filter" type="button" data-drill-filter="custom" aria-pressed="false">Custom</button>
         </div>
 
         <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4" id="drillList" aria-live="polite"></div>
@@ -81,16 +92,14 @@
                             <span class="form-label">Target numbers</span>
                             <div class="target-options" id="targetNumber" role="group" aria-label="Target numbers" tabindex="-1"></div>
                         </div>
-                        <div class="mb-3">
-                            <label for="drillDuration" class="form-label">Duration</label>
-                            <div class="input-group">
-                                <input type="number" class="form-control" id="drillDuration" name="drillDuration" min="1" step="1" inputmode="numeric" placeholder="30" required>
-                                <span class="input-group-text">seconds</span>
+                        <!-- AI-generated (Claude): placeholder for the drill sequence builder (present / hide /
+                             delay / pause steps). Not built yet; drills from database.json keep their sequence. -->
+                        <div class="mb-0">
+                            <span class="form-label">Sequence</span>
+                            <div class="drill-sequence-placeholder">
+                                <i class="bi bi-list-ol" aria-hidden="true"></i>
+                                <span>Step builder coming soon: present, hide, delay and pause steps.</span>
                             </div>
-                        </div>
-                        <div class="mb-3 mb-0">
-                            <label for="drillOwner" class="form-label">Owner</label>
-                            <input type="text" class="form-control" id="drillOwner" name="drillOwner" placeholder="Enter owner name" required>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -121,16 +130,14 @@
                             <span class="form-label">Target numbers</span>
                             <div class="target-options" id="editTargetNumber" role="group" aria-label="Target numbers" tabindex="-1"></div>
                         </div>
-                        <div class="mb-3">
-                            <label for="editDrillDuration" class="form-label">Duration</label>
-                            <div class="input-group">
-                                <input type="number" class="form-control" id="editDrillDuration" name="editDrillDuration" min="1" step="1" inputmode="numeric" placeholder="30" required>
-                                <span class="input-group-text">seconds</span>
+                        <!-- AI-generated (Claude): placeholder for the drill sequence builder (present / hide /
+                             delay / pause steps). Not built yet; drills from database.json keep their sequence. -->
+                        <div class="mb-0">
+                            <span class="form-label">Sequence</span>
+                            <div class="drill-sequence-placeholder">
+                                <i class="bi bi-list-ol" aria-hidden="true"></i>
+                                <span>Step builder coming soon: present, hide, delay and pause steps.</span>
                             </div>
-                        </div>
-                        <div class="mb-3 mb-0">
-                            <label for="editDrillOwner" class="form-label">Owner</label>
-                            <input type="text" class="form-control" id="editDrillOwner" name="editDrillOwner" placeholder="Enter owner name" required>
                         </div>
                     </div>
                     <div class="modal-footer">

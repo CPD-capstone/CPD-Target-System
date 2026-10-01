@@ -154,6 +154,19 @@
     background: #eef5ff;
 }
 
+/* AI-generated (Claude): placeholder box for the future drill sequence builder. */
+.drill-sequence-placeholder {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.85rem 1rem;
+    border: 1px dashed #adb5bd;
+    border-radius: 0.375rem;
+    background: #f8f9fa;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
 .delete-confirmation {
     border-top: 4px solid #dc3545;
 }
@@ -178,16 +191,19 @@
     flex-shrink: 1;
 }
 
+/* AI-modified (Claude): wraps so the select drops to its own line on narrow phones now that
+   there are three buttons. */
 .drill-launch-bar {
     display: flex;
-    max-width: 34rem;
+    flex-wrap: wrap;
+    max-width: 40rem;
     align-items: center;
     gap: 0.5rem;
 }
 
 .drill-launch-bar .form-select {
-    min-width: 0;
-    flex: 1 1 auto;
+    min-width: 12rem;
+    flex: 1 1 12rem;
 }
 
 .drill-launch-bar .btn {
