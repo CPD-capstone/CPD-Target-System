@@ -1,10 +1,106 @@
 const drillStatus = document.getElementById('drillStatus');
+// AI-generated (Claude): the scrolling text inside the status bar.
+const drillStatusText = document.getElementById('drillStatusText') || drillStatus;
+
+// AI-generated (Claude): continuous scrolling banners (.drill-status-bar on every page).
+// Fills the track with enough copies of the text to cover the bar twice, so sliding it left
+// by half its width (see style.css) loops with no empty gap. Speed stays constant however
+// long the text is.
+const bannerSpeedPxPerSecond = 110;
+
+const fillScrollingBanner = (bar, force = false) => {
+    const source = bar.querySelector('.drill-status-text');
+    if (!source) return;
+    const text = source.textContent.trim();
+
+    let track = bar.querySelector('.banner-track');
+    if (!track) {
+        track = document.createElement('div');
+        track.className = 'banner-track';
+        track.setAttribute('aria-hidden', 'true');
+        bar.append(track);
+    }
+    if (!force && track.dataset.text === text) return;
+    track.dataset.text = text;
+
+    const makeCopy = () => {
+        const item = document.createElement('span');
+        item.textContent = text;
+        const separator = document.createElement('span');
+        separator.className = 'banner-sep';
+        return [item, separator];
+    };
+
+    track.style.animation = 'none';
+    track.replaceChildren(...makeCopy());
+    const copyWidth = track.getBoundingClientRect().width;
+    if (!copyWidth) return; // track hidden (reduced motion or print): static text shows instead
+
+    const copiesPerHalf = Math.max(1, Math.ceil(bar.clientWidth / copyWidth));
+    for (let index = 1; index < copiesPerHalf * 2; index += 1) {
+        track.append(...makeCopy());
+    }
+    void track.offsetWidth; // restart the animation from the start
+    track.style.animation = '';
+    track.style.animationDuration = `${(copiesPerHalf * copyWidth) / bannerSpeedPxPerSecond}s`;
+};
+
+const refreshScrollingBanners = () => {
+    document.querySelectorAll('.drill-status-bar').forEach((bar) => fillScrollingBanner(bar, true));
+};
+
+const setDrillStatusText = (text) => {
+    drillStatusText.textContent = text;
+    if (drillStatus) fillScrollingBanner(drillStatus);
+};
+
+refreshScrollingBanners();
+document.fonts?.ready.then(refreshScrollingBanners);
+let bannerResizeTimer;
+window.addEventListener('resize', () => {
+    clearTimeout(bannerResizeTimer);
+    bannerResizeTimer = setTimeout(refreshScrollingBanners, 150);
+});
+// AI-generated (Claude): All / Odd / Even / Clear buttons above a target checkbox list
+// (Create/Edit Drill forms, and the target picker for drills with no targets). Sets the
+// selection to exactly that group.
+document.addEventListener('click', (event) => {
+    const button = event.target.closest('.target-quick-select [data-select]');
+    if (!button) return;
+    const list = document.getElementById(button.closest('.target-quick-select').dataset.targetList);
+    if (!list) return;
+    const choice = button.dataset.select;
+    list.querySelectorAll('input[type="checkbox"]').forEach((box) => {
+        const targetNumber = Number(box.value);
+        box.checked = choice === 'all'
+            || (choice === 'odd' && targetNumber % 2 === 1)
+            || (choice === 'even' && targetNumber % 2 === 0);
+    });
+    list.classList.remove('is-invalid');
+});
+
 const targetFilters = document.querySelectorAll('.target-filter');
 const targetGrid = document.getElementById('targetGrid');
 const targetStatusStorageKey = 'cpd-target-status';
 const drillLibraryStorageKey = 'cpd-drill-library';
 const activeDemoDrillStorageKey = 'cpd-active-demo-drill';
 const pausedDemoDrillStorageKey = 'cpd-paused-demo-drill';
+// AI-generated (Claude): name of the running drill, so the status bar on the Drills and
+// Performance pages can show it without loading the drill library.
+const activeDemoDrillNameStorageKey = 'cpd-active-demo-drill-name';
+// AI-generated (Claude): manual mode unlocks tapping targets to raise/hide them. Saved so the
+// status bar on other pages shows it too.
+const manualModeStorageKey = 'cpd-manual-mode';
+let manualMode = localStorage.getItem(manualModeStorageKey) === 'true';
+
+// AI-generated (Claude): status bar colors: blue = idle, red = drill running, amber = manual.
+const setStatusBarStyle = (state) => {
+    drillStatus.classList.toggle('bg-primary', state === 'idle');
+    drillStatus.classList.toggle('bg-danger', state === 'active');
+    drillStatus.classList.toggle('bg-warning', state === 'manual');
+    drillStatus.classList.toggle('text-white', state !== 'manual');
+    drillStatus.classList.toggle('text-dark', state === 'manual');
+};
 let targetAssignmentDrills = {};
 let activeDemoDrillId = localStorage.getItem(activeDemoDrillStorageKey) || '';
 let activeDemoDrillPaused = localStorage.getItem(pausedDemoDrillStorageKey) === 'true';
@@ -117,13 +213,42 @@ const updateDrillStatus = () => {
     if (!drillStatus || !targetGrid) return;
 
     const hasRedTarget = targetGrid.querySelector('.target-card.is-red');
-    drillStatus.classList.toggle('bg-danger', hasRedTarget !== null);
-    drillStatus.classList.toggle('bg-primary', hasRedTarget === null);
     const startDrillButton = document.getElementById('startDrillButton');
     const startDrillLabel = document.getElementById('startDrillLabel');
     const pauseDrillButton = document.getElementById('pauseDrillButton');
     const stopDrillButton = document.getElementById('stopDrillButton');
     const drillSelect = document.getElementById('drillSelect');
+
+    // AI-generated (Claude): manual mode button, and target taps unlocked only in manual mode.
+    const manualModeButton = document.getElementById('manualModeButton');
+    if (manualModeButton) {
+        manualModeButton.classList.toggle('btn-warning', manualMode);
+        manualModeButton.classList.toggle('btn-outline-dark', !manualMode);
+        manualModeButton.setAttribute('aria-pressed', String(manualMode));
+        document.getElementById('manualModeLabel').textContent = manualMode ? 'Exit manual mode' : 'Turn on manual mode';
+    }
+    const manualModeHintText = document.getElementById('manualModeHintText');
+    if (manualModeHintText) {
+        manualModeHintText.textContent = manualMode
+            ? 'Unlocked: tap a target or use the toggle buttons.'
+            : 'Locked: turn on manual mode to toggle targets.';
+        document.getElementById('manualModeHintIcon').className = manualMode ? 'bi bi-unlock-fill' : 'bi bi-lock-fill';
+    }
+    document.body.classList.toggle('is-manual-mode', manualMode);
+    document.querySelectorAll('.target-toggle').forEach((button) => { button.disabled = !manualMode; });
+
+    // AI-generated (Claude): in manual mode no drill runs, so every drill control is locked.
+    if (manualMode) {
+        setStatusBarStyle('manual');
+        setDrillStatusText('Manual mode');
+        localStorage.removeItem(activeDemoDrillNameStorageKey);
+        if (startDrillLabel) startDrillLabel.textContent = 'Start drill';
+        [startDrillButton, pauseDrillButton, stopDrillButton, drillSelect].forEach((control) => {
+            if (control) control.disabled = true;
+        });
+        return;
+    }
+    setStatusBarStyle(hasRedTarget ? 'active' : 'idle');
 
     // AI-generated (Claude): Stop is available whenever a drill is running or paused.
     if (stopDrillButton) {
@@ -133,9 +258,12 @@ const updateDrillStatus = () => {
     if (hasRedTarget) {
         const drill = targetAssignmentDrills[activeDemoDrillId];
         const drillName = drill ? drill.name || drill.drillName : 'Drill';
-        drillStatus.textContent = activeDemoDrillPaused
+        if (drill) {
+            localStorage.setItem(activeDemoDrillNameStorageKey, drillName);
+        }
+        setDrillStatusText(activeDemoDrillPaused
             ? `${drillName} Paused`
-            : `${drillName} in Progress`;
+            : `${drillName} in Progress`);
         if (startDrillLabel) {
             startDrillLabel.textContent = activeDemoDrillPaused ? 'Resume drill' : 'Start drill';
         }
@@ -153,7 +281,8 @@ const updateDrillStatus = () => {
         activeDemoDrillPaused = false;
         localStorage.removeItem(activeDemoDrillStorageKey);
         localStorage.removeItem(pausedDemoDrillStorageKey);
-        drillStatus.textContent = 'There are no active drills';
+        localStorage.removeItem(activeDemoDrillNameStorageKey);
+        setDrillStatusText('No drill in progress');
         if (startDrillLabel) {
             startDrillLabel.textContent = 'Start drill';
         }
@@ -168,6 +297,29 @@ const updateDrillStatus = () => {
         }
     }
 };
+
+// AI-generated (Claude): status bar on pages without the target grid (Drills, Performance).
+// Reads the drill state the Targets page saves, using the same rule as updateDrillStatus:
+// any target still red means a drill is in progress. Also refreshes if another tab changes it.
+const showSavedDrillStatus = () => {
+    if (!drillStatus || targetGrid) return;
+
+    const hasRedTarget = Object.values(getSavedTargetStatus()).some((state) => state?.red && !state?.defective);
+    const drillName = localStorage.getItem(activeDemoDrillNameStorageKey) || 'Drill';
+    const isPaused = localStorage.getItem(pausedDemoDrillStorageKey) === 'true';
+    if (localStorage.getItem(manualModeStorageKey) === 'true') {
+        setStatusBarStyle('manual');
+        setDrillStatusText('Manual mode');
+        return;
+    }
+    setStatusBarStyle(hasRedTarget ? 'active' : 'idle');
+    setDrillStatusText(hasRedTarget
+        ? `${drillName} ${isPaused ? 'Paused' : 'in Progress'}`
+        : 'No drill in progress');
+};
+
+showSavedDrillStatus();
+window.addEventListener('storage', showSavedDrillStatus);
 
 const renderTargets = (targetIds) => {
     if (!targetGrid) return;
@@ -237,7 +389,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             localStorage.removeItem(activeDemoDrillStorageKey);
             localStorage.removeItem(pausedDemoDrillStorageKey);
         }
-        startDrillButton.disabled = !drillSelect.value || Boolean(activeDemoDrillId && !activeDemoDrillPaused);
+        startDrillButton.disabled = manualMode || !drillSelect.value || Boolean(activeDemoDrillId && !activeDemoDrillPaused);
         if (activeDemoDrillPaused) {
             startDrillLabel.textContent = 'Resume drill';
         }
@@ -245,7 +397,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         pauseDrillButton.disabled = !activeDemoDrillId || activeDemoDrillPaused;
 
         drillSelect.addEventListener('change', () => {
-            startDrillButton.disabled = !drillSelect.value || Boolean(activeDemoDrillId && !activeDemoDrillPaused);
+            startDrillButton.disabled = manualMode || !drillSelect.value || Boolean(activeDemoDrillId && !activeDemoDrillPaused);
             drillLaunchMessage.hidden = true;
             drillLaunchMessage.textContent = '';
         });
@@ -253,7 +405,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         startDrillButton.addEventListener('click', () => {
             const drillId = drillSelect.value;
             const drill = targetAssignmentDrills[drillId];
-            if (!drill) return;
+            if (!drill || manualMode) return;
 
             if (activeDemoDrillPaused && activeDemoDrillId === drillId) {
                 activeDemoDrillPaused = false;
@@ -341,7 +493,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
                 drillLaunchMessage.textContent = error.message || 'Could not update the demo target state.';
                 drillLaunchMessage.hidden = false;
             } finally {
-                startDrillButton.disabled = !drillSelect.value || Boolean(activeDemoDrillId && !activeDemoDrillPaused);
+                startDrillButton.disabled = manualMode || !drillSelect.value || Boolean(activeDemoDrillId && !activeDemoDrillPaused);
             }
         };
 
@@ -384,12 +536,6 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             bootstrapModal.getOrCreateInstance(pickerModalElement).show();
         };
 
-        document.getElementById('drillTargetPickerSelectAll')?.addEventListener('click', () => {
-            const boxes = Array.from(pickerList.querySelectorAll('input[type="checkbox"]'));
-            const selectAll = boxes.some((box) => !box.checked);
-            boxes.forEach((box) => { box.checked = selectAll; });
-        });
-
         document.getElementById('drillTargetPickerStart')?.addEventListener('click', () => {
             const selectedTargets = Array.from(
                 pickerList.querySelectorAll('input[type="checkbox"]:checked'),
@@ -401,7 +547,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
                 return;
             }
             bootstrapModal.getInstance(pickerModalElement)?.hide();
-            if (pickerDrillId && !activeDemoDrillId) {
+            if (pickerDrillId && !activeDemoDrillId && !manualMode) {
                 runDrillOnTargets(pickerDrillId, selectedTargets);
             }
         });
@@ -413,21 +559,9 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             updateDrillStatus();
         });
 
-        // AI-generated (Claude): ends the running or paused drill and returns its targets to green.
-        // On the real controller, /api/stop freezes the targets where they are and a separate
-        // Reset hides them; demo mode does both in one step.
-        document.getElementById('stopDrillButton')?.addEventListener('click', () => {
-            if (!activeDemoDrillId) return;
-
-            /* ESP32 API call disabled for frontend-only demo mode:
-            await fetch('/api/stop', { method: 'POST' });
-            await fetch('/api/reset', { method: 'POST' });
-            */
-
-            const drill = targetAssignmentDrills[activeDemoDrillId];
-            const drillName = drill ? drill.name || drill.drillName : 'Drill';
+        // AI-generated (Claude): turns every raised (red) target back to green.
+        const hideAllTargets = () => {
             const status = getSavedTargetStatus();
-
             targetGrid.querySelectorAll('.target-card.is-red').forEach((targetCard) => {
                 const targetColumn = targetCard.closest('[data-target-number]');
                 const targetNumber = targetColumn.dataset.targetNumber;
@@ -437,15 +571,76 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
                 targetColumn.querySelector('.target-defect-toggle').disabled = false;
                 status[targetNumber] = { ...(status[targetNumber] || {}), red: false };
             });
-
             saveTargetStatus(status);
+        };
+
+        // AI-generated (Claude): ends the running or paused drill and returns its targets to green.
+        // On the real controller, /api/stop freezes the targets where they are and a separate
+        // Reset hides them; demo mode does both in one step. Returns the drill's name, or ''
+        // if no drill was running.
+        const stopActiveDrill = () => {
+            if (!activeDemoDrillId) return '';
+
+            /* ESP32 API call disabled for frontend-only demo mode:
+            await fetch('/api/stop', { method: 'POST' });
+            await fetch('/api/reset', { method: 'POST' });
+            */
+
+            const drill = targetAssignmentDrills[activeDemoDrillId];
+            const drillName = drill ? drill.name || drill.drillName : 'Drill';
+            hideAllTargets();
             activeDemoDrillId = '';
             activeDemoDrillPaused = false;
             localStorage.removeItem(activeDemoDrillStorageKey);
             localStorage.removeItem(pausedDemoDrillStorageKey);
+            return drillName;
+        };
+
+        document.getElementById('stopDrillButton')?.addEventListener('click', () => {
+            const drillName = stopActiveDrill();
+            if (!drillName) return;
             drillLaunchMessage.textContent = `${drillName} stopped.`;
             drillLaunchMessage.hidden = false;
             updateDrillStatus();
+        });
+
+        // AI-generated (Claude): manual mode. Entering it while a drill is running asks first,
+        // then ends the drill; leaving it hides every target that was raised by hand.
+        const manualModeModalElement = document.getElementById('manualModeConfirmModal');
+
+        const enterManualMode = () => {
+            manualMode = true;
+            localStorage.setItem(manualModeStorageKey, 'true');
+            drillLaunchMessage.hidden = true;
+            updateDrillStatus();
+        };
+
+        document.getElementById('manualModeButton')?.addEventListener('click', () => {
+            if (manualMode) {
+                hideAllTargets();
+                manualMode = false;
+                localStorage.removeItem(manualModeStorageKey);
+                drillLaunchMessage.hidden = true;
+                updateDrillStatus();
+                return;
+            }
+            if (activeDemoDrillId && manualModeModalElement && bootstrapModal) {
+                const drill = targetAssignmentDrills[activeDemoDrillId];
+                document.getElementById('manualModeDrillName').textContent = drill ? drill.name || drill.drillName : 'the current drill';
+                bootstrapModal.getOrCreateInstance(manualModeModalElement).show();
+                return;
+            }
+            enterManualMode();
+        });
+
+        document.getElementById('confirmManualModeButton')?.addEventListener('click', () => {
+            const drillName = stopActiveDrill();
+            bootstrapModal.getInstance(manualModeModalElement)?.hide();
+            enterManualMode();
+            if (drillName) {
+                drillLaunchMessage.textContent = `${drillName} ended. Tap a target to raise or hide it.`;
+                drillLaunchMessage.hidden = false;
+            }
         });
     }
 
@@ -546,28 +741,21 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
                     : `Assign drills to target ${targetNumber}`;
     });
 
+    // AI-modified (Claude): defective/unavailable targets are hidden only by the "Hide
+    // defective" switch, so it works the same with All, Odd and Even.
+    const hideDefectiveSwitch = document.getElementById('hideDefectiveTargets');
     const applyTargetFilter = (filter) => {
         activeFilter = filter;
         let visibleNumbers;
         const defectiveNumbers = new Set([...getDefectiveTargetNumbers(), ...unavailableTargets]);
+        const hideDefective = Boolean(hideDefectiveSwitch?.checked);
 
-        if (filter === 'odd') {
-            visibleNumbers = targetColumns
-                .map((column) => Number(column.dataset.targetNumber))
-                .filter((number) => number % 2 !== 0 && !defectiveNumbers.has(number));
-        } else if (filter === 'even') {
-            visibleNumbers = targetColumns
-                .map((column) => Number(column.dataset.targetNumber))
-                .filter((number) => number % 2 === 0 && !defectiveNumbers.has(number));
-        } else if (filter === 'random') {
-            visibleNumbers = targetColumns
-                .map((column) => Number(column.dataset.targetNumber))
-                .filter((number) => !defectiveNumbers.has(number))
-                .sort(() => Math.random() - 0.5)
-                .slice(0, 3);
-        } else {
-            visibleNumbers = targetColumns.map((column) => Number(column.dataset.targetNumber));
-        }
+        visibleNumbers = targetColumns
+            .map((column) => Number(column.dataset.targetNumber))
+            .filter((number) => (
+                (filter === 'all' || (filter === 'odd') === (number % 2 !== 0))
+                && !(hideDefective && defectiveNumbers.has(number))
+            ));
 
         targetColumns.forEach((column) => {
             const isVisible = visibleNumbers.includes(Number(column.dataset.targetNumber));
@@ -584,6 +772,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
     targetFilters.forEach((button) => {
         button.addEventListener('click', () => applyTargetFilter(button.dataset.filter));
     });
+    hideDefectiveSwitch?.addEventListener('change', () => applyTargetFilter(activeFilter));
 
     targetGrid.addEventListener('click', (event) => {
         const targetColumn = event.target.closest('[data-target-number]');
@@ -634,8 +823,21 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
 
         if (!event.target.closest('.target-card')) return;
         if (targetCard.classList.contains('is-defective') || unavailableTargets.has(Number(targetColumn.dataset.targetNumber))) return;
+        // AI-generated (Claude): tapping a target only flips it in manual mode.
+        if (!manualMode) {
+            drillLaunchMessage.textContent = 'Targets are locked. Turn on Manual mode to raise or hide a target by tapping it.';
+            drillLaunchMessage.hidden = false;
+            return;
+        }
 
-        const isRed = !targetCard.classList.contains('is-red');
+        setTargetRaised(targetColumn, !targetCard.classList.contains('is-red'));
+        updateDrillStatus();
+    });
+
+    // AI-modified (Claude): raise (red) or hide (green) one target; was inline in the click
+    // handler, now shared with the Toggle targets buttons.
+    const setTargetRaised = (targetColumn, isRed) => {
+        const targetCard = targetColumn.querySelector('.target-card');
         const targetNumber = targetColumn.dataset.targetNumber;
         targetCard.classList.toggle('is-red', isRed);
         targetCard.setAttribute('aria-pressed', String(isRed));
@@ -644,7 +846,38 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             : `Mark target ${targetNumber} red`);
         targetColumn.querySelector('.target-defect-toggle').disabled = isRed;
         saveTargetCardStatus(targetCard);
-        updateDrillStatus();
+    };
+
+    // AI-generated (Claude): Toggle targets (manual mode only). All / Odd / Even raise every
+    // usable target in the group, or hide them if they are all already raised. Random hides
+    // everything, then raises randomTargetCount usable targets at random.
+    const randomTargetCount = 3;
+    document.querySelectorAll('.target-toggle').forEach((button) => {
+        button.addEventListener('click', () => {
+            if (!manualMode) return;
+            const set = button.dataset.toggleSet;
+            const usableColumns = targetColumns.filter((column) => (
+                !column.querySelector('.target-card').classList.contains('is-defective')
+                && !unavailableTargets.has(Number(column.dataset.targetNumber))
+            ));
+
+            if (set === 'random') {
+                usableColumns.forEach((column) => setTargetRaised(column, false));
+                [...usableColumns]
+                    .sort(() => Math.random() - 0.5)
+                    .slice(0, randomTargetCount)
+                    .forEach((column) => setTargetRaised(column, true));
+            } else {
+                const groupColumns = usableColumns.filter((column) => {
+                    const targetNumber = Number(column.dataset.targetNumber);
+                    return set === 'all' || (set === 'odd') === (targetNumber % 2 === 1);
+                });
+                const allRaised = groupColumns.every((column) => column.querySelector('.target-card').classList.contains('is-red'));
+                groupColumns.forEach((column) => setTargetRaised(column, !allRaised));
+            }
+            drillLaunchMessage.hidden = true;
+            updateDrillStatus();
+        });
     });
 
     const updateDrillTargetsForTarget = (targetNumber, previousDrillIds, nextDrillIds) => {

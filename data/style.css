@@ -30,6 +30,79 @@
     flex: 1 0 auto;
 }
 
+/* AI-generated (Claude): edge-to-edge scrolling banner used at the top of every page.
+   .drill-status-text holds the real text (read by screen readers, shown when the banner
+   can't scroll); script.js fills .banner-track with enough copies of it that the bar is
+   never empty, then slides the track left by half its width and loops seamlessly. */
+.drill-status-bar {
+    position: relative;
+    overflow: hidden;
+    white-space: nowrap;
+    padding: 0.7rem 0;
+    border-bottom: 4px solid var(--bs-secondary);
+    font-family: 'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', sans-serif;
+    font-size: clamp(1.7rem, 4.5vw, 2.75rem);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.drill-status-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    border: 0;
+}
+
+.banner-track {
+    display: inline-flex;
+    align-items: center;
+    animation: drill-status-scroll 20s linear infinite;
+    will-change: transform;
+}
+
+/* Small diamond between repeats; drawn with CSS so it doesn't depend on a font glyph. */
+.banner-sep {
+    display: inline-block;
+    width: 0.32em;
+    height: 0.32em;
+    margin: 0 2.75em;
+    background: currentColor;
+    opacity: 0.6;
+    transform: rotate(45deg);
+}
+
+@keyframes drill-status-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+
+/* Hold the text still and centered for users who turn off animations, and when printing
+   (Performance "Export PDF") so the title isn't captured mid-scroll. */
+@media (prefers-reduced-motion: reduce), print {
+    .drill-status-bar {
+        text-align: center;
+    }
+
+    .banner-track {
+        display: none;
+    }
+
+    .drill-status-text {
+        position: static;
+        width: auto;
+        height: auto;
+        margin: 0;
+        overflow: visible;
+        clip: auto;
+    }
+}
+
 .page-readout {
     max-width: 19rem;
     margin: auto auto 1.5rem;
@@ -187,16 +260,106 @@
     cursor: pointer;
 }
 
-.target-toolbar {
-    flex-shrink: 1;
+/* AI-generated (Claude): Targets page control bar. One bordered box whose sections size to
+   their contents and sit centered; the 1px grid gap over a grey background draws the dividers
+   in every layout. Phones: stacked. Tablets/laptops: drill section on top, manual + view
+   below. Wide screens: one row. */
+.control-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    background: #dee2e6;
+}
+
+.control-section {
+    padding: 0.7rem 1rem;
+    background: #ffffff;
+}
+
+@media (min-width: 768px) {
+    .control-bar {
+        grid-template-columns: auto auto;
+        justify-content: center;
+        width: fit-content;
+        max-width: calc(100% - 2rem);
+        margin-inline: auto !important;
+    }
+
+    .control-section:first-child {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (min-width: 1400px) {
+    .control-bar {
+        grid-template-columns: auto auto auto;
+    }
+
+    .control-section:first-child {
+        grid-column: auto;
+    }
+}
+
+.control-section-title {
+    margin-bottom: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.control-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Lock / unlock note under the Toggle targets buttons. */
+.control-hint {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0.45rem 0 0;
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+.is-manual-mode .control-hint {
+    color: #8a5a00;
+    font-weight: 600;
+}
+
+.toolbar-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #495057;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* AI-generated (Claude): All / Odd / Even / Clear row above a target checkbox list. */
+.target-quick-select {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-bottom: 0.5rem;
+}
+
+/* AI-generated (Claude): targets only respond to taps in manual mode. */
+.target-page:not(.is-manual-mode) .target-card {
+    cursor: default;
 }
 
 /* AI-modified (Claude): wraps so the select drops to its own line on narrow phones now that
-   there are three buttons. */
+   there are three buttons; fills its control panel. */
 .drill-launch-bar {
     display: flex;
     flex-wrap: wrap;
-    max-width: 40rem;
     align-items: center;
     gap: 0.5rem;
 }
@@ -327,18 +490,6 @@
 .target-drill-assign:focus-visible {
     outline: 3px solid #0d6efd;
     outline-offset: 0.4rem;
-}
-
-@media (max-width: 575.98px) {
-    .target-controls {
-        flex-wrap: wrap;
-    }
-
-    .target-toolbar {
-        display: flex;
-        flex: 1 0 100%;
-        justify-content: flex-end;
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {

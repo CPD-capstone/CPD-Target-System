@@ -18,52 +18,95 @@
     -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <!-- AI-generated (Claude): Barlow Condensed for the scrolling page banner. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="target-page">
     <!--Header area with text (moved above sidebar) -->
-    <div id="drillStatus" class="p-3 text-white bg-primary text-center border-start border-5 border-secondary rounded-3 m-3" style="--bs-primary-rgb: 0, 87, 184;">
-        There are no active drills
+    <!-- AI-modified (Claude): full-width scrolling status bar; script.js updates #drillStatusText. -->
+    <div id="drillStatus" class="drill-status-bar text-white bg-primary" style="--bs-primary-rgb: 0, 87, 184;" role="status" aria-live="polite">
+        <span class="drill-status-text" id="drillStatusText">No drill in progress</span>
     </div>
 
-    <div class="target-controls d-flex align-items-center justify-content-between gap-3 m-3">
-        <!-- Menu Button -->
+    <!-- Menu Button -->
+    <div class="m-3">
         <button class="btn btn-outline-primary d-flex flex-column gap-1 p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#menuPanel" aria-controls="menuPanel" aria-label="Open menu">
             <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
             <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
             <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
         </button>
+    </div>
 
-        <div class="target-toolbar">
-            <div class="btn-group" role="group" aria-label="Filter targets">
-                <button class="btn btn-outline-primary target-filter is-active" type="button" data-filter="all" aria-pressed="true">All</button>
-                <button class="btn btn-outline-primary target-filter" type="button" data-filter="odd" aria-pressed="false">Odd</button>
-                <button class="btn btn-outline-primary target-filter" type="button" data-filter="even" aria-pressed="false">Even</button>
-                <button class="btn btn-outline-primary target-filter" type="button" data-filter="random" aria-pressed="false">Random</button>
+    <!-- AI-modified (Claude): one compact control bar, split by purpose: running a drill, moving
+         targets by hand (Toggle targets only works in manual mode), and what the grid shows
+         (Filter never moves a target). -->
+    <div class="control-bar mx-3 mb-3">
+        <section class="control-section" aria-labelledby="drillPanelTitle">
+            <h2 class="control-section-title" id="drillPanelTitle">Run a drill</h2>
+            <!-- AI-assisted drill start controls. -->
+            <div class="drill-launch-bar" role="group" aria-label="Start a drill">
+                <label class="visually-hidden" for="drillSelect">Select a drill</label>
+                <select class="form-select" id="drillSelect" aria-label="Select a drill">
+                    <option value="">Select a drill</option>
+                </select>
+                <button class="btn btn-primary" id="startDrillButton" type="button" disabled>
+                    <i class="bi bi-play-fill" aria-hidden="true"></i>
+                    <span id="startDrillLabel">Start drill</span>
+                </button>
+                <button class="btn btn-outline-secondary" id="pauseDrillButton" type="button" aria-label="Pause drill" title="Pause drill" disabled>
+                    <i class="bi bi-pause-fill" aria-hidden="true"></i>
+                    Pause
+                </button>
+                <!-- AI-generated (Claude): stop button for the active drill. -->
+                <button class="btn btn-danger" id="stopDrillButton" type="button" aria-label="Stop drill" title="Stop drill" disabled>
+                    <i class="bi bi-stop-fill" aria-hidden="true"></i>
+                    Stop
+                </button>
             </div>
-        </div>
+        </section>
+
+        <section class="control-section" aria-labelledby="manualPanelTitle">
+            <h2 class="control-section-title" id="manualPanelTitle">Manual control</h2>
+            <div class="control-row">
+                <button class="btn btn-outline-dark" id="manualModeButton" type="button" aria-pressed="false" aria-describedby="manualModeHint">
+                    <i class="bi bi-hand-index-thumb" aria-hidden="true"></i>
+                    <span id="manualModeLabel">Turn on manual mode</span>
+                </button>
+                <div class="btn-group" role="group" aria-label="Toggle targets" aria-describedby="manualModeHint">
+                    <button class="btn btn-outline-dark target-toggle" type="button" data-toggle-set="all" disabled>All</button>
+                    <button class="btn btn-outline-dark target-toggle" type="button" data-toggle-set="odd" disabled>Odd</button>
+                    <button class="btn btn-outline-dark target-toggle" type="button" data-toggle-set="even" disabled>Even</button>
+                    <button class="btn btn-outline-dark target-toggle" type="button" data-toggle-set="random" disabled>Random</button>
+                </div>
+            </div>
+            <!-- AI-generated (Claude): says whether target toggling is locked; script.js updates it. -->
+            <p class="control-hint" id="manualModeHint">
+                <i class="bi bi-lock-fill" id="manualModeHintIcon" aria-hidden="true"></i>
+                <span id="manualModeHintText">Locked: turn on manual mode to toggle targets.</span>
+            </p>
+        </section>
+
+        <section class="control-section" aria-labelledby="viewPanelTitle">
+            <h2 class="control-section-title" id="viewPanelTitle">View</h2>
+            <div class="control-row">
+                <span class="toolbar-label" id="filterTargetsLabel">Filter</span>
+                <div class="btn-group" role="group" aria-labelledby="filterTargetsLabel">
+                    <button class="btn btn-outline-primary target-filter is-active" type="button" data-filter="all" aria-pressed="true">All</button>
+                    <button class="btn btn-outline-primary target-filter" type="button" data-filter="odd" aria-pressed="false">Odd</button>
+                    <button class="btn btn-outline-primary target-filter" type="button" data-filter="even" aria-pressed="false">Even</button>
+                </div>
+                <!-- AI-generated (Claude): hides defective and unavailable targets from the grid. -->
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="hideDefectiveTargets">
+                    <label class="form-check-label" for="hideDefectiveTargets">Hide defective</label>
+                </div>
+            </div>
+        </section>
     </div>
 
-    <!-- AI-assisted drill start controls. -->
-    <div class="drill-launch-bar mx-3 mb-3" role="group" aria-label="Start a drill">
-        <label class="visually-hidden" for="drillSelect">Select a drill</label>
-        <select class="form-select" id="drillSelect" aria-label="Select a drill">
-            <option value="">Select a drill</option>
-        </select>
-        <button class="btn btn-primary" id="startDrillButton" type="button" disabled>
-            <i class="bi bi-play-fill" aria-hidden="true"></i>
-            <span id="startDrillLabel">Start drill</span>
-        </button>
-        <button class="btn btn-outline-secondary" id="pauseDrillButton" type="button" aria-label="Pause drill" title="Pause drill" disabled>
-            <i class="bi bi-pause-fill" aria-hidden="true"></i>
-            Pause
-        </button>
-        <!-- AI-generated (Claude): stop button for the active drill. -->
-        <button class="btn btn-danger" id="stopDrillButton" type="button" aria-label="Stop drill" title="Stop drill" disabled>
-            <i class="bi bi-stop-fill" aria-hidden="true"></i>
-            Stop
-        </button>
-    </div>
     <div class="alert alert-warning mx-3 mb-3" id="drillLaunchMessage" role="status" aria-live="polite" hidden></div>
 
     <div class="offcanvas offcanvas-start" tabindex="-1" id="menuPanel" aria-labelledby="menuPanelLabel">
@@ -118,15 +161,43 @@
                         <strong id="drillTargetPickerDrillName"></strong> has no targets assigned. Choose targets for this run.
                     </p>
                     <div class="alert alert-warning py-2" id="drillTargetPickerError" role="alert" hidden></div>
+                    <!-- AI-generated (Claude): select all / odd / even targets in one click. -->
+                    <div class="target-quick-select" data-target-list="drillTargetPickerList" role="group" aria-label="Quick select targets">
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-select="all">All</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-select="odd">Odd</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-select="even">Even</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-select="none">Clear</button>
+                    </div>
                     <div class="target-options" id="drillTargetPickerList" role="group" aria-label="Targets to run"></div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-primary me-auto" id="drillTargetPickerSelectAll">Select all</button>
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-primary" id="drillTargetPickerStart">
                         <i class="bi bi-play-fill" aria-hidden="true"></i>
                         Start drill
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI-generated (Claude): confirms ending the running drill before entering manual mode. -->
+    <div class="modal fade" id="manualModeConfirmModal" tabindex="-1" aria-labelledby="manualModeConfirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content delete-confirmation">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title" id="manualModeConfirmModalLabel">
+                        <i class="bi bi-exclamation-triangle-fill text-danger me-2" aria-hidden="true"></i>
+                        End drill?
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0"><strong id="manualModeDrillName"></strong> is in progress. Entering manual mode will end it and hide its targets.</p>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Keep drill</button>
+                    <button type="button" class="btn btn-danger" id="confirmManualModeButton">End drill</button>
                 </div>
             </div>
         </div>

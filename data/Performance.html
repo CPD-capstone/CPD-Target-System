@@ -7,14 +7,20 @@
     <title>Performance | CPD Target System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <!-- AI-generated (Claude): Barlow Condensed for the scrolling page banner. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="Perfromance.css">
 </head>
 <body class="performance-page">
     <!-- Match the title banner and menu placement used by the Drills page. -->
-    <header class="p-3 text-white bg-primary text-center border-start border-5 border-secondary rounded-3 m-3" style="--bs-primary-rgb: 0, 87, 184;">
-        Performance
-    </header>
+    <!-- AI-modified (Claude): drill status bar shared with the Targets page, so an active drill
+         stays visible on every page. script.js fills it from the saved drill state. -->
+    <div id="drillStatus" class="drill-status-bar text-white bg-primary" style="--bs-primary-rgb: 0, 87, 184;" role="status" aria-live="polite">
+        <span class="drill-status-text" id="drillStatusText">No drill in progress</span>
+    </div>
 
     <div class="m-3">
         <button class="btn btn-outline-primary d-flex flex-column gap-1 p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#menuPanel" aria-controls="menuPanel" aria-label="Open menu">
@@ -40,6 +46,12 @@
     </div>
 
     <main class="container-fluid px-3 px-md-4 py-3 performance-main">
+        <!-- AI-generated (Claude): page title, matching the Drills page heading. -->
+        <div class="mb-4">
+            <h1 class="h3 mb-1">Leaderboard</h1>
+            <p class="text-secondary mb-0">Qualification scores for every officer.</p>
+        </div>
+
         <!-- Page controls set the scope used by the summary and results table. -->
         <section class="performance-toolbar" aria-label="Performance controls">
             <label class="performance-search" for="performanceSearch">
