@@ -24,23 +24,36 @@ extern QueueHandle_t targetQueue;
 // a change requested too soon is held (not dropped) until that target's cooldown expires.
 // The buffer itself is REQUIRED (the pins will shear without it); the 500 ms value is an
 // arbitrary safe margin, not a measured limit. Tune on the real targets, but never remove it.
-constexpr uint32_t MECHANICAL_BUFFER = 500;
+const expr uint32_t MECHANICAL_BUFFER = 500;
 
 // time in ms for a target to rotate from edge-on to fully flat facing the shooter after its
 // solenoid fires. Drill delays start counting only after this has elapsed.
 // TODO: measure on the real targets and set this; 0 means delays start the moment the solenoid fires.
-constexpr uint32_t TARGET_FACE_TRAVEL_MS = 0;
+const expr uint32_t TARGET_FACE_TRAVEL_MS = 0;
 
 // total number of targets on the range (MCP1 drives 1-16, MCP2 drives 17-20)
-constexpr uint8_t NUM_TARGETS = 20;
+const expr uint8_t NUM_TARGETS = 20;
 
-// TEMP: WILL PROBABLY CHANGE
-struct TargetCommand { 
-    uint8_t targetId; // Target index (0 to 23)
-    bool newState;    // true = UP/FLIP, false = DOWN/UNFLIP
+// bitmask with one bit per target: bit 0 = target 1 ... bit 19 = target 20
+// (1 << 20) - 1 = 0xFFFFF = the lowest 20 bits all set = every target.
+// Building a mask for specific targets, e.g. targets 1, 2 and 5:
+//     uint32_t mask = targetBit(1) | targetBit(2) | targetBit(5);   // = 0b10011 = 0x13
+const expr uint32_t ALL_TARGETS_MASK = (1UL << NUM_TARGETS) - 1;
+
+/// @brief converts a 1-based target number (as shown on the range / in database.json) to its mask bit
+const expr uint32_t targetBit(uint8_t targetNumber){
+    return 1UL << (targetNumber - 1);
+}
+
+// AI-modified (Claude): the MCP23S17 objects (mcp1/mcp2) are now private to hal.cpp;
+// nothing outside the HAL may talk to the expanders.
+
+// One request sitting in targetQueue. Created by hal_sendCommand(), consumed by
+// SolenoidControlTask. It is copied into the queue, so the caller's variable can go away.
+struct TargetCommand {
+    uint32_t targetMask; // which targets this command applies to (see targetBit())
+    bool newState;       // true = UP/FACING, false = DOWN/HIDDEN
 };
-
-extern Target targets[24];
 
 // =============================================================================
 // FUNCTION PROTOTYPES
