@@ -24,24 +24,24 @@ extern QueueHandle_t targetQueue;
 // a change requested too soon is held (not dropped) until that target's cooldown expires.
 // The buffer itself is REQUIRED (the pins will shear without it); the 500 ms value is an
 // arbitrary safe margin, not a measured limit. Tune on the real targets, but never remove it.
-const expr uint32_t MECHANICAL_BUFFER = 500;
+constexpr uint32_t MECHANICAL_BUFFER = 500;
 
 // time in ms for a target to rotate from edge-on to fully flat facing the shooter after its
 // solenoid fires. Drill delays start counting only after this has elapsed.
 // TODO: measure on the real targets and set this; 0 means delays start the moment the solenoid fires.
-const expr uint32_t TARGET_FACE_TRAVEL_MS = 0;
+constexpr uint32_t TARGET_FACE_TRAVEL_MS = 0;
 
 // total number of targets on the range (MCP1 drives 1-16, MCP2 drives 17-20)
-const expr uint8_t NUM_TARGETS = 20;
+constexpr uint8_t NUM_TARGETS = 20;
 
 // bitmask with one bit per target: bit 0 = target 1 ... bit 19 = target 20
 // (1 << 20) - 1 = 0xFFFFF = the lowest 20 bits all set = every target.
 // Building a mask for specific targets, e.g. targets 1, 2 and 5:
 //     uint32_t mask = targetBit(1) | targetBit(2) | targetBit(5);   // = 0b10011 = 0x13
-const expr uint32_t ALL_TARGETS_MASK = (1UL << NUM_TARGETS) - 1;
+constexpr uint32_t ALL_TARGETS_MASK = (1UL << NUM_TARGETS) - 1;
 
 /// @brief converts a 1-based target number (as shown on the range / in database.json) to its mask bit
-const expr uint32_t targetBit(uint8_t targetNumber){
+constexpr uint32_t targetBit(uint8_t targetNumber){
     return 1UL << (targetNumber - 1);
 }
 

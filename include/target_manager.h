@@ -67,7 +67,7 @@ enum class TargetCommandResult : uint8_t {
 };
 
 /// longest drill name kept for status display (longer names are truncated)
-const expr size_t DRILL_NAME_MAX = 48;
+constexpr size_t DRILL_NAME_MAX = 48;
 
 /// Snapshot of the drill runner, for status display. While Idle, drillName / stepCount /
 /// targetMask describe the most recent drill (empty/0 if none has run).

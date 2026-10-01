@@ -44,6 +44,23 @@
         </div>
     </div>
 
+    <!-- AI-assisted drill start controls. -->
+    <div class="drill-launch-bar mx-3 mb-3" role="group" aria-label="Start a drill">
+        <label class="visually-hidden" for="drillSelect">Select a drill</label>
+        <select class="form-select" id="drillSelect" aria-label="Select a drill">
+            <option value="">Select a drill</option>
+        </select>
+        <button class="btn btn-primary" id="startDrillButton" type="button" disabled>
+            <i class="bi bi-play-fill" aria-hidden="true"></i>
+            <span id="startDrillLabel">Start drill</span>
+        </button>
+        <button class="btn btn-outline-secondary" id="pauseDrillButton" type="button" aria-label="Pause drill" title="Pause drill" disabled>
+            <i class="bi bi-pause-fill" aria-hidden="true"></i>
+            Pause
+        </button>
+    </div>
+    <div class="alert alert-warning mx-3 mb-3" id="drillLaunchMessage" role="status" aria-live="polite" hidden></div>
+
     <div class="offcanvas offcanvas-start" tabindex="-1" id="menuPanel" aria-labelledby="menuPanelLabel">
         <div class="offcanvas-header">
             <h5 class="offcanvas-title" id="menuPanelLabel">Menu</h5>
@@ -52,13 +69,33 @@
         <div class="offcanvas-body">
             <div class="d-grid gap-2">
                 <a class="btn btn-outline-primary text-start" href="drills.html">Drills</a>
-                <button class="btn btn-outline-primary text-start">Performance</button>
+                <a class="btn btn-outline-primary text-start" href="Performance.html">Performance</a>
             </div>
         </div>
     </div>
 
     <div class="container-fluid mt-3">
         <div class="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-2 row-gap-5" id="targetGrid"></div>
+    </div>
+
+    <!-- AI-assisted drill assignment control for each target. -->
+    <div class="modal fade" id="drillAssignmentModal" tabindex="-1" aria-labelledby="drillAssignmentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="drillAssignmentModalLabel">Assign drills to target</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3" id="drillAssignmentTargetLabel">Target 1</p>
+                    <div id="drillAssignmentList" class="d-grid gap-2"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveDrillAssignments">Save</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Bootstrap JS -->
