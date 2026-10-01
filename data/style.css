@@ -253,7 +253,9 @@
     display: block;
     width: 150px;
     min-width: 150px;
-    padding: 0;
+    /* AI-modified (Claude): top padding clears the number badge (which overhangs the card's
+       top edge) so it no longer sits on the target's head. */
+    padding: 1.25rem 0 0;
     border: 0;
     background: transparent;
     perspective: 700px;
@@ -468,21 +470,43 @@
     color: #ffffff;
 }
 
-.target-card img {
+/* AI-modified (Claude): the card swaps between the green / red / grey USPSA images instead of
+   recoloring one image with CSS filters. The images are square with empty space at the sides,
+   so object-fit: cover fills the 150x180 card without cropping the silhouette. */
+.target-face {
+    position: relative;
     display: block;
+    width: 150px;
+    height: 180px;
     transform: rotateY(0deg);
-    transition: transform 0.55s ease, filter 0.275s ease;
+    transition: transform 0.55s ease;
     transform-style: preserve-3d;
 }
 
-.target-card.is-red img {
-    filter: hue-rotate(225deg) saturate(1.25);
+.target-card.is-red .target-face {
     transform: rotateY(180deg);
 }
 
-.target-card.is-defective img {
-    filter: grayscale(1) brightness(0.65);
-    opacity: 0.65;
+.target-face img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 0.275s ease;
+}
+
+.target-card .face-hidden,
+.target-card.is-red .face-raised,
+.target-card.is-defective .face-defective {
+    opacity: 1;
+}
+
+.target-card.is-red .face-hidden,
+.target-card.is-defective .face-hidden,
+.target-card.is-defective .face-raised {
+    opacity: 0;
 }
 
 .target-card:focus-visible,
@@ -493,7 +517,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .target-card img,
+    .target-face,
+    .target-face img,
     .target-defect-toggle {
         transition: filter 0.1s ease, opacity 0.1s ease, transform 0.1s ease;
     }

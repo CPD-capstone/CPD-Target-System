@@ -328,7 +328,13 @@ const renderTargets = (targetIds) => {
         <div class="col d-flex justify-content-center" data-target-number="${targetNumber}">
             <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target ${targetNumber} red">
                 <span class="target-number" aria-hidden="true">${targetNumber}</span>
-                <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
+                <!-- AI-modified (Claude): one image per state; style.css shows the one that matches
+                     the card (green = hidden, red = raised, grey = defective). -->
+                <span class="target-face" aria-hidden="true">
+                    <img class="face-hidden" src="uspsa_target_green.svg" width="150" height="180" alt="">
+                    <img class="face-raised" src="uspsa_target_red.svg" width="150" height="180" alt="">
+                    <img class="face-defective" src="uspsa_target_grey.svg" width="150" height="180" alt="">
+                </span>
             </button>
             <div class="target-actions">
                 <button class="target-defect-toggle" type="button" aria-label="Mark target ${targetNumber} defective" title="Mark target ${targetNumber} defective">
