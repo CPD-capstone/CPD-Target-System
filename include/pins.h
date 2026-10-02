@@ -4,32 +4,33 @@
 #include <Arduino.h>
 
 // =============================================================================
-// ESP32 (Espressif ESP32-DevKitC-32E / ESP32-WROOM-32E) HARDWARE PIN DEFINITIONS
+// ESP32-S3 (Hosyond ESP32-S3 dev board, DevKitC-1 layout / ESP32-S3-WROOM-1 N16R8) PIN DEFINITIONS
 // =============================================================================
-// AI-assisted (Claude): pins reassigned. The old map (MOSI 13, MISO 12, SCK 14,
-// CS 10/11) was written for an ESP32-S3. On a classic ESP32, GPIO 6-11 are wired
-// to the SPI flash (using them crashes the chip) and GPIO 12 is a boot strapping
-// pin (if held high at reset it sets flash voltage to 1.8V and boot fails).
-// SPI now uses the native VSPI pins; CS uses GPIO 16/17, which are not strapping
-// pins and are idle during boot.
-// NOTE: the range wiring diagram (docs/architecture, v3.6) matches these pins and adds
-// 10k pull-ups on both CS lines. If the two ever disagree, THIS FILE is authoritative.
-// NOTE: GPIO 16/17 are free on the WROOM-32E module. Do not move to a WROVER-based
-// board without changing the CS pins: WROVER modules use GPIO 16/17 for PSRAM.
-// AI-assisted (Claude): header positions below are checked against Espressif's
-// ESP32-DevKitC V4 user guide. Every SPI signal is on header J3 (the side with IO23 at the
-// top); J3-1 and J3-7 are GND and 3V3 is J2-1. Pins to AVOID on this board: J2-16/17/18
-// and J3-17/18/19 (labeled D0-D3/CMD/CLK = GPIO 6-11, the flash chip), and the strapping
-// pins IO0, IO2, IO5, IO12, IO15.
+// AI-assisted (Claude): pins reassigned for the move from the classic ESP32
+// (DevKitC-32E) to the ESP32-S3. The SPI bus now uses the S3's FSPI IO_MUX pins
+// (SCK 12, MOSI 11, MISO 13, CS0 10), which are also the Arduino core's default SPI
+// pins on the S3. CS for board #2 is GPIO 14. All five are on header J1, pins 16-20,
+// in a row (3V3 is J1-1, GND is J1-22). This clone board prints its pin labels on the
+// BOTTOM of the PCB -- check them there before wiring.
+// None of GPIO 10-14 is a strapping pin on the S3, and none is used by flash or PSRAM.
+// Keep the 10k pull-ups on both CS lines so the expanders stay deselected at boot.
+// NOTE: the range wiring diagram (docs/architecture) must match these pins. If the two
+// ever disagree, THIS FILE is authoritative.
+// Pins to AVOID on the ESP32-S3-DevKitC-1:
+//   - GPIO 26-32: SPI flash / PSRAM (not on the headers on most modules)
+//   - GPIO 33-37: octal PSRAM (this board is an N16R8 module, so these are NOT usable)
+//   - GPIO 0, 3, 45, 46: strapping pins
+//   - GPIO 19/20: native USB D-/D+;  GPIO 43/44: UART0 TX/RX (serial monitor)
+//   - GPIO 38 or 48: onboard RGB LED (depends on board revision)
 
 // SPI Bus Pins (Shared between both MCP23S17 I/O Expanders)
-#define PIN_SPI_MOSI    23  // J3-2  "IO23" -> SI  (Pin 13) on both MCP23S17 chips
-#define PIN_SPI_MISO    19  // J3-8  "IO19" -> SO  (Pin 14) on both MCP23S17 chips
-#define PIN_SPI_SCK     18  // J3-9  "IO18" -> SCK (Pin 12) on both MCP23S17 chips
+#define PIN_SPI_MOSI    11  // J1-17 "11" -> SI  (Pin 13) on both MCP23S17 chips
+#define PIN_SPI_MISO    13  // J1-19 "13" -> SO  (Pin 14) on both MCP23S17 chips
+#define PIN_SPI_SCK     12  // J1-18 "12" -> SCK (Pin 12) on both MCP23S17 chips
 
 // Dedicated Chip Select (CS) Pins
-#define PIN_MCP1_CS     16  // J3-12 "IO16" -> CS (Pin 11) on board #1 -> Controls Targets 1-16
-#define PIN_MCP2_CS     17  // J3-11 "IO17" -> CS (Pin 11) on board #2 -> Controls Targets 17-20
+#define PIN_MCP1_CS     10  // J1-16 "10" -> CS (Pin 11) on board #1 -> Controls Targets 1-16
+#define PIN_MCP2_CS     14  // J1-20 "14" -> CS (Pin 11) on board #2 -> Controls Targets 17-20
 
 // Hardware SPI Address Configuration
 // Note: A0, A1, A2 are hardwired to GND on both chips in hardware, and RESET is tied to VDD.
