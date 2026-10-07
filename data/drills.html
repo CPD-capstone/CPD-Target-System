@@ -42,7 +42,7 @@
         <div class="offcanvas-body">
             <div class="d-grid gap-2">
                 <a class="btn btn-outline-primary text-start" href="targets.html">Targets</a>
-                <button class="btn btn-outline-primary text-start">Performance</button>
+                <a class="btn btn-outline-primary text-start" href="Performance.html">Performance</a>
             </div>
         </div>
     </div>
@@ -77,12 +77,16 @@
                             <input type="text" class="form-control" id="drillName" name="drillName" placeholder="Enter drill name" required>
                         </div>
                         <div class="mb-3">
-                            <label for="targetNumber" class="form-label">Target number</label>
-                            <input type="number" class="form-control" id="targetNumber" name="targetNumber" min="1" placeholder="e.g. 3" required>
+                            <!-- AI-assisted multi-target assignment controls. -->
+                            <span class="form-label">Target numbers</span>
+                            <div class="target-options" id="targetNumber" role="group" aria-label="Target numbers" tabindex="-1"></div>
                         </div>
                         <div class="mb-3">
                             <label for="drillDuration" class="form-label">Duration</label>
-                            <input type="text" class="form-control" id="drillDuration" name="drillDuration" placeholder="00:30" required>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="drillDuration" name="drillDuration" min="1" step="1" inputmode="numeric" placeholder="30" required>
+                                <span class="input-group-text">seconds</span>
+                            </div>
                         </div>
                         <div class="mb-3 mb-0">
                             <label for="drillOwner" class="form-label">Owner</label>
@@ -114,12 +118,15 @@
                             <input type="text" class="form-control" id="editDrillName" name="editDrillName" placeholder="Enter drill name" required>
                         </div>
                         <div class="mb-3">
-                            <label for="editTargetNumber" class="form-label">Target number</label>
-                            <input type="number" class="form-control" id="editTargetNumber" name="editTargetNumber" min="1" placeholder="e.g. 3" required>
+                            <span class="form-label">Target numbers</span>
+                            <div class="target-options" id="editTargetNumber" role="group" aria-label="Target numbers" tabindex="-1"></div>
                         </div>
                         <div class="mb-3">
                             <label for="editDrillDuration" class="form-label">Duration</label>
-                            <input type="text" class="form-control" id="editDrillDuration" name="editDrillDuration" placeholder="00:30" required>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="editDrillDuration" name="editDrillDuration" min="1" step="1" inputmode="numeric" placeholder="30" required>
+                                <span class="input-group-text">seconds</span>
+                            </div>
                         </div>
                         <div class="mb-3 mb-0">
                             <label for="editDrillOwner" class="form-label">Owner</label>

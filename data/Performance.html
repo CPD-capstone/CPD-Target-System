@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0057b8">
+    <title>Performance | CPD Target System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="Perfromance.css">
+</head>
+<body class="performance-page">
+    <!-- Match the title banner and menu placement used by the Drills page. -->
+    <header class="p-3 text-white bg-primary text-center border-start border-5 border-secondary rounded-3 m-3" style="--bs-primary-rgb: 0, 87, 184;">
+        Performance
+    </header>
+
+    <div class="m-3">
+        <button class="btn btn-outline-primary d-flex flex-column gap-1 p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#menuPanel" aria-controls="menuPanel" aria-label="Open menu">
+            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
+            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
+            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
+        </button>
+    </div>
+
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="menuPanel" aria-labelledby="menuPanelLabel">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="menuPanelLabel">Menu</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close menu"></button>
+        </div>
+        <div class="offcanvas-body">
+            <div class="d-grid gap-2">
+                <a class="btn btn-outline-primary text-start" href="targets.html">Targets</a>
+                <a class="btn btn-outline-primary text-start" href="drills.html">Drills</a>
+                <a class="btn btn-outline-primary text-start" href="Performance.html" aria-current="page">Performance</a>
+            </div>
+        </div>
+    </div>
+
+    <main class="container-fluid px-3 px-md-4 py-3 performance-main">
+        <!-- Page controls set the scope used by the summary and results table. -->
+        <section class="performance-toolbar" aria-label="Performance controls">
+            <label class="performance-search" for="performanceSearch">
+                <i class="bi bi-search" aria-hidden="true"></i>
+                <input class="form-control" type="search" id="performanceSearch" placeholder="Search name or badge" autocomplete="off">
+            </label>
+            <div class="performance-actions">
+                <div class="dropdown">
+                    <button class="btn performance-action-button" type="button" id="filterButton" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                        <i class="bi bi-funnel" aria-hidden="true"></i>
+                        <span>Filter</span>
+                        <span class="filter-count" id="filterCount" hidden>0</span>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end performance-filter-menu" aria-labelledby="filterButton">
+                        <div class="filter-menu-heading">
+                            <strong>Filter results</strong>
+                            <button class="btn btn-link btn-sm" type="button" id="clearFiltersButton">Clear</button>
+                        </div>
+                        <fieldset class="filter-group">
+                            <legend>Qualification</legend>
+                            <label><input type="checkbox" name="qualification" value="pistolQualScores" checked> Pistol</label>
+                            <label><input type="checkbox" name="qualification" value="rifleQualScores" checked> Rifle</label>
+                            <label><input type="checkbox" name="qualification" value="swatQualScores" checked> SWAT</label>
+                        </fieldset>
+                        <fieldset class="filter-group filter-range-group">
+                            <legend>Score range</legend>
+                            <label for="minimumScore">Minimum</label>
+                            <input class="form-control" id="minimumScore" type="number" min="0" step="1" inputmode="numeric" placeholder="Any">
+                            <label for="maximumScore">Maximum</label>
+                            <input class="form-control" id="maximumScore" type="number" min="0" step="1" inputmode="numeric" placeholder="Any">
+                        </fieldset>
+                        <fieldset class="filter-group filter-range-group">
+                            <legend>Attempt date</legend>
+                            <label for="startDate">From</label>
+                            <input class="form-control" id="startDate" type="date">
+                            <label for="endDate">To</label>
+                            <input class="form-control" id="endDate" type="date">
+                        </fieldset>
+                    </div>
+                </div>
+                <label class="performance-sort" for="sortSelect">
+                    <select class="form-select" id="sortSelect">
+                        <option value="" selected disabled>Sort by</option>
+                        <option value="newest">Newest</option>
+                        <option value="oldest">Oldest</option>
+                        <option value="score-high">Highest score</option>
+                        <option value="score-low">Lowest score</option>
+                    </select>
+                </label>
+                <button class="btn btn-primary export-button" type="button" id="exportPdfButton">
+                    <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
+                    <span>Export PDF</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Fetch and parsing problems are reported here without hiding the page. -->
+        <p class="performance-message" id="performanceMessage" role="status" aria-live="polite" hidden></p>
+
+        <!-- Summary figures update with the selected filters. -->
+        <section class="performance-metrics" aria-label="Qualification summary">
+            <article class="performance-metric">
+                <span class="metric-label">Average score</span>
+                <strong class="metric-value" id="averageScore">--</strong>
+                <span class="metric-note" id="averageNote">Across visible records</span>
+            </article>
+            <article class="performance-metric metric-highlight">
+                <span class="metric-label">Top score</span>
+                <strong class="metric-value" id="topScore">--</strong>
+                <span class="metric-note" id="topScoreNote">No records loaded</span>
+            </article>
+            <article class="performance-metric">
+                <span class="metric-label">Recorded attempts</span>
+                <strong class="metric-value" id="attemptCount">--</strong>
+                <span class="metric-note" id="officerCount">Across all officers</span>
+            </article>
+        </section>
+
+        <!-- Each table row represents one dated qualification attempt. -->
+        <section class="performance-records" aria-labelledby="recordsTitle">
+            <div class="section-heading records-heading">
+                <div>
+                    <h2 id="recordsTitle">Results</h2>
+                </div>
+                <span class="record-count" id="recordCount">0 records</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table performance-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">Officer</th>
+                            <th scope="col">Badge</th>
+                            <th scope="col">Qualification</th>
+                            <th scope="col">Date</th>
+                            <th scope="col" class="text-end">Score</th>
+                            <th scope="col">Standing</th>
+                        </tr>
+                    </thead>
+                    <tbody id="performanceRows">
+                        <tr><td colspan="6" class="table-empty">Loading records...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- Bootstrap provides the shared menu interaction. -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
