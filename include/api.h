@@ -13,7 +13,10 @@
 //   DELETE /api/drills?name=<drillName>                           -> deleteDrill
 //   GET    /api/targets                    -> targets array
 //   PUT    /api/targets?id=<n>             {working}              -> editTarget
-//   GET    /api/officers                   -> Officers array
+//   GET    /api/officers?today=YYYY-MM-DD[&badge=<n>]            -> Officers array (or one officer)
+//                                          with pistolStats/rifleStats/swatStats {attempts, average,
+//                                          top} over the past 12 months
+//                                          (the client supplies today; the ESP32 has no clock)
 //   POST   /api/officers                   {BadgeNum, Name}       -> addOfficer
 //   POST   /api/officers/scores            {BadgeNum, qualType, score, date} -> addQualScore
 //   DELETE /api/officers?badge=<n>                                -> deleteOfficer

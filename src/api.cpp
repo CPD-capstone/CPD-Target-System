@@ -158,15 +158,23 @@ static void handleEditTarget(AsyncWebServerRequest* request, JsonVariant& json) 
 
 // Officers ----------------------------------------------------------------------------------------------
 
-// GET /api/officers             -> all officers
-// GET /api/officers?badge=<n>   -> one officer
+// AI-modified (Claude): the ESP32 has no clock, so the client sends today's date and each
+// officer comes back with pistolStats / rifleStats / swatStats ({attempts, average, top})
+// over the past 12 months.
+// GET /api/officers?today=YYYY-MM-DD             -> all officers
+// GET /api/officers?today=YYYY-MM-DD&badge=<n>   -> one officer
 static void handleGetOfficers(AsyncWebServerRequest* request) {
+    String today;
+    if (!getQueryString(request, "today", today) || !isDateString(today.c_str())) {
+        return sendError(request, 400, "today is required (YYYY-MM-DD)");
+    }
+
     JsonDocument out;
     int badge;
     if (request->hasParam("badge")) {
         if (!getQueryInt(request, "badge", badge)) return sendError(request, 400, "badge must be a number");
-        if (!getOfficer(badge, out)) return sendError(request, 404, "Officer not found");
-    } else if (!getOfficers(out)) {
+        if (!getOfficer(badge, today.c_str(), out)) return sendError(request, 404, "Officer not found");
+    } else if (!getOfficers(today.c_str(), out)) {
         return sendError(request, 500, "Could not read officers");
     }
     sendJson(request, 200, out);

@@ -139,6 +139,15 @@ static int findIndex(JsonArrayConst arr, const char* key, const char* value) {
     return -1;
 }
 
+// AI-assisted (Claude): true if date looks like "YYYY-MM-DD" (digits in the right places)
+bool isDateString(const char* date) {
+    if (!date || strlen(date) != 10 || date[4] != '-' || date[7] != '-') return false;
+    for (int i = 0; i < 10; i++) {
+        if (i != 4 && i != 7 && !isdigit((unsigned char)date[i])) return false;
+    }
+    return true;
+}
+
 static bool isBasicAction(const char* action) {
     return strcmp(action, "present") == 0 || strcmp(action, "hide") == 0 ||
            strcmp(action, "pause") == 0 || strcmp(action, "delay") == 0;
@@ -299,22 +308,81 @@ bool deleteTarget(int id) {
 
 // ---- Officers ------------------------------------------------------------------------------
 
+// ---- AI-assisted (Claude): qualification stats ---------------------------------------------
+
+//Writes { attempts, average, top } for the scores in a [[score, "YYYY-MM-DD"], ...] list dated
+//from cutoff (a year ago) through today (both "YYYY-MM-DD", so plain string comparison orders them). The
+//average is rounded to one decimal place; average and top are null when attempts is 0.
+static void writeStats(JsonObject dest, JsonArrayConst scores, const char* cutoff, const char* today) {
+    long sum = 0;
+    int count = 0;
+    int top = 0;
+    for (JsonArrayConst entry : scores) {
+        const char* date = entry[1];
+        if (!entry[0].is<int>() || !date) continue;
+        if (strcmp(date, cutoff) < 0 || strcmp(date, today) > 0) continue;
+        int score = entry[0].as<int>();
+        if (count == 0 || score > top) top = score;
+        sum += score;
+        count++;
+    }
+    dest["attempts"] = count;
+    if (count == 0) {
+        dest["average"] = nullptr;
+        dest["top"] = nullptr;
+        return;
+    }
+    dest["average"] = round((double)sum / count * 10.0) / 10.0;
+    dest["top"] = top;
+}
+
+//Adds pistolStats / rifleStats / swatStats to an officer object, from its own score lists
+static void addStats(JsonObject officer, const char* cutoff, const char* today) {
+    writeStats(officer["pistolStats"].to<JsonObject>(), officer["pistolQualScores"], cutoff, today);
+    writeStats(officer["rifleStats"].to<JsonObject>(), officer["rifleQualScores"], cutoff, today);
+    writeStats(officer["swatStats"].to<JsonObject>(), officer["swatQualScores"], cutoff, today);
+}
+
+//Validates today and writes the date one year earlier ("YYYY-MM-DD") into cutoff[11].
+//Feb 29 maps to "YYYY-02-29" of the previous year, which still compares correctly as a string.
+static bool makeCutoff(const char* today, char* cutoff) {
+    if (!isDateString(today)) {
+        Serial.printf("Date must be YYYY-MM-DD: %s\r\n", today ? today : "(null)");
+        return false;
+    }
+    snprintf(cutoff, 11, "%04d%s", atoi(today) - 1, today + 4);
+    return true;
+}
+
+// AI-modified (Claude): getters also return each officer's 12-month qualification stats
 // Getter for officers (all of them)
-bool getOfficers(JsonDocument& out) {
+bool getOfficers(const char* today, JsonDocument& out) {
+    out.clear();
+    char cutoff[11];
+    if (!makeCutoff(today, cutoff)) return false;
+
     JsonDocument doc;
-    return copyInto(out, loadSection(doc, "Officers"));
+    JsonArray officers = loadSection(doc, "Officers");
+    for (JsonObject officer : officers) {
+        addStats(officer, cutoff, today);
+    }
+    return copyInto(out, officers);
 }
 
 // Getter for officer (just one)
-bool getOfficer(int badgeNum, JsonDocument& out) {
+bool getOfficer(int badgeNum, const char* today, JsonDocument& out) {
+    out.clear();
+    char cutoff[11];
+    if (!makeCutoff(today, cutoff)) return false;
+
     JsonDocument doc;
     JsonArray officers = loadSection(doc, "Officers");
     int i = findIndex(officers, "BadgeNum", badgeNum);
-    if (i < 0) {
-        out.clear();
-        return false;
-    }
-    return copyInto(out, officers[i]);
+    if (i < 0) return false;
+
+    JsonObject officer = officers[i];
+    addStats(officer, cutoff, today);
+    return copyInto(out, officer);
 }
 
 // AI-modified (Claude): officers are identified by BadgeNum and start with empty score lists
@@ -366,7 +434,7 @@ bool addQualScore(int badgeNum, const char* qualType, int score, const char* dat
         return false;
     }
     //Expect "YYYY-MM-DD"
-    if (!date || strlen(date) != 10 || date[4] != '-' || date[7] != '-') {
+    if (!isDateString(date)) {
         Serial.printf("Date must be YYYY-MM-DD: %s\r\n", date ? date : "(null)");
         return false;
     }

@@ -46,16 +46,31 @@ bool editTarget(int id, bool working);
 /// @return true if the target exists and the change was saved
 bool deleteTarget(int id);
 
-/// @brief Reads the Officers array, including each officer's score lists.
-/// @param out document to fill
-/// @return true if the Officers section exists and was copied
-bool getOfficers(JsonDocument& out);
+// AI-modified (Claude): the officer getters also report qualification stats. Each officer gets
+// "pistolStats", "rifleStats" and "swatStats", each { "attempts", "average", "top" }. The ESP32
+// has no clock (offline AP, no NTP/RTC), so the caller supplies today's date. Only scores dated
+// within the past 12 months (same date last year through today, inclusive) count. The average is
+// rounded to one decimal place; average and top are null when attempts is 0.
 
-/// @brief Reads one officer: { "Name", "BadgeNum", "pistolQualScores", ... }.
-/// @param badgeNum badge number of the officer
+/// @brief Checks that a string is a date in "YYYY-MM-DD" form (digits and dashes only).
+/// @param date string to check; may be null
+/// @return true if the format is valid
+bool isDateString(const char* date);
+
+/// @brief Reads the Officers array, including each officer's score lists, with
+///        "pistolStats", "rifleStats" and "swatStats" added to every officer.
+/// @param today current date, "YYYY-MM-DD"; the stats cover the 12 months ending today
 /// @param out document to fill
-/// @return true if the officer exists and was copied
-bool getOfficer(int badgeNum, JsonDocument& out);
+/// @return true if today is valid, the Officers section exists, and the result was copied
+bool getOfficers(const char* today, JsonDocument& out);
+
+/// @brief Reads one officer: { "Name", "BadgeNum", "pistolQualScores", ..., "pistolStats",
+///        "rifleStats", "swatStats" }.
+/// @param badgeNum badge number of the officer
+/// @param today current date, "YYYY-MM-DD"; the stats cover the 12 months ending today
+/// @param out document to fill
+/// @return true if today is valid, the officer exists, and the result was copied
+bool getOfficer(int badgeNum, const char* today, JsonDocument& out);
 
 /// @brief Adds an officer with empty pistol/rifle/swat score lists.
 /// @param badgeNum badge number; must not already exist
