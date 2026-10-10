@@ -1,7 +1,9 @@
 const drillStatus = document.getElementById('drillStatus');
 const targetFilters = document.querySelectorAll('.target-filter');
+const targetViewButtons = document.querySelectorAll('.target-view-button');
 const targetGrid = document.getElementById('targetGrid');
 const targetStatusStorageKey = 'cpd-target-status';
+const targetViewStorageKey = 'cpd-target-view';
 const drillLibraryStorageKey = 'cpd-drill-library';
 const activeDemoDrillStorageKey = 'cpd-active-demo-drill';
 const pausedDemoDrillStorageKey = 'cpd-paused-demo-drill';
@@ -39,7 +41,6 @@ const getTargetDrillLibrary = (databaseDrills = []) => {
     return { ...Object.fromEntries(defaults), ...getSavedDrillLibrary() };
 };
 
-// AI-assisted target availability workflow; include this change in the PR's AI-use disclosure.
 const getSavedTargetStatus = () => {
     try {
         const stored = JSON.parse(localStorage.getItem(targetStatusStorageKey) || '{}');
@@ -168,6 +169,7 @@ const renderTargets = (targetIds) => {
             <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target ${targetNumber} red">
                 <span class="target-number" aria-hidden="true">${targetNumber}</span>
                 <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
+                <span class="target-list-label">Target ${targetNumber}</span>
             </button>
             <div class="target-actions">
                 <button class="target-defect-toggle" type="button" aria-label="Mark target ${targetNumber} defective" title="Mark target ${targetNumber} defective">
@@ -459,6 +461,23 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
     targetFilters.forEach((button) => {
         button.addEventListener('click', () => applyTargetFilter(button.dataset.filter));
     });
+
+    // AI-assisted target display preference; include this change in the PR's AI-use disclosure.
+    const applyTargetView = (view) => {
+        const isListView = view === 'list';
+        targetGrid.classList.toggle('is-list-view', isListView);
+        targetViewButtons.forEach((button) => {
+            const isActive = button.dataset.view === (isListView ? 'list' : 'grid');
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-pressed', String(isActive));
+        });
+        localStorage.setItem(targetViewStorageKey, isListView ? 'list' : 'grid');
+    };
+
+    targetViewButtons.forEach((button) => {
+        button.addEventListener('click', () => applyTargetView(button.dataset.view));
+    });
+    applyTargetView(localStorage.getItem(targetViewStorageKey) || 'grid');
 
     targetGrid.addEventListener('click', (event) => {
         const targetColumn = event.target.closest('[data-target-number]');

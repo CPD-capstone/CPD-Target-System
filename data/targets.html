@@ -41,10 +41,17 @@
                 <button class="btn btn-outline-primary target-filter" type="button" data-filter="even" aria-pressed="false">Even</button>
                 <button class="btn btn-outline-primary target-filter" type="button" data-filter="random" aria-pressed="false">Random</button>
             </div>
+            <div class="btn-group target-view-toggle" role="group" aria-label="Target display view">
+                <button class="btn btn-outline-primary target-view-button" type="button" data-view="grid" aria-label="Grid view" title="Grid view" aria-pressed="true">
+                    <i class="bi bi-grid-3x3-gap-fill" aria-hidden="true"></i>
+                </button>
+                <button class="btn btn-outline-primary target-view-button" type="button" data-view="list" aria-label="List view" title="List view" aria-pressed="false">
+                    <i class="bi bi-list-ul" aria-hidden="true"></i>
+                </button>
+            </div>
         </div>
     </div>
 
-    <!-- AI-assisted drill start controls. -->
     <div class="drill-launch-bar mx-3 mb-3" role="group" aria-label="Start a drill">
         <label class="visually-hidden" for="drillSelect">Select a drill</label>
         <select class="form-select" id="drillSelect" aria-label="Select a drill">
@@ -78,7 +85,6 @@
         <div class="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-2 row-gap-5" id="targetGrid"></div>
     </div>
 
-    <!-- AI-assisted drill assignment control for each target. -->
     <div class="modal fade" id="drillAssignmentModal" tabindex="-1" aria-labelledby="drillAssignmentModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
