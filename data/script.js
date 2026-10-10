@@ -41,7 +41,6 @@ const getTargetDrillLibrary = (databaseDrills = []) => {
     return { ...Object.fromEntries(defaults), ...getSavedDrillLibrary() };
 };
 
-// AI-assisted target availability workflow; include this change in the PR's AI-use disclosure.
 const getSavedTargetStatus = () => {
     try {
         const stored = JSON.parse(localStorage.getItem(targetStatusStorageKey) || '{}');

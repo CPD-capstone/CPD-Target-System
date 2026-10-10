@@ -124,7 +124,6 @@
     font-weight: 600;
 }
 
-/* AI-assisted target availability and assignment styles. */
 .target-options {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
