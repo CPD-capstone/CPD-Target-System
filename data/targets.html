@@ -41,8 +41,37 @@
                 <button class="btn btn-outline-primary target-filter" type="button" data-filter="even" aria-pressed="false">Even</button>
                 <button class="btn btn-outline-primary target-filter" type="button" data-filter="random" aria-pressed="false">Random</button>
             </div>
+            <div class="btn-group target-view-toggle" role="group" aria-label="Target display view">
+                <button class="btn btn-outline-primary target-view-button" type="button" data-view="grid" aria-label="Grid view" title="Grid view" aria-pressed="true">
+                    <i class="bi bi-grid-3x3-gap-fill" aria-hidden="true"></i>
+                </button>
+                <button class="btn btn-outline-primary target-view-button" type="button" data-view="list" aria-label="List view" title="List view" aria-pressed="false">
+                    <i class="bi bi-list-ul" aria-hidden="true"></i>
+                </button>
+            </div>
         </div>
     </div>
+
+    <!-- AI-assisted drill start controls. -->
+    <div class="drill-launch-bar mx-3 mb-3" role="group" aria-label="Start a drill">
+        <label class="visually-hidden" for="drillSelect">Select a drill</label>
+        <select class="form-select" id="drillSelect" aria-label="Select a drill">
+            <option value="">Select a drill</option>
+        </select>
+        <button class="btn btn-primary" id="startDrillButton" type="button" disabled>
+            <i class="bi bi-play-fill" aria-hidden="true"></i>
+            <span id="startDrillLabel">Start drill</span>
+        </button>
+        <button class="btn btn-outline-secondary" id="pauseDrillButton" type="button" aria-label="Pause drill" title="Pause drill" disabled>
+            <i class="bi bi-pause-fill" aria-hidden="true"></i>
+            Pause
+        </button>
+        <button class="btn btn-outline-danger" id="finishDrillButton" type="button" aria-label="End drill" title="End drill" disabled>
+            <i class="bi bi-stop-fill" aria-hidden="true"></i>
+            End
+        </button>
+    </div>
+    <div class="alert alert-warning mx-3 mb-3" id="drillLaunchMessage" role="status" aria-live="polite" hidden></div>
 
     <div class="offcanvas offcanvas-start" tabindex="-1" id="menuPanel" aria-labelledby="menuPanelLabel">
         <div class="offcanvas-header">
@@ -52,55 +81,19 @@
         <div class="offcanvas-body">
             <div class="d-grid gap-2">
                 <a class="btn btn-outline-primary text-start" href="drills.html">Drills</a>
-                <button class="btn btn-outline-primary text-start">Performance</button>
+                <a class="btn btn-outline-primary text-start" href="Performance.html">Performance</a>
             </div>
         </div>
     </div>
 
     <div class="container-fluid mt-3">
-        <div class="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-2 row-gap-5" id="targetGrid">
-            <div class="col d-flex justify-content-center" data-target-number="1">
-                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target 1 red">
-                    <span class="target-number" aria-hidden="true">1</span>
-                    <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
-                </button>
-            </div>
-            <div class="col d-flex justify-content-center" data-target-number="2">
-                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target 2 red">
-                    <span class="target-number" aria-hidden="true">2</span>
-                    <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
-                </button>
-            </div>
-            <div class="col d-flex justify-content-center" data-target-number="3">
-                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target 3 red">
-                    <span class="target-number" aria-hidden="true">3</span>
-                    <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
-                </button>
-            </div>
-            <div class="col d-flex justify-content-center" data-target-number="4">
-                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target 4 red">
-                    <span class="target-number" aria-hidden="true">4</span>
-                    <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
-                </button>
-            </div>
-            <div class="col d-flex justify-content-center" data-target-number="5">
-                <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target 5 red">
-                    <span class="target-number" aria-hidden="true">5</span>
-                    <img src="uspsa-target.svg" width="150" height="180" alt="USPSA target">
-                </button>
-            </div>
-        </div>
+        <div class="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-2 row-gap-5" id="targetGrid"></div>
     </div>
 
-    <footer class="page-readout d-flex flex-column align-items-center" aria-label="Page indicator">
-        <strong>&lt;&lt; PG 1 &gt;&gt;</strong>
-        <span>5 / 20</span>
-    </footer>
-
-    
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
     <script src="script.js"></script>
+    <script src="targets.js"></script>
 
 </body>
 </html>
