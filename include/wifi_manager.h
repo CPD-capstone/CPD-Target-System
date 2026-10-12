@@ -10,6 +10,6 @@ void initWiFi();
 /// @brief updates the WiFi password to the argument
 /// @param newPassword the new password
 /// @return returns true if successfully updated, false if failed.
-bool updateWiFiPassword(String& newPassword);
+bool updateWiFiPassword(const String& newPassword);
 
 #endif

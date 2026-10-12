@@ -8,7 +8,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="Perfromance.css">
+    <link rel="stylesheet" href="Perfromance.css?v=2">
 </head>
 <body class="performance-page">
     <!-- Match the title banner and menu placement used by the Drills page. -->
@@ -115,6 +115,60 @@
                 <strong class="metric-value" id="attemptCount">--</strong>
                 <span class="metric-note" id="officerCount">Across all officers</span>
             </article>
+        </section>
+
+        <!-- AI-assisted change: open batch score entry in a dialog above Results. -->
+        <section class="add-scores" aria-label="Add qualification scores">
+            <div class="add-scores-toolbar">
+                <button class="btn btn-primary export-button add-scores-toggle" type="button" id="addScoresToggle" aria-expanded="false" aria-controls="addScoresDialog">
+                    <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                    <span>Add scores</span>
+                </button>
+            </div>
+            <dialog class="add-scores-dialog" id="addScoresDialog" aria-labelledby="addScoresTitle">
+                <div class="add-scores-dialog-heading">
+                    <h2 id="addScoresTitle">Add qualification scores</h2>
+                    <button class="btn-close" type="button" id="closeScoresDialog" aria-label="Close"></button>
+                </div>
+                <form id="addScoresForm">
+                    <div class="add-scores-fields">
+                        <label for="scoreOfficer">
+                            Officer
+                            <select class="form-select" id="scoreOfficer" required>
+                                <option value="">Select an officer</option>
+                            </select>
+                        </label>
+                        <label for="scoreQualification">
+                            Qualification
+                            <select class="form-select" id="scoreQualification" required>
+                                <option value="pistolQualScores">Pistol</option>
+                                <option value="rifleQualScores">Rifle</option>
+                                <option value="swatQualScores">SWAT</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="score-entry-list" id="scoreEntries" aria-label="Scores to add">
+                        <div class="score-entry">
+                            <label class="score-entry-label" for="scoreValue1">Score 1</label>
+                            <input class="form-control score-entry-value" id="scoreValue1" type="number" min="0" step="1" inputmode="numeric" required>
+                            <label class="visually-hidden" for="scoreDate1">Date for score 1</label>
+                            <input class="form-control score-entry-date" id="scoreDate1" type="date" required>
+                            <button class="btn btn-outline-secondary remove-score-entry" type="button" aria-label="Remove score 1" disabled>
+                                <i class="bi bi-trash3" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="add-scores-footer">
+                        <div class="add-scores-buttons">
+                            <button class="btn btn-outline-primary" type="button" id="addScoreEntry">
+                                <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                                Add another score
+                            </button>
+                            <button class="btn btn-primary" type="submit" id="saveScoresButton">Save scores</button>
+                        </div>
+                    </div>
+                </form>
+            </dialog>
         </section>
 
         <!-- Each table row represents one dated qualification attempt. -->

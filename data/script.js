@@ -103,8 +103,17 @@ if (document.getElementById('performanceRows')) {
     const performanceRows = document.getElementById('performanceRows');
     const performanceMessage = document.getElementById('performanceMessage');
     const sortSelect = document.getElementById('sortSelect');
+    const addScoresToggle = document.getElementById('addScoresToggle');
+    const addScoresDialog = document.getElementById('addScoresDialog');
+    const addScoresForm = document.getElementById('addScoresForm');
+    const scoreOfficerSelect = document.getElementById('scoreOfficer');
+    const scoreEntries = document.getElementById('scoreEntries');
+    const saveScoresButton = document.getElementById('saveScoresButton');
+    const scoreStorageKey = 'cpd-performance-added-scores';
     let sortMode = sortSelect.value || 'newest';
     let performanceOfficers = [];
+    let savedScoreRecords = [];
+    let scoreStorageAvailable = true;
 
     // Preserve YYYY-MM-DD calendar dates instead of shifting them through UTC.
     const parseScoreDate = (value) => {
@@ -125,26 +134,73 @@ if (document.getElementById('performanceRows')) {
         rifleQualScores: 'Rifle',
         swatQualScores: 'SWAT'
     };
+    const getTodayDate = () => {
+        const today = new Date();
+        return [
+            today.getFullYear(),
+            String(today.getMonth() + 1).padStart(2, '0'),
+            String(today.getDate()).padStart(2, '0')
+        ].join('-');
+    };
+    scoreEntries.querySelector('.score-entry-date').value = getTodayDate();
+
+    // AI-assisted change: persist and render score batches in this browser.
+    try {
+        const storedScores = localStorage.getItem(scoreStorageKey);
+        if (storedScores) {
+            const parsedScores = JSON.parse(storedScores);
+            const validScoreRecord = (record) => (
+                record
+                && typeof record.name === 'string'
+                && typeof record.badge === 'string'
+                && Object.hasOwn(qualificationNames, record.qualification)
+                && Number.isFinite(record.score)
+                && parseScoreDate(record.date) !== null
+            );
+
+            if (!Array.isArray(parsedScores) || !parsedScores.every(validScoreRecord)) {
+                throw new Error('Saved score data has an invalid format.');
+            }
+            savedScoreRecords = parsedScores;
+        }
+    } catch (error) {
+        scoreStorageAvailable = false;
+        saveScoresButton.disabled = true;
+        performanceMessage.hidden = false;
+        performanceMessage.classList.add('is-error');
+        performanceMessage.textContent = 'Saved scores could not be read from this browser. Clear this site’s stored data before adding scores.';
+    }
 
     // Flatten officer histories so every control acts on one consistent result set.
-    const getQualificationRecords = () => performanceOfficers.flatMap((officer) => (
-        Object.entries(qualificationNames).flatMap(([key, name]) => {
-            if (!Array.from(qualificationFilters).some((filter) => filter.checked && filter.value === key)) {
-                return [];
-            }
+    const getQualificationRecords = () => [
+        ...performanceOfficers.flatMap((officer) => (
+            Object.entries(qualificationNames).flatMap(([key, name]) => {
+                if (!Array.from(qualificationFilters).some((filter) => filter.checked && filter.value === key)) {
+                    return [];
+                }
 
-            const history = Array.isArray(officer?.[key]) ? officer[key] : [];
-            return history
-                .filter((entry) => Array.isArray(entry) && Number.isFinite(Number(entry[0])) && parseScoreDate(entry[1]) !== null)
-                .map(([score, date]) => ({
-                    name: String(officer?.Name || 'Unknown officer'),
-                    badge: officer?.BadgeNum === undefined ? '—' : String(officer.BadgeNum),
-                    qualification: name,
-                    score: Number(score),
-                    date: parseScoreDate(date)
-                }));
-        })
-    ));
+                const history = Array.isArray(officer?.[key]) ? officer[key] : [];
+                return history
+                    .filter((entry) => Array.isArray(entry) && Number.isFinite(Number(entry[0])) && parseScoreDate(entry[1]) !== null)
+                    .map(([score, date]) => ({
+                        name: String(officer?.Name || 'Unknown officer'),
+                        badge: officer?.BadgeNum === undefined ? '—' : String(officer.BadgeNum),
+                        qualification: name,
+                        score: Number(score),
+                        date: parseScoreDate(date)
+                    }));
+            })
+        )),
+        ...savedScoreRecords
+            .filter((record) => Array.from(qualificationFilters).some((filter) => filter.checked && filter.value === record.qualification))
+            .map((record) => ({
+                name: record.name,
+                badge: record.badge,
+                qualification: qualificationNames[record.qualification],
+                score: record.score,
+                date: parseScoreDate(record.date)
+            }))
+    ];
 
     // Apply search and optional score/date bounds after choosing qualifications.
     const getVisibleRecords = () => {
@@ -281,6 +337,100 @@ if (document.getElementById('performanceRows')) {
     // Browser print supports Save as PDF without a separate PDF-generation dependency.
     document.getElementById('exportPdfButton').addEventListener('click', () => window.print());
 
+    addScoresToggle.addEventListener('click', () => {
+        addScoresDialog.showModal();
+        addScoresToggle.setAttribute('aria-expanded', 'true');
+    });
+    document.getElementById('closeScoresDialog').addEventListener('click', () => addScoresDialog.close());
+    addScoresDialog.addEventListener('close', () => addScoresToggle.setAttribute('aria-expanded', 'false'));
+
+    const updateScoreEntryLabels = () => {
+        const entries = scoreEntries.querySelectorAll('.score-entry');
+        entries.forEach((entry, index) => {
+            const scoreNumber = index + 1;
+            const scoreInput = entry.querySelector('.score-entry-value');
+            const dateInput = entry.querySelector('.score-entry-date');
+            const scoreLabel = entry.querySelector('.score-entry-label');
+            const removeButton = entry.querySelector('.remove-score-entry');
+            scoreInput.id = `scoreValue${scoreNumber}`;
+            scoreInput.setAttribute('aria-label', `Score ${scoreNumber}`);
+            scoreLabel.htmlFor = scoreInput.id;
+            scoreLabel.textContent = `Score ${scoreNumber}`;
+            dateInput.id = `scoreDate${scoreNumber}`;
+            dateInput.setAttribute('aria-label', `Date for score ${scoreNumber}`);
+            removeButton.disabled = entries.length === 1;
+            removeButton.setAttribute('aria-label', `Remove score ${scoreNumber}`);
+        });
+    };
+
+    document.getElementById('addScoreEntry').addEventListener('click', () => {
+        const entry = scoreEntries.querySelector('.score-entry').cloneNode(true);
+        entry.querySelector('.score-entry-value').value = '';
+        entry.querySelector('.score-entry-date').value = getTodayDate();
+        entry.querySelector('.remove-score-entry').innerHTML = '<i class="bi bi-trash3" aria-hidden="true"></i>';
+        entry.querySelector('.remove-score-entry').addEventListener('click', () => {
+            entry.remove();
+            updateScoreEntryLabels();
+        });
+        scoreEntries.append(entry);
+        updateScoreEntryLabels();
+        entry.querySelector('.score-entry-value').focus();
+    });
+
+    scoreEntries.querySelector('.remove-score-entry').addEventListener('click', (event) => {
+        const entry = event.currentTarget.closest('.score-entry');
+        if (scoreEntries.querySelectorAll('.score-entry').length > 1) {
+            entry.remove();
+            updateScoreEntryLabels();
+        }
+    });
+
+    addScoresForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        if (!scoreStorageAvailable) {
+            return;
+        }
+
+        const officer = performanceOfficers[Number(scoreOfficerSelect.value)];
+        if (!officer) {
+            performanceMessage.hidden = false;
+            performanceMessage.classList.add('is-error');
+            performanceMessage.textContent = 'Select a valid officer before saving scores.';
+            return;
+        }
+
+        const qualification = document.getElementById('scoreQualification').value;
+        const batch = Array.from(scoreEntries.querySelectorAll('.score-entry')).map((entry) => ({
+            name: String(officer.Name || 'Unknown officer'),
+            badge: officer.BadgeNum === undefined ? '—' : String(officer.BadgeNum),
+            qualification,
+            score: Number(entry.querySelector('.score-entry-value').value),
+            date: entry.querySelector('.score-entry-date').value
+        }));
+        const updatedRecords = [...savedScoreRecords, ...batch];
+
+        try {
+            localStorage.setItem(scoreStorageKey, JSON.stringify(updatedRecords));
+        } catch (error) {
+            performanceMessage.hidden = false;
+            performanceMessage.classList.add('is-error');
+            performanceMessage.textContent = 'Scores could not be saved in this browser. Check available browser storage and try again.';
+            return;
+        }
+
+        savedScoreRecords = updatedRecords;
+        renderPerformance();
+        performanceMessage.hidden = false;
+        performanceMessage.classList.remove('is-error');
+        performanceMessage.textContent = `${batch.length} ${batch.length === 1 ? 'score' : 'scores'} saved in this browser.`;
+        addScoresForm.reset();
+        scoreOfficerSelect.value = '';
+        scoreEntries.querySelectorAll('.score-entry:not(:first-child)').forEach((entry) => entry.remove());
+        scoreEntries.querySelector('.score-entry-date').value = getTodayDate();
+        updateScoreEntryLabels();
+        addScoresDialog.close();
+    });
+
     // Populate officer choices from the same payload as the score history.
     fetch('database.json', { cache: 'no-store' })
         .then((response) => {
@@ -291,6 +441,13 @@ if (document.getElementById('performanceRows')) {
         })
         .then((payload) => {
             performanceOfficers = Array.isArray(payload?.Officers) ? payload.Officers : [];
+            performanceOfficers.forEach((officer, index) => {
+                const option = document.createElement('option');
+                option.value = String(index);
+                option.textContent = `${officer?.Name || 'Unknown officer'} · Badge ${officer?.BadgeNum ?? '—'}`;
+                scoreOfficerSelect.append(option);
+            });
+            saveScoresButton.disabled = !scoreStorageAvailable || !performanceOfficers.length;
 
             if (!performanceOfficers.length) {
                 performanceMessage.hidden = false;

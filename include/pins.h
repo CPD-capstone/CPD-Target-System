@@ -4,17 +4,25 @@
 #include <Arduino.h>
 
 // =============================================================================
-// ESP32-S3 HARDWARE PIN DEFINITIONS
+// ESP32 (DOIT DevKit V1 / ESP32-WROOM-32) HARDWARE PIN DEFINITIONS
 // =============================================================================
+// AI-assisted (Claude): pins reassigned. The old map (MOSI 13, MISO 12, SCK 14,
+// CS 10/11) was written for an ESP32-S3. On a classic ESP32, GPIO 6-11 are wired
+// to the SPI flash (using them crashes the chip) and GPIO 12 is a boot strapping
+// pin (if held high at reset it sets flash voltage to 1.8V and boot fails).
+// SPI now uses the native VSPI pins; CS uses GPIO 16/17, which are not strapping
+// pins and are idle during boot.
+// NOTE: these are chosen for the DevKit V1. The temporary TTGO LoRa32 board wires
+// its onboard LoRa radio to some of these pins, so test hardware on the DevKit.
 
 // SPI Bus Pins (Shared between both MCP23S17 I/O Expanders)
-#define PIN_SPI_MOSI    13  // Connects to SI (Pin 13) on both MCP23S17 chips
-#define PIN_SPI_MISO    12  // Connects to SO (Pin 14) on both MCP23S17 chips
-#define PIN_SPI_SCK     14  // Connects to SCK (Pin 12) on both MCP23S17 chips
+#define PIN_SPI_MOSI    23  // VSPI MOSI -> SI  (Pin 13) on both MCP23S17 chips
+#define PIN_SPI_MISO    19  // VSPI MISO -> SO  (Pin 14) on both MCP23S17 chips
+#define PIN_SPI_SCK     18  // VSPI SCK  -> SCK (Pin 12) on both MCP23S17 chips
 
 // Dedicated Chip Select (CS) Pins
-#define PIN_MCP1_CS     10  // Board #1 Chip Select -> Controls Targets 1-16
-#define PIN_MCP2_CS     11  // Board #2 Chip Select -> Controls Targets 17-24
+#define PIN_MCP1_CS     16  // Board #1 Chip Select -> Controls Targets 1-16
+#define PIN_MCP2_CS     17  // Board #2 Chip Select -> Controls Targets 17-20
 
 // Hardware SPI Address Configuration
 // Note: A0, A1, A2 are hardwired to GND on both chips in hardware
@@ -47,9 +55,9 @@
 #define TARGET_16_PIN   15  // GPB7 (Pin 8)
 
 
-// MCP23S17 #2 (Targets 17 - 24)
+// MCP23S17 #2 (Targets 17 - 20)
 // -----------------------------------------------------------------------------
-// Relay Board #3 (Targets 17 - 24) -> MCP2 Port A
+// Relay Board #3 (Targets 17 - 20) -> MCP2 Port A (GPA4-GPA7 unused)
 #define TARGET_17_PIN   0   // GPA0 (Pin 21)
 #define TARGET_18_PIN   1   // GPA1 (Pin 22)
 #define TARGET_19_PIN   2   // GPA2 (Pin 23)
@@ -79,10 +87,10 @@
  * DB25 Pin 18 --> Target 18 (+12V) [MCP2 Pin GPA1]
  * DB25 Pin 19 --> Target 19 (+12V) [MCP2 Pin GPA2]
  * DB25 Pin 20 --> Target 20 (+12V) [MCP2 Pin GPA3]
- * DB25 Pin 21 --> Target 21 (+12V) [MCP2 Pin GPA4]
- * DB25 Pin 22 --> Target 22 (+12V) [MCP2 Pin GPA5]
- * DB25 Pin 23 --> Target 23 (+12V) [MCP2 Pin GPA6]
- * DB25 Pin 24 --> Target 24 (+12V) [MCP2 Pin GPA7]
+ * DB25 Pin 21 --> Unused
+ * DB25 Pin 22 --> Unused
+ * DB25 Pin 23 --> Unused
+ * DB25 Pin 24 --> Unused
  * DB25 Pin 25 --> Common Solenoid Return (Ground Rail, 10 AWG Wire)
  */
 

@@ -242,6 +242,119 @@
     border-top: 3px solid var(--performance-red);
 }
 
+/* AI-assisted change: align the batch-entry controls with the Results section. */
+.add-scores {
+    margin: 1.25rem 0 0.75rem;
+}
+
+.add-scores-toolbar {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.add-scores-toggle {
+    width: 7.4rem;
+    justify-content: center;
+}
+
+.add-scores-dialog {
+    width: min(42rem, calc(100vw - 2rem));
+    max-width: none;
+    max-height: min(85vh, 48rem);
+    margin: auto;
+    padding: 1.25rem;
+    border: 0;
+    border-radius: 0.75rem;
+    background: var(--performance-paper);
+    color: var(--performance-ink);
+    box-shadow: 0 1rem 3rem rgba(20, 35, 45, 0.24);
+    overflow-y: auto;
+}
+
+.add-scores-dialog::backdrop {
+    background: rgba(20, 35, 45, 0.55);
+}
+
+.add-scores-dialog-heading {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding-right: 2rem;
+    margin-bottom: 1.25rem;
+}
+
+.add-scores-dialog-heading h2 {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 750;
+}
+
+.add-scores-dialog-heading .btn-close {
+    position: absolute;
+    top: 0;
+    right: 0;
+}
+
+.add-scores-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    max-width: 48rem;
+    margin-bottom: 1.25rem;
+}
+
+.add-scores-fields label {
+    display: grid;
+    gap: 0.4rem;
+    color: var(--performance-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.score-entry-list {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.score-entry {
+    display: grid;
+    grid-template-columns: minmax(5rem, 0.3fr) minmax(7rem, 0.7fr) minmax(10rem, 1fr) auto;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.score-entry-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.remove-score-entry {
+    min-width: 2.65rem;
+    min-height: 2.65rem;
+}
+
+.add-scores-footer {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1.25rem;
+}
+
+.score-storage-note {
+    margin: 0;
+    color: var(--performance-muted);
+    font-size: 0.76rem;
+}
+
+.add-scores-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.65rem;
+}
+
 .performance-records {
     margin-top: 1.75rem;
     border: 1px solid var(--performance-line);
@@ -362,6 +475,24 @@
         font-size: 0.68rem;
     }
 
+    .add-scores-fields {
+        grid-template-columns: 1fr;
+    }
+
+    .score-entry {
+        grid-template-columns: minmax(4rem, 0.3fr) minmax(6rem, 0.7fr) minmax(8rem, 1fr) auto;
+        gap: 0.4rem;
+    }
+
+    .add-scores-footer {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .add-scores-buttons {
+        justify-content: flex-start;
+    }
+
     .performance-table thead th,
     .performance-table tbody td {
         padding-right: 0.75rem;
@@ -374,6 +505,35 @@
 }
 
 @media (max-width: 420px) {
+    .add-scores-dialog {
+        padding: 0.85rem;
+    }
+
+    .score-entry {
+        grid-template-columns: minmax(0, 1fr) auto;
+        font-size: 0.75rem;
+    }
+
+    .score-entry-label {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    .score-entry-value {
+        grid-column: 2;
+        grid-row: 1;
+    }
+
+    .score-entry-date {
+        grid-column: 1;
+        grid-row: 2;
+    }
+
+    .remove-score-entry {
+        grid-column: 2;
+        grid-row: 2;
+    }
+
     .performance-metrics {
         grid-template-columns: 1fr;
     }
