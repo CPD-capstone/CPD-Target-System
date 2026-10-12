@@ -289,14 +289,6 @@
     box-shadow: none;
 }
 
-#targetGrid.is-list-view .target-drill-assign {
-    width: 2.25rem;
-    height: 2.25rem;
-    border: 0;
-    border-radius: 0.375rem;
-    box-shadow: none;
-}
-
 @media (max-width: 767.98px) {
     #targetGrid.is-list-view {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -356,27 +348,6 @@
     line-height: 1;
 }
 
-.target-drill-assign {
-    display: grid;
-    width: 2rem;
-    height: 2rem;
-    place-items: center;
-    border: 2px solid #ffffff;
-    border-radius: 50%;
-    background: #0d6efd;
-    color: #ffffff;
-    box-shadow: 0 0.25rem 0.5rem rgba(33, 37, 41, 0.2);
-}
-
-.target-drill-assign:hover:not(:disabled) {
-    background: #0b5ed7;
-}
-
-.target-drill-assign:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
 .target-number {
     position: absolute;
     top: -0.65rem;
@@ -421,8 +392,7 @@
 }
 
 .target-card:focus-visible,
-.target-defect-toggle:focus-visible,
-.target-drill-assign:focus-visible {
+.target-defect-toggle:focus-visible {
     outline: 3px solid #0d6efd;
     outline-offset: 0.4rem;
 }
