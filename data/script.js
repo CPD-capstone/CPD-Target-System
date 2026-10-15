@@ -80,8 +80,10 @@ document.addEventListener('click', (event) => {
 });
 
 const targetFilters = document.querySelectorAll('.target-filter');
+const targetViewButtons = document.querySelectorAll('.target-view-button');
 const targetGrid = document.getElementById('targetGrid');
 const targetStatusStorageKey = 'cpd-target-status';
+const targetViewStorageKey = 'cpd-target-view';
 const drillLibraryStorageKey = 'cpd-drill-library';
 const activeDemoDrillStorageKey = 'cpd-active-demo-drill';
 const pausedDemoDrillStorageKey = 'cpd-paused-demo-drill';
@@ -335,6 +337,7 @@ const renderTargets = (targetIds) => {
                     <img class="face-raised" src="uspsa_target_red.svg" width="150" height="180" alt="">
                     <img class="face-defective" src="uspsa_target_grey.svg" width="150" height="180" alt="">
                 </span>
+                <span class="target-list-label">Target ${targetNumber}</span>
             </button>
             <div class="target-actions">
                 <button class="target-defect-toggle" type="button" aria-label="Mark target ${targetNumber} defective" title="Mark target ${targetNumber} defective">
@@ -779,6 +782,23 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         button.addEventListener('click', () => applyTargetFilter(button.dataset.filter));
     });
     hideDefectiveSwitch?.addEventListener('change', () => applyTargetFilter(activeFilter));
+
+    // AI-assisted target display preference; include this change in the PR's AI-use disclosure.
+    const applyTargetView = (view) => {
+        const isListView = view === 'list';
+        targetGrid.classList.toggle('is-list-view', isListView);
+        targetViewButtons.forEach((button) => {
+            const isActive = button.dataset.view === (isListView ? 'list' : 'grid');
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-pressed', String(isActive));
+        });
+        localStorage.setItem(targetViewStorageKey, isListView ? 'list' : 'grid');
+    };
+
+    targetViewButtons.forEach((button) => {
+        button.addEventListener('click', () => applyTargetView(button.dataset.view));
+    });
+    applyTargetView(localStorage.getItem(targetViewStorageKey) || 'grid');
 
     targetGrid.addEventListener('click', (event) => {
         const targetColumn = event.target.closest('[data-target-number]');

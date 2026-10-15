@@ -103,6 +103,15 @@
                     <input class="form-check-input" type="checkbox" role="switch" id="hideDefectiveTargets">
                     <label class="form-check-label" for="hideDefectiveTargets">Hide defective</label>
                 </div>
+                <!-- AI-modified (Claude): dev's grid/list toggle, moved into the View section. -->
+                <div class="btn-group target-view-toggle" role="group" aria-label="Target display view">
+                    <button class="btn btn-outline-primary target-view-button" type="button" data-view="grid" aria-label="Grid view" title="Grid view" aria-pressed="true">
+                        <i class="bi bi-grid-3x3-gap-fill" aria-hidden="true"></i>
+                    </button>
+                    <button class="btn btn-outline-primary target-view-button" type="button" data-view="list" aria-label="List view" title="List view" aria-pressed="false">
+                        <i class="bi bi-list-ul" aria-hidden="true"></i>
+                    </button>
+                </div>
             </div>
         </section>
     </div>
