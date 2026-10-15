@@ -30,6 +30,79 @@
     flex: 1 0 auto;
 }
 
+/* AI-generated (Claude): edge-to-edge scrolling banner used at the top of every page.
+   .drill-status-text holds the real text (read by screen readers, shown when the banner
+   can't scroll); script.js fills .banner-track with enough copies of it that the bar is
+   never empty, then slides the track left by half its width and loops seamlessly. */
+.drill-status-bar {
+    position: relative;
+    overflow: hidden;
+    white-space: nowrap;
+    padding: 0.7rem 0;
+    border-bottom: 4px solid var(--bs-secondary);
+    font-family: 'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', sans-serif;
+    font-size: clamp(1.7rem, 4.5vw, 2.75rem);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.drill-status-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    border: 0;
+}
+
+.banner-track {
+    display: inline-flex;
+    align-items: center;
+    animation: drill-status-scroll 20s linear infinite;
+    will-change: transform;
+}
+
+/* Small diamond between repeats; drawn with CSS so it doesn't depend on a font glyph. */
+.banner-sep {
+    display: inline-block;
+    width: 0.32em;
+    height: 0.32em;
+    margin: 0 2.75em;
+    background: currentColor;
+    opacity: 0.6;
+    transform: rotate(45deg);
+}
+
+@keyframes drill-status-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+
+/* Hold the text still and centered for users who turn off animations, and when printing
+   (Performance "Export PDF") so the title isn't captured mid-scroll. */
+@media (prefers-reduced-motion: reduce), print {
+    .drill-status-bar {
+        text-align: center;
+    }
+
+    .banner-track {
+        display: none;
+    }
+
+    .drill-status-text {
+        position: static;
+        width: auto;
+        height: auto;
+        margin: 0;
+        overflow: visible;
+        clip: auto;
+    }
+}
+
 .page-readout {
     max-width: 19rem;
     margin: auto auto 1.5rem;
@@ -124,6 +197,49 @@
     font-weight: 600;
 }
 
+/* AI-assisted target availability and assignment styles. */
+.target-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+    gap: 0.5rem;
+}
+
+.target-options.is-invalid {
+    padding: 0.35rem;
+    border: 1px solid #dc3545;
+    border-radius: 0.375rem;
+}
+
+.target-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.5rem;
+    padding: 0.4rem 0.55rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    background: #ffffff;
+    cursor: pointer;
+}
+
+.target-option:has(input:checked) {
+    border-color: #0d6efd;
+    background: #eef5ff;
+}
+
+/* AI-generated (Claude): placeholder box for the future drill sequence builder. */
+.drill-sequence-placeholder {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.85rem 1rem;
+    border: 1px dashed #adb5bd;
+    border-radius: 0.375rem;
+    background: #f8f9fa;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
 .delete-confirmation {
     border-top: 4px solid #dc3545;
 }
@@ -135,15 +251,201 @@
 .target-card {
     position: relative;
     display: block;
-    padding: 0;
+    width: 150px;
+    min-width: 150px;
+    /* AI-modified (Claude): top padding clears the number badge (which overhangs the card's
+       top edge) so it no longer sits on the target's head. */
+    padding: 1.25rem 0 0;
     border: 0;
     background: transparent;
     perspective: 700px;
     cursor: pointer;
 }
 
-.target-toolbar {
-    flex-shrink: 1;
+/* AI-generated (Claude): Targets page control bar. One bordered box whose sections size to
+   their contents and sit centered; the 1px grid gap over a grey background draws the dividers
+   in every layout. Phones: stacked. Tablets/laptops: drill section on top, manual + view
+   below. Wide screens: one row. */
+.control-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    background: #dee2e6;
+}
+
+.control-section {
+    padding: 0.7rem 1rem;
+    background: #ffffff;
+}
+
+@media (min-width: 768px) {
+    .control-bar {
+        grid-template-columns: auto auto;
+        justify-content: center;
+        width: fit-content;
+        max-width: calc(100% - 2rem);
+        margin-inline: auto !important;
+    }
+
+    .control-section:first-child {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (min-width: 1400px) {
+    .control-bar {
+        grid-template-columns: auto auto auto;
+    }
+
+    .control-section:first-child {
+        grid-column: auto;
+    }
+}
+
+.control-section-title {
+    margin-bottom: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.control-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Lock / unlock note under the Toggle targets buttons. */
+.control-hint {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0.45rem 0 0;
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+.is-manual-mode .control-hint {
+    color: #8a5a00;
+    font-weight: 600;
+}
+
+.toolbar-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #495057;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* AI-generated (Claude): All / Odd / Even / Clear row above a target checkbox list. */
+.target-quick-select {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-bottom: 0.5rem;
+}
+
+/* AI-generated (Claude): targets only respond to taps in manual mode. */
+.target-page:not(.is-manual-mode) .target-card {
+    cursor: default;
+}
+
+/* AI-modified (Claude): wraps so the select drops to its own line on narrow phones now that
+   there are three buttons; fills its control panel. */
+.drill-launch-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.drill-launch-bar .form-select {
+    min-width: 12rem;
+    flex: 1 1 12rem;
+}
+
+.drill-launch-bar .btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+#targetGrid [data-target-number] {
+    position: relative;
+}
+
+.target-actions {
+    position: absolute;
+    bottom: -0.7rem;
+    left: 50%;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    transform: translateX(-50%);
+}
+
+.target-defect-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.6rem;
+    border: 2px solid #ffffff;
+    border-radius: 999px;
+    background: #6c757d;
+    color: #ffffff;
+    box-shadow: 0 0.25rem 0.5rem rgba(33, 37, 41, 0.2);
+    font: 700 0.6rem/1.1 monospace;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.target-defect-toggle:not(:disabled):hover {
+    background: #5c636a;
+}
+
+.target-defect-toggle:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.target-defect-toggle.is-active {
+    background: #dc3545;
+    color: #ffffff;
+}
+
+.target-defect-toggle i {
+    font-size: 0.8rem;
+    line-height: 1;
+}
+
+.target-drill-assign {
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    background: #0d6efd;
+    color: #ffffff;
+    box-shadow: 0 0.25rem 0.5rem rgba(33, 37, 41, 0.2);
+}
+
+.target-drill-assign:hover:not(:disabled) {
+    background: #0b5ed7;
+}
+
+.target-drill-assign:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .target-number {
@@ -168,25 +470,56 @@
     color: #ffffff;
 }
 
-.target-card img {
+/* AI-modified (Claude): the card swaps between the green / red / grey USPSA images instead of
+   recoloring one image with CSS filters. The images are square with empty space at the sides,
+   so object-fit: cover fills the 150x180 card without cropping the silhouette. */
+.target-face {
+    position: relative;
     display: block;
+    width: 150px;
+    height: 180px;
     transform: rotateY(0deg);
-    transition: transform 0.55s ease, filter 0.275s ease;
+    transition: transform 0.55s ease;
     transform-style: preserve-3d;
 }
 
-.target-card.is-red img {
-    filter: hue-rotate(225deg) saturate(1.25);
+.target-card.is-red .target-face {
     transform: rotateY(180deg);
 }
 
-.target-card:focus-visible {
+.target-face img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 0.275s ease;
+}
+
+.target-card .face-hidden,
+.target-card.is-red .face-raised,
+.target-card.is-defective .face-defective {
+    opacity: 1;
+}
+
+.target-card.is-red .face-hidden,
+.target-card.is-defective .face-hidden,
+.target-card.is-defective .face-raised {
+    opacity: 0;
+}
+
+.target-card:focus-visible,
+.target-defect-toggle:focus-visible,
+.target-drill-assign:focus-visible {
     outline: 3px solid #0d6efd;
     outline-offset: 0.4rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .target-card img {
-        transition: filter 0.1s ease;
+    .target-face,
+    .target-face img,
+    .target-defect-toggle {
+        transition: filter 0.1s ease, opacity 0.1s ease, transform 0.1s ease;
     }
 }

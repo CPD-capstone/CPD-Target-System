@@ -1,0 +1,280 @@
+.login-page {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+    background: #f8f9fa;
+}
+
+.login-modal {
+    border-top: 4px solid #0d6efd;
+    box-shadow: 0 0.75rem 2rem rgba(33, 37, 41, 0.12);
+}
+
+.login-modal .modal-header {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.login-modal .modal-footer {
+    border-top: 0;
+}
+
+.target-page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.target-page > .container-fluid {
+    flex: 1 0 auto;
+}
+
+.page-readout {
+    max-width: 19rem;
+    margin: auto auto 1.5rem;
+    padding: 0.65rem 0.85rem;
+    border-top: 2px solid #0d6efd;
+    border-bottom: 1px solid #adb5bd;
+    color: #495057;
+    font: 700 0.75rem/1.2 monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.page-readout strong {
+    color: #0d6efd;
+    font-size: 0.95rem;
+    letter-spacing: 0.12em;
+}
+
+.drill-ticket {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 22rem;
+    margin: 0 auto;
+    padding: 1rem;
+    border: 1px solid #dee2e6;
+    border-top: 4px solid #0d6efd;
+    border-radius: 0.5rem;
+    background-color: #ffffff;
+    box-shadow: 0 0.25rem 0.75rem rgba(33, 37, 41, 0.08);
+}
+
+.drill-ticket-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.85rem;
+}
+
+.drill-ticket-label {
+    color: #6c757d;
+    font: 700 0.75rem/1.2 monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.drill-details {
+    margin-bottom: 1.25rem;
+}
+
+.drill-details > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.55rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.drill-details dt,
+.drill-details dd {
+    margin: 0;
+}
+
+.drill-details dt {
+    color: #6c757d;
+    font-size: 0.85rem;
+}
+
+.drill-details dd {
+    color: #212529;
+    font-weight: 600;
+    text-align: right;
+}
+
+.drill-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-top: auto;
+}
+
+.form-validation-message {
+    margin-bottom: 1rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid #f1aeb5;
+    border-left: 4px solid #dc3545;
+    border-radius: 0.5rem;
+    background: #fff5f5;
+    color: #842029;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.delete-confirmation {
+    border-top: 4px solid #dc3545;
+}
+
+.delete-confirmation .modal-title {
+    color: #842029;
+}
+
+.live-drill-status {
+    border-left: 4px solid #0d6efd;
+}
+
+.live-drill-status .card-header {
+    background: #f8f9fa;
+}
+
+.live-drill-status .badge {
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.target-card {
+    position: relative;
+    display: block;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    perspective: 700px;
+    cursor: pointer;
+}
+
+.target-toolbar {
+    flex-shrink: 1;
+}
+
+.target-number {
+    position: absolute;
+    top: -0.65rem;
+    left: 50%;
+    z-index: 1;
+    display: grid;
+    width: 1.75rem;
+    height: 1.75rem;
+    place-items: center;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    background: #212529;
+    color: #ffffff;
+    font: 700 0.85rem/1 monospace;
+    transform: translateX(-50%);
+}
+
+.target-defect-toggle {
+    position: absolute;
+    bottom: -0.7rem;
+    left: 50%;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.6rem;
+    border: 2px solid #ffffff;
+    border-radius: 999px;
+    background: #6c757d;
+    color: #ffffff;
+    box-shadow: 0 0.25rem 0.5rem rgba(33, 37, 41, 0.2);
+    font: 700 0.6rem/1.1 monospace;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transform: translateX(-50%);
+}
+
+.target-defect-toggle:not(:disabled):hover {
+    background: #5c636a;
+}
+
+.target-defect-toggle:disabled,
+.target-defect-toggle.is-disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    filter: grayscale(0.35);
+}
+
+.target-card.is-defective .target-defect-toggle,
+.target-defect-toggle.is-active {
+    background: #dc3545;
+    box-shadow: 0 0.35rem 0.8rem rgba(220, 53, 69, 0.32);
+    color: #ffffff;
+}
+
+.target-defect-toggle i {
+    font-size: 0.8rem;
+    line-height: 1;
+}
+
+.target-defect-indicator {
+    display: none;
+}
+
+.target-filter.is-active {
+    background-color: #0d6efd;
+    color: #ffffff;
+}
+
+.target-card img {
+    display: block;
+    transform: rotateY(0deg);
+    transition: transform 0.55s ease, filter 0.275s ease;
+    transform-style: preserve-3d;
+}
+
+.target-card.is-red img {
+    filter: hue-rotate(225deg) saturate(1.25);
+    transform: rotateY(180deg);
+}
+
+.target-card.is-defective {
+    filter: grayscale(0.92) saturate(0.3);
+    opacity: 0.65;
+}
+
+.target-card.is-defective .target-defect-toggle,
+.target-defect-toggle.is-active {
+    filter: none !important;
+    background: #dc3545 !important;
+    opacity: 1;
+    box-shadow: 0 0.35rem 0.8rem rgba(220, 53, 69, 0.32);
+    color: #ffffff;
+}
+
+.target-card.is-defective img {
+    filter: grayscale(1) brightness(0.65);
+}
+
+.target-card.is-red .target-defect-toggle {
+    opacity: 0.55;
+    filter: grayscale(0.35);
+}
+
+.target-card:focus-visible,
+.target-defect-toggle:focus-visible {
+    outline: 3px solid #0d6efd;
+    outline-offset: 0.25rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .target-card img,
+    .target-defect-indicator {
+        transition: filter 0.1s ease, opacity 0.1s ease, transform 0.1s ease;
+    }
+}
