@@ -856,8 +856,8 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             return;
         }
 
-        setTargetRaised(targetColumn, !targetCard.classList.contains('is-red'));
-        updateDrillStatus();
+        // AI-modified (Claude): the card only changes once the controller accepts the command.
+        applyManualTargets([[targetColumn, !targetCard.classList.contains('is-red')]]).then(updateDrillStatus);
     });
 
     // AI-modified (Claude): raise (red) or hide (green) one target; was inline in the click
@@ -874,6 +874,48 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         saveTargetCardStatus(targetCard);
     };
 
+    // AI-generated (Claude): sends one manual raise/hide to the controller. Never sends an empty
+    // list: the API treats a missing or empty "targets" as ALL targets.
+    const sendTargetCommand = async (present, targetNumbers) => {
+        if (targetNumbers.length === 0) return;
+        let response;
+        try {
+            response = await fetch(present ? '/api/targets/present' : '/api/targets/hide', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targets: targetNumbers })
+            });
+        } catch {
+            throw new Error('Could not reach the target controller. Check that you are on the CPD Range Control WiFi.');
+        }
+        if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(payload.error || 'The target controller did not accept the command.');
+        }
+    };
+
+    // AI-generated (Claude): moves targets on the controller, then updates the cards to match.
+    // changes is a list of [targetColumn, raise] pairs; targets already in that state are skipped.
+    // Hides go first so Random never has more targets up than it asked for. Returns false (and
+    // shows why) if the controller refused, leaving the cards showing what really happened.
+    const applyManualTargets = async (changes) => {
+        const pending = changes.filter(([column, raise]) => (
+            column.querySelector('.target-card').classList.contains('is-red') !== raise
+        ));
+        try {
+            for (const raise of [false, true]) {
+                const columns = pending.filter(([, r]) => r === raise).map(([column]) => column);
+                await sendTargetCommand(raise, columns.map((column) => Number(column.dataset.targetNumber)));
+                columns.forEach((column) => setTargetRaised(column, raise));
+            }
+        } catch (error) {
+            drillLaunchMessage.textContent = error.message;
+            drillLaunchMessage.hidden = false;
+            return false;
+        }
+        return true;
+    };
+
     // AI-generated (Claude): Toggle targets (manual mode only). All / Odd / Even raise every
     // usable target in the group, or hide them if they are all already raised. Random hides
     // everything, then raises randomTargetCount usable targets at random.
@@ -887,22 +929,24 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
                 && !unavailableTargets.has(Number(column.dataset.targetNumber))
             ));
 
+            // AI-modified (Claude): builds the wanted state and sends it to the controller in one go
+            // (one hide request, then one present request) instead of only recoloring the cards.
+            let changes;
             if (set === 'random') {
-                usableColumns.forEach((column) => setTargetRaised(column, false));
-                [...usableColumns]
+                const chosen = new Set([...usableColumns]
                     .sort(() => Math.random() - 0.5)
-                    .slice(0, randomTargetCount)
-                    .forEach((column) => setTargetRaised(column, true));
+                    .slice(0, randomTargetCount));
+                changes = usableColumns.map((column) => [column, chosen.has(column)]);
             } else {
                 const groupColumns = usableColumns.filter((column) => {
                     const targetNumber = Number(column.dataset.targetNumber);
                     return set === 'all' || (set === 'odd') === (targetNumber % 2 === 1);
                 });
                 const allRaised = groupColumns.every((column) => column.querySelector('.target-card').classList.contains('is-red'));
-                groupColumns.forEach((column) => setTargetRaised(column, !allRaised));
+                changes = groupColumns.map((column) => [column, !allRaised]);
             }
             drillLaunchMessage.hidden = true;
-            updateDrillStatus();
+            applyManualTargets(changes).then(updateDrillStatus);
         });
     });
 
