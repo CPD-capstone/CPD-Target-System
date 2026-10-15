@@ -1,0 +1,9 @@
+/* AI-generated (Claude): local copy of the Barlow Condensed 700 webfont (from @fontsource,
+   SIL Open Font License) so the banner font works on the offline access point. */
+@font-face {
+    font-family: 'Barlow Condensed';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('fonts/barlow-condensed-700.woff2') format('woff2');
+}

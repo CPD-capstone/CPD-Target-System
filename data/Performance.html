@@ -5,12 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0057b8">
     <title>Performance | CPD Target System</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-    <!-- AI-generated (Claude): Barlow Condensed for the scrolling page banner. -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
+    <!-- AI-modified (Claude): Bootstrap, Bootstrap Icons and the banner font are served from
+         data/vendor/ (LittleFS) instead of a CDN, because phones on the "CPD Range Control"
+         access point have no internet. The .css/.js files are stored gzipped; serveStatic()
+         sends the .gz automatically. -->
+    <link rel="stylesheet" href="vendor/bootstrap.min.css">
+    <link rel="stylesheet" href="vendor/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="vendor/barlow-condensed.css">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="Perfromance.css">
 </head>
@@ -159,7 +160,7 @@
     </main>
 
     <!-- Bootstrap provides the shared menu interaction. -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="vendor/bootstrap.bundle.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
