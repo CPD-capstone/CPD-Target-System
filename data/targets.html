@@ -54,6 +54,12 @@
                     <i class="bi bi-stop-fill" aria-hidden="true"></i>
                     Stop
                 </button>
+                <!-- AI-generated (Claude): shown only after Stop (emergency stop latched); clears the
+                     stop and hides every target. script.js shows/hides it from /api/drill/status. -->
+                <button class="btn btn-warning" id="resetTargetsButton" type="button" aria-label="Reset: hide all targets" title="Reset: hide all targets" hidden>
+                    <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+                    Reset
+                </button>
             </div>
         </section>
 

@@ -279,7 +279,7 @@ static void handleReset(AsyncWebServerRequest* request) {
 
 // GET /api/drill/status
 //   -> {state, drillName, step, stepCount, stepAction, targets: [n, ...], lastOutcome, stopped,
-//       hardwareReady}
+//       hardwareReady, facing: [n, ...]}
 // While idle, drillName/stepCount/targets describe the last drill run (step is 0).
 // stopped = emergency stop is latched; only /api/reset moves targets until it is cleared.
 static void handleDrillStatus(AsyncWebServerRequest* request) {
@@ -294,6 +294,8 @@ static void handleDrillStatus(AsyncWebServerRequest* request) {
     doc["lastOutcome"] = drillOutcomeName(status.lastOutcome);
     doc["stopped"] = status.stopped;
     doc["hardwareReady"] = hal_isReady(); // false: expanders missing/failed or HAL not started
+    // AI-generated (Claude): targets facing right now, so the web UI's poll needs one request
+    addTargetList(doc["facing"].to<JsonArray>(), hal_getTargetStates());
     sendJson(request, 200, doc);
 }
 

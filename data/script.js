@@ -85,11 +85,6 @@ const targetGrid = document.getElementById('targetGrid');
 const targetStatusStorageKey = 'cpd-target-status';
 const targetViewStorageKey = 'cpd-target-view';
 const drillLibraryStorageKey = 'cpd-drill-library';
-const activeDemoDrillStorageKey = 'cpd-active-demo-drill';
-const pausedDemoDrillStorageKey = 'cpd-paused-demo-drill';
-// AI-generated (Claude): name of the running drill, so the status bar on the Drills and
-// Performance pages can show it without loading the drill library.
-const activeDemoDrillNameStorageKey = 'cpd-active-demo-drill-name';
 // AI-generated (Claude): manual mode unlocks tapping targets to raise/hide them. Saved so the
 // status bar on other pages shows it too.
 const manualModeStorageKey = 'cpd-manual-mode';
@@ -104,8 +99,46 @@ const setStatusBarStyle = (state) => {
     drillStatus.classList.toggle('text-dark', state === 'manual');
 };
 let targetAssignmentDrills = {};
-let activeDemoDrillId = localStorage.getItem(activeDemoDrillStorageKey) || '';
-let activeDemoDrillPaused = localStorage.getItem(pausedDemoDrillStorageKey) === 'true';
+
+// AI-generated (Claude): the controller is the source of truth for drills and targets. Every
+// page with the status bar polls GET /api/drill/status (fast while a drill is running or
+// paused, slow when idle) and redraws from the reply. Deliberately no WebSocket: one phone at a
+// time, and captive-portal browsers drop connections, which polling survives.
+// controllerStatus = last reply ({state, drillName, step, stepCount, stepAction, targets,
+// lastOutcome, stopped, hardwareReady, facing}), or null if the controller can't be reached.
+let controllerStatus = null;
+const controllerStatusListeners = [];
+let drillStatusTimer = null;
+
+const pollDrillStatus = async () => {
+    clearTimeout(drillStatusTimer);
+    try {
+        const response = await fetch('/api/drill/status', { cache: 'no-store' });
+        controllerStatus = response.ok ? await response.json() : null;
+    } catch {
+        controllerStatus = null;
+    }
+    controllerStatusListeners.forEach((listener) => listener(controllerStatus));
+    const drillActive = controllerStatus && controllerStatus.state !== 'idle';
+    drillStatusTimer = setTimeout(pollDrillStatus, drillActive ? 500 : 3000);
+};
+
+// AI-generated (Claude): POSTs to the controller and throws an Error with the controller's
+// message if it refuses. Never pass an empty "targets" list: the API reads [] as ALL targets.
+const postToController = async (path, body) => {
+    let response;
+    try {
+        response = await fetch(path, body === undefined
+            ? { method: 'POST' }
+            : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    } catch {
+        throw new Error('Could not reach the target controller. Check that you are on the CPD Range Control WiFi.');
+    }
+    if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || 'The target controller did not accept the command.');
+    }
+};
 
 // AI-generated (Claude): a "full drill" is a composite whose sequence runs other drills by
 // name (e.g. "Pistol Qual Full Drill"); everything else is a single stage.
@@ -211,14 +244,49 @@ const saveTargetCardStatus = (targetCard) => {
     saveTargetStatus(status);
 };
 
+// AI-modified (Claude): draws the status bar (every page) and, on the Targets page, the drill
+// buttons, from the controller's last status reply instead of the old frontend-only demo
+// state. Card colors are set by the Targets page's own status listener (initializeTargetPage).
 const updateDrillStatus = () => {
-    if (!drillStatus || !targetGrid) return;
+    if (!drillStatus) return;
 
-    const hasRedTarget = targetGrid.querySelector('.target-card.is-red');
+    const status = controllerStatus;
+    const state = status?.state || 'idle';
+    const drillActive = state !== 'idle';
+    const stopped = Boolean(status?.stopped);
+    const drillName = status?.drillName || 'Drill';
+
+    // Status bar colors: blue = idle, red = drill running / stopped / fault, amber = manual.
+    if (!status) {
+        setStatusBarStyle('idle');
+        setDrillStatusText('Target controller not connected');
+    } else if (!status.hardwareReady) {
+        setStatusBarStyle('active');
+        setDrillStatusText('Target hardware not ready');
+    } else if (stopped) {
+        setStatusBarStyle('active');
+        setDrillStatusText('Stopped: targets frozen. Press Reset to hide them');
+    } else if (state === 'paused') {
+        setStatusBarStyle('active');
+        setDrillStatusText(`${drillName} paused (step ${status.step} of ${status.stepCount}). Press Resume`);
+    } else if (state === 'running') {
+        setStatusBarStyle('active');
+        setDrillStatusText(`${drillName} in progress (step ${status.step} of ${status.stepCount})`);
+    } else if (manualMode) {
+        setStatusBarStyle('manual');
+        setDrillStatusText('Manual mode');
+    } else {
+        setStatusBarStyle('idle');
+        setDrillStatusText('No drill in progress');
+    }
+
+    if (!targetGrid) return;
+
     const startDrillButton = document.getElementById('startDrillButton');
     const startDrillLabel = document.getElementById('startDrillLabel');
     const pauseDrillButton = document.getElementById('pauseDrillButton');
     const stopDrillButton = document.getElementById('stopDrillButton');
+    const resetTargetsButton = document.getElementById('resetTargetsButton');
     const drillSelect = document.getElementById('drillSelect');
 
     // AI-generated (Claude): manual mode button, and target taps unlocked only in manual mode.
@@ -239,89 +307,26 @@ const updateDrillStatus = () => {
     document.body.classList.toggle('is-manual-mode', manualMode);
     document.querySelectorAll('.target-toggle').forEach((button) => { button.disabled = !manualMode; });
 
-    // AI-generated (Claude): in manual mode no drill runs, so every drill control is locked.
-    if (manualMode) {
-        setStatusBarStyle('manual');
-        setDrillStatusText('Manual mode');
-        localStorage.removeItem(activeDemoDrillNameStorageKey);
-        if (startDrillLabel) startDrillLabel.textContent = 'Start drill';
-        [startDrillButton, pauseDrillButton, stopDrillButton, drillSelect].forEach((control) => {
-            if (control) control.disabled = true;
-        });
-        return;
+    // Start doubles as Resume while the controller is paused (operator pause or a "pause" step).
+    if (startDrillLabel) startDrillLabel.textContent = state === 'paused' ? 'Resume drill' : 'Start drill';
+    if (startDrillButton) {
+        startDrillButton.disabled = !status || manualMode || stopped
+            || (state === 'paused' ? false : drillActive || !drillSelect?.value);
     }
-    setStatusBarStyle(hasRedTarget ? 'active' : 'idle');
-
-    // AI-generated (Claude): Stop is available whenever a drill is running or paused.
-    if (stopDrillButton) {
-        stopDrillButton.disabled = !(hasRedTarget && activeDemoDrillId);
-    }
-
-    if (hasRedTarget) {
-        const drill = targetAssignmentDrills[activeDemoDrillId];
-        const drillName = drill ? drill.name || drill.drillName : 'Drill';
-        if (drill) {
-            localStorage.setItem(activeDemoDrillNameStorageKey, drillName);
-        }
-        setDrillStatusText(activeDemoDrillPaused
-            ? `${drillName} Paused`
-            : `${drillName} in Progress`);
-        if (startDrillLabel) {
-            startDrillLabel.textContent = activeDemoDrillPaused ? 'Resume drill' : 'Start drill';
-        }
-        if (startDrillButton) {
-            startDrillButton.disabled = !activeDemoDrillPaused;
-        }
-        if (pauseDrillButton) {
-            pauseDrillButton.disabled = !activeDemoDrillId || activeDemoDrillPaused;
-        }
-        if (drillSelect) {
-            drillSelect.disabled = Boolean(activeDemoDrillId);
-        }
-    } else {
-        activeDemoDrillId = '';
-        activeDemoDrillPaused = false;
-        localStorage.removeItem(activeDemoDrillStorageKey);
-        localStorage.removeItem(pausedDemoDrillStorageKey);
-        localStorage.removeItem(activeDemoDrillNameStorageKey);
-        setDrillStatusText('No drill in progress');
-        if (startDrillLabel) {
-            startDrillLabel.textContent = 'Start drill';
-        }
-        if (startDrillButton) {
-            startDrillButton.disabled = !drillSelect?.value;
-        }
-        if (pauseDrillButton) {
-            pauseDrillButton.disabled = true;
-        }
-        if (drillSelect) {
-            drillSelect.disabled = false;
-        }
-    }
+    if (pauseDrillButton) pauseDrillButton.disabled = state !== 'running';
+    if (stopDrillButton) stopDrillButton.disabled = !drillActive || stopped;
+    if (resetTargetsButton) resetTargetsButton.hidden = !stopped;
+    if (drillSelect) drillSelect.disabled = manualMode || drillActive || stopped;
 };
 
-// AI-generated (Claude): status bar on pages without the target grid (Drills, Performance).
-// Reads the drill state the Targets page saves, using the same rule as updateDrillStatus:
-// any target still red means a drill is in progress. Also refreshes if another tab changes it.
-const showSavedDrillStatus = () => {
-    if (!drillStatus || targetGrid) return;
-
-    const hasRedTarget = Object.values(getSavedTargetStatus()).some((state) => state?.red && !state?.defective);
-    const drillName = localStorage.getItem(activeDemoDrillNameStorageKey) || 'Drill';
-    const isPaused = localStorage.getItem(pausedDemoDrillStorageKey) === 'true';
-    if (localStorage.getItem(manualModeStorageKey) === 'true') {
-        setStatusBarStyle('manual');
-        setDrillStatusText('Manual mode');
-        return;
-    }
-    setStatusBarStyle(hasRedTarget ? 'active' : 'idle');
-    setDrillStatusText(hasRedTarget
-        ? `${drillName} ${isPaused ? 'Paused' : 'in Progress'}`
-        : 'No drill in progress');
-};
-
-showSavedDrillStatus();
-window.addEventListener('storage', showSavedDrillStatus);
+if (drillStatus) {
+    controllerStatusListeners.push(updateDrillStatus);
+    pollDrillStatus();
+    // Captive-portal browsers suspend the page; refresh as soon as it is visible again.
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') pollDrillStatus();
+    });
+}
 
 const renderTargets = (targetIds) => {
     if (!targetGrid) return;
@@ -390,41 +395,44 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
                 return group;
             });
         drillSelect.replaceChildren(new Option('Select a drill', ''), ...drillGroups);
-        if (activeDemoDrillId && targetAssignmentDrills[activeDemoDrillId]) {
-            drillSelect.value = activeDemoDrillId;
-        } else if (activeDemoDrillId) {
-            activeDemoDrillId = '';
-            activeDemoDrillPaused = false;
-            localStorage.removeItem(activeDemoDrillStorageKey);
-            localStorage.removeItem(pausedDemoDrillStorageKey);
-        }
-        startDrillButton.disabled = manualMode || !drillSelect.value || Boolean(activeDemoDrillId && !activeDemoDrillPaused);
-        if (activeDemoDrillPaused) {
-            startDrillLabel.textContent = 'Resume drill';
-        }
-        drillSelect.disabled = Boolean(activeDemoDrillId);
-        pauseDrillButton.disabled = !activeDemoDrillId || activeDemoDrillPaused;
+
+        // AI-modified (Claude): drills now run on the controller (this was a frontend-only demo).
+        // The buttons only send commands; the status bar, buttons and cards are redrawn from what
+        // the controller reports back through pollDrillStatus().
+        const pauseDrillButton = document.getElementById('pauseDrillButton');
+
+        const showLaunchMessage = (text) => {
+            drillLaunchMessage.textContent = text;
+            drillLaunchMessage.hidden = false;
+        };
 
         drillSelect.addEventListener('change', () => {
-            startDrillButton.disabled = manualMode || !drillSelect.value || Boolean(activeDemoDrillId && !activeDemoDrillPaused);
             drillLaunchMessage.hidden = true;
             drillLaunchMessage.textContent = '';
+            updateDrillStatus();
         });
 
-        startDrillButton.addEventListener('click', () => {
-            const drillId = drillSelect.value;
-            const drill = targetAssignmentDrills[drillId];
-            if (!drill || manualMode) return;
-
-            if (activeDemoDrillPaused && activeDemoDrillId === drillId) {
-                activeDemoDrillPaused = false;
-                localStorage.removeItem(pausedDemoDrillStorageKey);
-                drillLaunchMessage.hidden = true;
-                drillLaunchMessage.textContent = '';
-                updateDrillStatus();
+        startDrillButton.addEventListener('click', async () => {
+            if (manualMode) return;
+            // While the controller is paused (operator pause or a "pause" step) this is Resume.
+            if (controllerStatus?.state === 'paused') {
+                try {
+                    await postToController('/api/drill/resume');
+                    drillLaunchMessage.hidden = true;
+                } catch (error) {
+                    showLaunchMessage(error.message);
+                }
+                pollDrillStatus();
                 return;
             }
-            if (activeDemoDrillId) return;
+
+            const drillId = drillSelect.value;
+            const drill = targetAssignmentDrills[drillId];
+            if (!drill) return;
+            if (getDrillCategory(drillId, drill) === 'custom') {
+                showLaunchMessage('Custom drills are saved on this phone only, so the controller cannot run them yet.');
+                return;
+            }
 
             const assignedTargets = Array.isArray(drill.targets)
                 ? [...new Set(drill.targets.map(Number).filter((targetNumber) => Number.isInteger(targetNumber) && targetNumber >= 1 && targetNumber <= 20))]
@@ -442,68 +450,29 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
                 return;
             }
             if (!availableTargets.length) {
-                drillLaunchMessage.textContent = 'All targets assigned to this drill are defective or unavailable.';
-                drillLaunchMessage.hidden = false;
+                showLaunchMessage('All targets assigned to this drill are defective or unavailable.');
                 return;
             }
 
             runDrillOnTargets(drillId, availableTargets);
         });
 
-        // AI-modified (Claude): moved out of the Start click handler so the target picker can
-        // start a drill too. Body is unchanged.
-        const runDrillOnTargets = (drillId, availableTargets) => {
+        // AI-modified (Claude): starts the drill on the controller. availableTargets is never
+        // empty here (callers check), which matters because the API reads [] as all targets.
+        const runDrillOnTargets = async (drillId, availableTargets) => {
             const drill = targetAssignmentDrills[drillId];
-            const drillName = drill.name || drill.drillName;
-
             startDrillButton.disabled = true;
             try {
-                /* ESP32 API call disabled for frontend-only demo mode:
-                const response = await fetch('/api/drill/start', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ drillName, targets: availableTargets })
+                await postToController('/api/drill/start', {
+                    drillName: drill.name || drill.drillName,
+                    targets: availableTargets
                 });
-                const payload = await response.json().catch(() => ({}));
-                if (!response.ok) {
-                    throw new Error(payload.error || 'The controller could not start this drill.');
-                }
-                */
-
-                const status = getSavedTargetStatus();
-                availableTargets.forEach((targetNumber) => {
-                    const targetKey = String(targetNumber);
-                    const savedState = status[targetKey] && typeof status[targetKey] === 'object' && !Array.isArray(status[targetKey])
-                        ? status[targetKey]
-                        : {};
-                    const activeDrillIds = new Set(
-                        (Array.isArray(savedState.activeDrillIds) ? savedState.activeDrillIds : []).map(String)
-                    );
-                    activeDrillIds.add(drillId);
-                    status[targetKey] = { ...savedState, red: true, activeDrillIds: Array.from(activeDrillIds) };
-
-                    const targetColumn = targetGrid.querySelector(`[data-target-number="${targetNumber}"]`);
-                    const targetCard = targetColumn.querySelector('.target-card');
-                    targetCard.classList.add('is-red');
-                    targetCard.setAttribute('aria-pressed', 'true');
-                    targetCard.setAttribute('aria-label', `Return target ${targetNumber} to green`);
-                    targetColumn.querySelector('.target-defect-toggle').disabled = true;
-                });
-
-                saveTargetStatus(status);
-                activeDemoDrillId = drillId;
-                activeDemoDrillPaused = false;
-                localStorage.setItem(activeDemoDrillStorageKey, activeDemoDrillId);
-                localStorage.removeItem(pausedDemoDrillStorageKey);
                 drillLaunchMessage.hidden = true;
                 drillLaunchMessage.textContent = '';
-                updateDrillStatus();
             } catch (error) {
-                drillLaunchMessage.textContent = error.message || 'Could not update the demo target state.';
-                drillLaunchMessage.hidden = false;
-            } finally {
-                startDrillButton.disabled = manualMode || !drillSelect.value || Boolean(activeDemoDrillId && !activeDemoDrillPaused);
+                showLaunchMessage(error.message);
             }
+            pollDrillStatus();
         };
 
         // AI-generated (Claude): picker for drills that have no targets assigned. Lists every
@@ -556,16 +525,18 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
                 return;
             }
             bootstrapModal.getInstance(pickerModalElement)?.hide();
-            if (pickerDrillId && !activeDemoDrillId && !manualMode) {
+            if (pickerDrillId && !manualMode) {
                 runDrillOnTargets(pickerDrillId, selectedTargets);
             }
         });
 
-        pauseDrillButton.addEventListener('click', () => {
-            if (!activeDemoDrillId || activeDemoDrillPaused || !targetGrid.querySelector('.target-card.is-red')) return;
-            activeDemoDrillPaused = true;
-            localStorage.setItem(pausedDemoDrillStorageKey, 'true');
-            updateDrillStatus();
+        pauseDrillButton.addEventListener('click', async () => {
+            try {
+                await postToController('/api/drill/pause');
+            } catch (error) {
+                showLaunchMessage(error.message);
+            }
+            pollDrillStatus();
         });
 
         // AI-generated (Claude): turns every raised (red) target back to green.
@@ -583,34 +554,28 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             saveTargetStatus(status);
         };
 
-        // AI-generated (Claude): ends the running or paused drill and returns its targets to green.
-        // On the real controller, /api/stop freezes the targets where they are and a separate
-        // Reset hides them; demo mode does both in one step. Returns the drill's name, or ''
-        // if no drill was running.
-        const stopActiveDrill = () => {
-            if (!activeDemoDrillId) return '';
+        // AI-modified (Claude): Stop is the controller's emergency stop. It freezes every target
+        // where it is (the controller never moves a target on Stop) and latches until Reset,
+        // which hides them all.
+        document.getElementById('stopDrillButton')?.addEventListener('click', async () => {
+            try {
+                await postToController('/api/stop');
+                showLaunchMessage('Drill stopped. Targets are frozen where they are; press Reset to hide them.');
+            } catch (error) {
+                showLaunchMessage(`${error.message} The stop was not confirmed, so treat the targets as unsafe.`);
+            }
+            pollDrillStatus();
+        });
 
-            /* ESP32 API call disabled for frontend-only demo mode:
-            await fetch('/api/stop', { method: 'POST' });
-            await fetch('/api/reset', { method: 'POST' });
-            */
-
-            const drill = targetAssignmentDrills[activeDemoDrillId];
-            const drillName = drill ? drill.name || drill.drillName : 'Drill';
-            hideAllTargets();
-            activeDemoDrillId = '';
-            activeDemoDrillPaused = false;
-            localStorage.removeItem(activeDemoDrillStorageKey);
-            localStorage.removeItem(pausedDemoDrillStorageKey);
-            return drillName;
-        };
-
-        document.getElementById('stopDrillButton')?.addEventListener('click', () => {
-            const drillName = stopActiveDrill();
-            if (!drillName) return;
-            drillLaunchMessage.textContent = `${drillName} stopped.`;
-            drillLaunchMessage.hidden = false;
-            updateDrillStatus();
+        // AI-generated (Claude): clears the emergency stop and hides every target.
+        document.getElementById('resetTargetsButton')?.addEventListener('click', async () => {
+            try {
+                await postToController('/api/reset');
+                drillLaunchMessage.hidden = true;
+            } catch (error) {
+                showLaunchMessage(error.message);
+            }
+            pollDrillStatus();
         });
 
         // AI-generated (Claude): manual mode. Entering it while a drill is running asks first,
@@ -637,28 +602,34 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
                     drillLaunchMessage.hidden = true;
                     updateDrillStatus();
                 }).catch((error) => {
-                    drillLaunchMessage.textContent = `${error.message} Targets may still be raised, so manual mode is still on.`;
-                    drillLaunchMessage.hidden = false;
+                    showLaunchMessage(`${error.message} Targets may still be raised, so manual mode is still on.`);
                 });
                 return;
             }
-            if (activeDemoDrillId && manualModeModalElement && bootstrapModal) {
-                const drill = targetAssignmentDrills[activeDemoDrillId];
-                document.getElementById('manualModeDrillName').textContent = drill ? drill.name || drill.drillName : 'the current drill';
+            if (controllerStatus && controllerStatus.state !== 'idle' && manualModeModalElement && bootstrapModal) {
+                document.getElementById('manualModeDrillName').textContent = controllerStatus.drillName || 'the current drill';
                 bootstrapModal.getOrCreateInstance(manualModeModalElement).show();
                 return;
             }
             enterManualMode();
         });
 
-        document.getElementById('confirmManualModeButton')?.addEventListener('click', () => {
-            const drillName = stopActiveDrill();
+        // AI-modified (Claude): ending a drill to switch to manual mode stops it on the controller
+        // and then resets (hides every target), because the operator confirmed ending it.
+        document.getElementById('confirmManualModeButton')?.addEventListener('click', async () => {
             bootstrapModal.getInstance(manualModeModalElement)?.hide();
-            enterManualMode();
-            if (drillName) {
-                drillLaunchMessage.textContent = `${drillName} ended. Tap a target to raise or hide it.`;
-                drillLaunchMessage.hidden = false;
+            const drillName = controllerStatus?.drillName || 'The drill';
+            try {
+                await postToController('/api/stop');
+                await postToController('/api/reset');
+            } catch (error) {
+                showLaunchMessage(`${error.message} Manual mode was not turned on.`);
+                pollDrillStatus();
+                return;
             }
+            enterManualMode();
+            showLaunchMessage(`${drillName} ended. Tap a target to raise or hide it.`);
+            pollDrillStatus();
         });
     }
 
@@ -887,20 +858,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
     // list: the API treats a missing or empty "targets" as ALL targets.
     const sendTargetCommand = async (present, targetNumbers) => {
         if (targetNumbers.length === 0) return;
-        let response;
-        try {
-            response = await fetch(present ? '/api/targets/present' : '/api/targets/hide', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ targets: targetNumbers })
-            });
-        } catch {
-            throw new Error('Could not reach the target controller. Check that you are on the CPD Range Control WiFi.');
-        }
-        if (!response.ok) {
-            const payload = await response.json().catch(() => ({}));
-            throw new Error(payload.error || 'The target controller did not accept the command.');
-        }
+        await postToController(present ? '/api/targets/present' : '/api/targets/hide', { targets: targetNumbers });
     };
 
     // AI-generated (Claude): moves targets on the controller, then updates the cards to match.
@@ -920,38 +878,44 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         } catch (error) {
             drillLaunchMessage.textContent = error.message;
             drillLaunchMessage.hidden = false;
+            pollDrillStatus();
             return false;
         }
+        pollDrillStatus(); // confirm against what the relays actually did
         return true;
     };
 
-    // AI-generated (Claude): sets the cards to what the relays are really doing
-    // (GET /api/targets/state). Skipped while a demo drill is showing, because demo drills don't
-    // run on the controller yet. If the controller can't be reached, the saved cards are kept.
-    const syncTargetsFromController = async () => {
-        if (activeDemoDrillId) return;
-        try {
-            const response = await fetch('/api/targets/state', { cache: 'no-store' });
-            if (!response.ok) return;
-            const { facing } = await response.json();
-            if (!Array.isArray(facing)) return;
-            const facingTargets = new Set(facing.map(Number));
+    // AI-modified (Claude): on every status poll, set the cards to the targets the controller
+    // reports as facing (during drills and manual mode alike), keep the drill picker on the
+    // drill that is running, and say how a drill ended when it finishes on its own.
+    let lastDrillState = null;
+    controllerStatusListeners.push((status) => {
+        if (!status) return;
+        if (Array.isArray(status.facing)) {
+            const facingTargets = new Set(status.facing.map(Number));
             targetColumns.forEach((column) => {
                 const isFacing = facingTargets.has(Number(column.dataset.targetNumber));
                 if (column.querySelector('.target-card').classList.contains('is-red') !== isFacing) {
                     setTargetRaised(column, isFacing);
                 }
             });
-            updateDrillStatus();
-        } catch {
-            // Not on the controller's WiFi (e.g. previewing the page): keep the saved state.
         }
-    };
-    syncTargetsFromController();
-    // Captive-portal browsers suspend the page; re-check when it comes back into view.
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') syncTargetsFromController();
+        if (drillSelect && status.state !== 'idle') {
+            const runningOption = Array.from(drillSelect.options).find((option) => option.text === status.drillName);
+            if (runningOption) drillSelect.value = runningOption.value;
+        }
+        if (lastDrillState && lastDrillState !== 'idle' && status.state === 'idle' && drillLaunchMessage) {
+            if (status.lastOutcome === 'completed') {
+                drillLaunchMessage.textContent = `${status.drillName} complete.`;
+                drillLaunchMessage.hidden = false;
+            } else if (status.lastOutcome === 'failed') {
+                drillLaunchMessage.textContent = `${status.drillName} failed; its targets were hidden.`;
+                drillLaunchMessage.hidden = false;
+            }
+        }
+        lastDrillState = status.state;
     });
+    pollDrillStatus();
 
     // AI-generated (Claude): Toggle targets (manual mode only). All / Odd / Even raise every
     // usable target in the group, or hide them if they are all already raised. Random hides
