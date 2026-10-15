@@ -626,11 +626,20 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
 
         document.getElementById('manualModeButton')?.addEventListener('click', () => {
             if (manualMode) {
-                hideAllTargets();
-                manualMode = false;
-                localStorage.removeItem(manualModeStorageKey);
-                drillLaunchMessage.hidden = true;
-                updateDrillStatus();
+                // AI-modified (Claude): hide every target on the controller first, and leave
+                // manual mode only once it has accepted, so the cards never claim targets are
+                // hidden while a relay is still on.
+                const allTargets = targetColumns.map((column) => Number(column.dataset.targetNumber));
+                sendTargetCommand(false, allTargets).then(() => {
+                    hideAllTargets();
+                    manualMode = false;
+                    localStorage.removeItem(manualModeStorageKey);
+                    drillLaunchMessage.hidden = true;
+                    updateDrillStatus();
+                }).catch((error) => {
+                    drillLaunchMessage.textContent = `${error.message} Targets may still be raised, so manual mode is still on.`;
+                    drillLaunchMessage.hidden = false;
+                });
                 return;
             }
             if (activeDemoDrillId && manualModeModalElement && bootstrapModal) {
@@ -915,6 +924,34 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         }
         return true;
     };
+
+    // AI-generated (Claude): sets the cards to what the relays are really doing
+    // (GET /api/targets/state). Skipped while a demo drill is showing, because demo drills don't
+    // run on the controller yet. If the controller can't be reached, the saved cards are kept.
+    const syncTargetsFromController = async () => {
+        if (activeDemoDrillId) return;
+        try {
+            const response = await fetch('/api/targets/state', { cache: 'no-store' });
+            if (!response.ok) return;
+            const { facing } = await response.json();
+            if (!Array.isArray(facing)) return;
+            const facingTargets = new Set(facing.map(Number));
+            targetColumns.forEach((column) => {
+                const isFacing = facingTargets.has(Number(column.dataset.targetNumber));
+                if (column.querySelector('.target-card').classList.contains('is-red') !== isFacing) {
+                    setTargetRaised(column, isFacing);
+                }
+            });
+            updateDrillStatus();
+        } catch {
+            // Not on the controller's WiFi (e.g. previewing the page): keep the saved state.
+        }
+    };
+    syncTargetsFromController();
+    // Captive-portal browsers suspend the page; re-check when it comes back into view.
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') syncTargetsFromController();
+    });
 
     // AI-generated (Claude): Toggle targets (manual mode only). All / Odd / Even raise every
     // usable target in the group, or hide them if they are all already raised. Random hides
