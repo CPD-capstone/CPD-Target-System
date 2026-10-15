@@ -62,25 +62,29 @@
 
 // MCP23S17 #1 (Targets 1 - 16)
 // -----------------------------------------------------------------------------
-// Relay Module #1 (Targets 1 - 8) -> MCP1 Port A -> Relay #1 IN1-IN8
-#define TARGET_1_PIN    0   // GPA0 (Pin 21)
-#define TARGET_2_PIN    1   // GPA1 (Pin 22)
-#define TARGET_3_PIN    2   // GPA2 (Pin 23)
-#define TARGET_4_PIN    3   // GPA3 (Pin 24)
-#define TARGET_5_PIN    4   // GPA4 (Pin 25)
-#define TARGET_6_PIN    5   // GPA5 (Pin 26)
-#define TARGET_7_PIN    6   // GPA6 (Pin 27)
-#define TARGET_8_PIN    7   // GPA7 (Pin 28)
+// AI-modified (Claude): MCP1's 16 outputs are wired in fully reversed order (bench-verified):
+// target n -> MCP1 pin index 16 - n. hal.cpp's writeOutputs() reads every TARGET_n_PIN
+// define, so change the mapping here only. Index 0-7 = GPA0-7, 8-15 = GPB0-7.
 
-// Relay Module #2 (Targets 9 - 16) -> MCP1 Port B -> Relay #2 IN1-IN8
-#define TARGET_9_PIN    8   // GPB0 (Pin 1)
-#define TARGET_10_PIN   9   // GPB1 (Pin 2)
-#define TARGET_11_PIN   10  // GPB2 (Pin 3)
-#define TARGET_12_PIN   11  // GPB3 (Pin 4)
-#define TARGET_13_PIN   12  // GPB4 (Pin 5)
-#define TARGET_14_PIN   13  // GPB5 (Pin 6)
-#define TARGET_15_PIN   14  // GPB6 (Pin 7)
-#define TARGET_16_PIN   15  // GPB7 (Pin 8)
+// Relay Module #2 (MCP1 Port B, GPB7-GPB0) -> Targets 1 - 8
+#define TARGET_1_PIN    15  // GPB7 (Pin 8)
+#define TARGET_2_PIN    14  // GPB6 (Pin 7)
+#define TARGET_3_PIN    13  // GPB5 (Pin 6)
+#define TARGET_4_PIN    12  // GPB4 (Pin 5)
+#define TARGET_5_PIN    11  // GPB3 (Pin 4)
+#define TARGET_6_PIN    10  // GPB2 (Pin 3)
+#define TARGET_7_PIN    9   // GPB1 (Pin 2)
+#define TARGET_8_PIN    8   // GPB0 (Pin 1)
+
+// Relay Module #1 (MCP1 Port A, GPA7-GPA0) -> Targets 9 - 16
+#define TARGET_9_PIN    7   // GPA7 (Pin 28)
+#define TARGET_10_PIN   6   // GPA6 (Pin 27)
+#define TARGET_11_PIN   5   // GPA5 (Pin 26)
+#define TARGET_12_PIN   4   // GPA4 (Pin 25)
+#define TARGET_13_PIN   3   // GPA3 (Pin 24)
+#define TARGET_14_PIN   2   // GPA2 (Pin 23)
+#define TARGET_15_PIN   1   // GPA1 (Pin 22)
+#define TARGET_16_PIN   0   // GPA0 (Pin 21)
 
 
 // MCP23S17 #2 (Targets 17 - 20)
@@ -112,16 +116,16 @@
 // layout only -- replace it once the wiring is identified.
 /*
  * Connector A                          Connector B
- * Pin 1  --> Target 1  (MCP1 GPA0)     Pin 1  --> Target 11 (MCP1 GPB2)
- * Pin 2  --> Target 2  (MCP1 GPA1)     Pin 2  --> Target 12 (MCP1 GPB3)
- * Pin 3  --> Target 3  (MCP1 GPA2)     Pin 3  --> Target 13 (MCP1 GPB4)
- * Pin 4  --> Target 4  (MCP1 GPA3)     Pin 4  --> Target 14 (MCP1 GPB5)
- * Pin 5  --> Target 5  (MCP1 GPA4)     Pin 5  --> Target 15 (MCP1 GPB6)
- * Pin 6  --> Target 6  (MCP1 GPA5)     Pin 6  --> Target 16 (MCP1 GPB7)
- * Pin 7  --> Target 7  (MCP1 GPA6)     Pin 7  --> Target 17 (MCP2 GPA7)
- * Pin 8  --> Target 8  (MCP1 GPA7)     Pin 8  --> Target 18 (MCP2 GPA6)
- * Pin 9  --> Target 9  (MCP1 GPB0)     Pin 9  --> Target 19 (MCP2 GPA5)
- * Pin 10 --> Target 10 (MCP1 GPB1)     Pin 10 --> Target 20 (MCP2 GPA4)
+ * Pin 1  --> Target 1  (MCP1 GPB7)     Pin 1  --> Target 11 (MCP1 GPA5)
+ * Pin 2  --> Target 2  (MCP1 GPB6)     Pin 2  --> Target 12 (MCP1 GPA4)
+ * Pin 3  --> Target 3  (MCP1 GPB5)     Pin 3  --> Target 13 (MCP1 GPA3)
+ * Pin 4  --> Target 4  (MCP1 GPB4)     Pin 4  --> Target 14 (MCP1 GPA2)
+ * Pin 5  --> Target 5  (MCP1 GPB3)     Pin 5  --> Target 15 (MCP1 GPA1)
+ * Pin 6  --> Target 6  (MCP1 GPB2)     Pin 6  --> Target 16 (MCP1 GPA0)
+ * Pin 7  --> Target 7  (MCP1 GPB1)     Pin 7  --> Target 17 (MCP2 GPA7)
+ * Pin 8  --> Target 8  (MCP1 GPB0)     Pin 8  --> Target 18 (MCP2 GPA6)
+ * Pin 9  --> Target 9  (MCP1 GPA7)     Pin 9  --> Target 19 (MCP2 GPA5)
+ * Pin 10 --> Target 10 (MCP1 GPA6)     Pin 10 --> Target 20 (MCP2 GPA4)
  * Pin 11 --> Ground return             Pin 11 --> Ground return
  * Pin 12 --> Unused / spare            Pin 12 --> Unused / spare
  */

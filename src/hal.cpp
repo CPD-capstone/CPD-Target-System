@@ -82,18 +82,20 @@ namespace{
     /// @param mask relays to energize (bit set = powered = target facing). Bits above
     ///             ALL_TARGETS_MASK must be 0; they keep the unconnected MCP2 pins off.
     void writeOutputs(uint32_t mask){
-        // Targets 1-16 map to MCP1 (GPA0-7 and GPB0-7).
-        // The low 16 bits line up exactly with MCP1's 16 output pins:
-        // bits 0-7 -> port A (targets 1-8), bits 8-15 -> port B (targets 9-16).
-        uint32_t energized = mask & 0xFFFF;
-
-        // AI-modified (Claude): targets 17-20 go to the MCP2 port A pins named in pins.h
-        // (TARGET_17_PIN..TARGET_20_PIN), placed in bits 16-23 (bit 16 + n = GPAn). Pins not
-        // named there stay 0 = off.
-        const uint8_t mcp2Pins[] = {TARGET_17_PIN, TARGET_18_PIN, TARGET_19_PIN, TARGET_20_PIN};
-        for(uint8_t i = 0; i < 4; i++){
-            if(mask & targetBit(17 + i)){
-                energized |= 1UL << (16 + mcp2Pins[i]);
+        // AI-modified (Claude): place each target on the expander pin named in pins.h
+        // (TARGET_n_PIN). The result's bits 0-15 are MCP1's pins (0-7 = GPA0-7, 8-15 = GPB0-7),
+        // bits 16-23 are MCP2 port A (bit 16 + n = GPAn). Pins not named there stay 0 = off.
+        static const uint8_t targetPins[NUM_TARGETS] = {
+            TARGET_1_PIN,  TARGET_2_PIN,  TARGET_3_PIN,  TARGET_4_PIN,  TARGET_5_PIN,
+            TARGET_6_PIN,  TARGET_7_PIN,  TARGET_8_PIN,  TARGET_9_PIN,  TARGET_10_PIN,
+            TARGET_11_PIN, TARGET_12_PIN, TARGET_13_PIN, TARGET_14_PIN, TARGET_15_PIN,
+            TARGET_16_PIN, TARGET_17_PIN, TARGET_18_PIN, TARGET_19_PIN, TARGET_20_PIN,
+        };
+        uint32_t energized = 0;
+        for(uint8_t n = 1; n <= NUM_TARGETS; n++){
+            if(mask & targetBit(n)){
+                uint8_t chipOffset = (n <= 16) ? 0 : 16; // targets 1-16 on MCP1, 17-20 on MCP2
+                energized |= 1UL << (chipOffset + targetPins[n - 1]);
             }
         }
 
