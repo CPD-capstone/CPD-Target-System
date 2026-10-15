@@ -180,7 +180,7 @@ safe margin, not a measured limit, and may be tuned on the real targets.
   missing expander went unnoticed. The HAL now reads registers back from both chips at
   startup and every second; on failure it stops driving the relays and reports the hardware
   as not ready until reboot.
-- **Spare relays:** MCP #2 GPA4–7 (relay #3 IN5–8) are now driven as outputs held off
+- **Spare relays:** MCP #2 GPA0–3 (unconnected; targets 17–20 are on GPA7–4) are driven as outputs held off
   instead of floating.
 - **Field connectors:** the pin-to-target assignment is unknown until the unlabeled field
   wires are traced on site; `pins.h` holds a placeholder table marked as dummy data.
@@ -213,8 +213,8 @@ it back to the user rather than guess.
   with 16 MB flash, `qio_opi` memory type and the 16 MB partition table. Flash and
   monitor through the USB-C port labeled COM/UART. Pin labels are on the bottom of the PCB.
   GPIO 33-37 are taken by the octal PSRAM and must not be used.
-- **SPI pins (`pins.h`, authoritative):** the S3's FSPI pins — CS1 GPIO 10 (J1-16),
-  MOSI GPIO 11 (J1-17), SCK GPIO 12 (J1-18), MISO GPIO 13 (J1-19), CS2 GPIO 14 (J1-20);
+- **SPI pins (`pins.h`, authoritative):** the S3's FSPI pins — CS2 GPIO 10 (J1-16),
+  MOSI GPIO 11 (J1-17), SCK GPIO 12 (J1-18), MISO GPIO 13 (J1-19), CS1 GPIO 14 (J1-20);
   3V3 J1-1, GND J1-22. On the S3 none of these is a flash or strapping pin (the earlier
   objection to GPIO 10–12 applied only to the classic ESP32). The 10 kΩ CS pull-ups stay.
   The wiring diagram (v3.6) still shows the classic-ESP32 pins and needs updating.

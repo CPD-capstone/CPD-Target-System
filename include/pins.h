@@ -8,8 +8,9 @@
 // =============================================================================
 // AI-assisted (Claude): pins reassigned for the move from the classic ESP32
 // (DevKitC-32E) to the ESP32-S3. The SPI bus now uses the S3's FSPI IO_MUX pins
-// (SCK 12, MOSI 11, MISO 13, CS0 10), which are also the Arduino core's default SPI
-// pins on the S3. CS for board #2 is GPIO 14. All five are on header J1, pins 16-20,
+// (SCK 12, MOSI 11, MISO 13), which are also the Arduino core's default SPI pins on
+// the S3. AI-modified (Claude): CS for board #1 is GPIO 14 and board #2 is GPIO 10, to
+// match the as-built wiring. All five are on header J1, pins 16-20,
 // in a row (3V3 is J1-1, GND is J1-22). This clone board prints its pin labels on the
 // BOTTOM of the PCB -- check them there before wiring.
 // None of GPIO 10-14 is a strapping pin on the S3, and none is used by flash or PSRAM.
@@ -29,8 +30,8 @@
 #define PIN_SPI_SCK     12  // J1-18 "12" -> SCK (Pin 12) on both MCP23S17 chips
 
 // Dedicated Chip Select (CS) Pins
-#define PIN_MCP1_CS     10  // J1-16 "10" -> CS (Pin 11) on board #1 -> Controls Targets 1-16
-#define PIN_MCP2_CS     14  // J1-20 "14" -> CS (Pin 11) on board #2 -> Controls Targets 17-20
+#define PIN_MCP1_CS     14  // J1-20 "14" -> CS (Pin 11) on board #1 -> Controls Targets 1-16
+#define PIN_MCP2_CS     10  // J1-16 "10" -> CS (Pin 11) on board #2 -> Controls Targets 17-20
 
 // Hardware SPI Address Configuration
 // Note: A0, A1, A2 are hardwired to GND on both chips in hardware, and RESET is tied to VDD.
@@ -84,14 +85,15 @@
 
 // MCP23S17 #2 (Targets 17 - 20)
 // -----------------------------------------------------------------------------
-// Relay Module #3 (Targets 17 - 20) -> MCP2 Port A -> Relay #3 IN1-IN4
-#define TARGET_17_PIN   0   // GPA0 (Pin 21)
-#define TARGET_18_PIN   1   // GPA1 (Pin 22)
-#define TARGET_19_PIN   2   // GPA2 (Pin 23)
-#define TARGET_20_PIN   3   // GPA3 (Pin 24)
-// GPA4-GPA7 (Pins 25-28) are wired to Relay #3 IN5-IN8, but those relays have no fuse
-// and no solenoid (spare capacity). The firmware drives them as outputs held OFF so
-// they are never left floating.
+// Relay Module #3 (Targets 17 - 20) -> MCP2 Port A (GPA7-GPA4, reversed) -> Relay #3 IN1-IN4
+// AI-modified (Claude): moved from GPA0-3 to GPA7-4 to match the as-built wiring.
+// hal.cpp's writeOutputs() reads these four defines, so change the mapping here only.
+#define TARGET_17_PIN   7   // GPA7 (Pin 28) -> Relay #3 IN1
+#define TARGET_18_PIN   6   // GPA6 (Pin 27) -> Relay #3 IN2
+#define TARGET_19_PIN   5   // GPA5 (Pin 26) -> Relay #3 IN3
+#define TARGET_20_PIN   4   // GPA4 (Pin 25) -> Relay #3 IN4
+// GPA0-GPA3 (Pins 21-24) are not connected. The firmware drives them as outputs held
+// at the relay "off" level so they are never left floating.
 // GPB0-GPB7 are not connected (reserved: status LEDs, interlock switch, more targets).
 // They stay as the chip's default inputs.
 
@@ -116,10 +118,10 @@
  * Pin 4  --> Target 4  (MCP1 GPA3)     Pin 4  --> Target 14 (MCP1 GPB5)
  * Pin 5  --> Target 5  (MCP1 GPA4)     Pin 5  --> Target 15 (MCP1 GPB6)
  * Pin 6  --> Target 6  (MCP1 GPA5)     Pin 6  --> Target 16 (MCP1 GPB7)
- * Pin 7  --> Target 7  (MCP1 GPA6)     Pin 7  --> Target 17 (MCP2 GPA0)
- * Pin 8  --> Target 8  (MCP1 GPA7)     Pin 8  --> Target 18 (MCP2 GPA1)
- * Pin 9  --> Target 9  (MCP1 GPB0)     Pin 9  --> Target 19 (MCP2 GPA2)
- * Pin 10 --> Target 10 (MCP1 GPB1)     Pin 10 --> Target 20 (MCP2 GPA3)
+ * Pin 7  --> Target 7  (MCP1 GPA6)     Pin 7  --> Target 17 (MCP2 GPA7)
+ * Pin 8  --> Target 8  (MCP1 GPA7)     Pin 8  --> Target 18 (MCP2 GPA6)
+ * Pin 9  --> Target 9  (MCP1 GPB0)     Pin 9  --> Target 19 (MCP2 GPA5)
+ * Pin 10 --> Target 10 (MCP1 GPB1)     Pin 10 --> Target 20 (MCP2 GPA4)
  * Pin 11 --> Ground return             Pin 11 --> Ground return
  * Pin 12 --> Unused / spare            Pin 12 --> Unused / spare
  */
