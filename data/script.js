@@ -25,7 +25,6 @@ document.addEventListener('click', (event) => {
     list.classList.remove('is-invalid');
 });
 
-const targetFilters = document.querySelectorAll('.target-filter');
 const targetViewButtons = document.querySelectorAll('.target-view-button');
 const targetGrid = document.getElementById('targetGrid');
 const targetStatusStorageKey = 'cpd-target-status';
@@ -436,7 +435,6 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
     const startDrillButton = document.getElementById('startDrillButton');
     const drillLaunchMessage = document.getElementById('drillLaunchMessage');
     const bootstrapModal = typeof bootstrap === 'undefined' ? null : bootstrap.Modal;
-    let activeFilter = 'all';
 
     if (drillSelect) {
         // AI-modified (Claude): options are grouped into full drills, stages and custom drills.
@@ -740,38 +738,16 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
                 : `Mark target ${targetNumber} red`);
     });
 
-    // AI-modified (Claude): defective/unavailable targets are hidden only by the "Hide
-    // defective" switch, so it works the same with All, Odd and Even.
+    // AI-modified (Claude): the All/Odd/Even filter was removed; the only view filter left is
+    // the "Hide defective" switch.
     const hideDefectiveSwitch = document.getElementById('hideDefectiveTargets');
-    const applyTargetFilter = (filter) => {
-        activeFilter = filter;
-        let visibleNumbers;
-        const defectiveNumbers = unavailableTargets;
+    const applyDefectiveFilter = () => {
         const hideDefective = Boolean(hideDefectiveSwitch?.checked);
-
-        visibleNumbers = targetColumns
-            .map((column) => Number(column.dataset.targetNumber))
-            .filter((number) => (
-                (filter === 'all' || (filter === 'odd') === (number % 2 !== 0))
-                && !(hideDefective && defectiveNumbers.has(number))
-            ));
-
         targetColumns.forEach((column) => {
-            const isVisible = visibleNumbers.includes(Number(column.dataset.targetNumber));
-            column.classList.toggle('d-none', !isVisible);
-        });
-
-        targetFilters.forEach((button) => {
-            const isActive = button.dataset.filter === filter;
-            button.classList.toggle('is-active', isActive);
-            button.setAttribute('aria-pressed', isActive);
+            column.classList.toggle('d-none', hideDefective && unavailableTargets.has(Number(column.dataset.targetNumber)));
         });
     };
-
-    targetFilters.forEach((button) => {
-        button.addEventListener('click', () => applyTargetFilter(button.dataset.filter));
-    });
-    hideDefectiveSwitch?.addEventListener('change', () => applyTargetFilter(activeFilter));
+    hideDefectiveSwitch?.addEventListener('change', applyDefectiveFilter);
 
     // AI-assisted target display preference; include this change in the PR's AI-use disclosure.
     const applyTargetView = (view) => {
@@ -794,7 +770,9 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         const targetColumn = event.target.closest('[data-target-number]');
         if (!targetColumn) return;
         const targetCard = targetColumn.querySelector('.target-card');
-        if (!event.target.closest('.target-card')) return;
+        // AI-modified (Claude): in list view a tap anywhere on the row (number badge included)
+        // counts as tapping that target; in grid view only the target image does.
+        if (!event.target.closest('.target-card') && !targetGrid.classList.contains('is-list-view')) return;
         if (targetCard.classList.contains('is-defective') || unavailableTargets.has(Number(targetColumn.dataset.targetNumber))) return;
         // AI-generated (Claude): tapping a target only flips it in manual mode.
         if (!manualMode) {
