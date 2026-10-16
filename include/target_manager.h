@@ -80,6 +80,10 @@ struct DrillStatus {
     uint32_t targetMask;      // targets the drill uses, after excluding non-working ones
     DrillOutcome lastOutcome; // how the most recent drill ended
     bool stopped;             // emergency stop is latched (cleared by resetTargets())
+    // AI-generated (Claude): the delay step being run, for the web UI's countdown. Both are 0
+    // when the current step isn't a delay. While paused, delayRemainingMs stays frozen.
+    uint32_t delayMs;          // length of the delay step
+    uint32_t delayRemainingMs; // time left in it
 };
 
 /// @brief This function executes the drill that is passed into its arg by finding it in the json drills list and converting it to the FreeRTOS cmd queue

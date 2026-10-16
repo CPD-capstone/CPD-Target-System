@@ -3,18 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- AI-generated (Claude): lets staff add the controller to the Home Screen (Share > Add to
+         Home Screen); it then opens full-screen with no browser or captive-portal bars, and
+         links between pages stay inside the app (manifest scope "/"). -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="CPD Range">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="theme-color" content="#0057b8">
     <title>Performance | CPD Target System</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <!-- AI-modified (Claude): Bootstrap, Bootstrap Icons and the banner font are served from
+         data/vendor/ (LittleFS) instead of a CDN, because phones on the "CPD Range Control"
+         access point have no internet. The .css/.js files are stored gzipped; serveStatic()
+         sends the .gz automatically. -->
+    <link rel="stylesheet" href="vendor/bootstrap.min.css">
+    <link rel="stylesheet" href="vendor/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="vendor/barlow-condensed.css">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="Perfromance.css">
+    <link rel="stylesheet" href="performance.css">
 </head>
 <body class="performance-page">
     <!-- Match the title banner and menu placement used by the Drills page. -->
-    <header class="p-3 text-white bg-primary text-center border-start border-5 border-secondary rounded-3 m-3" style="--bs-primary-rgb: 0, 87, 184;">
-        Performance
-    </header>
+    <!-- AI-modified (Claude): drill status bar shared with the Targets page, so an active drill
+         stays visible on every page. script.js fills it from the saved drill state. -->
+    <div id="drillStatus" class="drill-status-bar text-white bg-primary" style="--bs-primary-rgb: 0, 87, 184;" role="status" aria-live="polite">
+        <span class="drill-status-text" id="drillStatusText">No drill in progress</span>
+    </div>
 
     <div class="m-3">
         <button class="btn btn-outline-primary d-flex flex-column gap-1 p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#menuPanel" aria-controls="menuPanel" aria-label="Open menu">
@@ -31,14 +47,23 @@
         </div>
         <div class="offcanvas-body">
             <div class="d-grid gap-2">
+                <!-- AI-modified (Claude): same menu on every page, current page highlighted. -->
                 <a class="btn btn-outline-primary text-start" href="targets.html">Targets</a>
                 <a class="btn btn-outline-primary text-start" href="drills.html">Drills</a>
-                <a class="btn btn-outline-primary text-start" href="Performance.html" aria-current="page">Performance</a>
+                <a class="btn btn-outline-primary text-start active" href="Performance.html" aria-current="page">Performance</a>
+                <!-- AI-generated (Claude): start delay and WiFi password settings. -->
+                <a class="btn btn-outline-primary text-start" href="settings.html">Settings</a>
             </div>
         </div>
     </div>
 
     <main class="container-fluid px-3 px-md-4 py-3 performance-main">
+        <!-- AI-generated (Claude): page title, matching the Drills page heading. -->
+        <div class="mb-4">
+            <h1 class="h3 mb-1">Performance</h1>
+            <p class="text-secondary mb-0">Qualification scores for every officer.</p>
+        </div>
+
         <!-- Page controls set the scope used by the summary and results table. -->
         <section class="performance-toolbar" aria-label="Performance controls">
             <label class="performance-search" for="performanceSearch">
@@ -118,6 +143,91 @@
         </section>
 
         <!-- Each table row represents one dated qualification attempt. -->
+        <!-- AI-generated (Claude): each officer's qualification standing over the last 12 months,
+             calculated on the controller (GET /api/officers?today=..., Isaac's officer stats). -->
+        <section class="performance-records officer-standing" aria-labelledby="standingTitle">
+            <div class="section-heading records-heading">
+                <div>
+                    <h2 id="standingTitle">Officer standing</h2>
+                    <p class="standing-note mb-0">Last 12 months: average, top score and attempts per qualification.</p>
+                </div>
+                <span class="record-count" id="standingCount">0 officers</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table performance-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">Officer</th>
+                            <th scope="col">Badge</th>
+                            <th scope="col">Pistol</th>
+                            <th scope="col">Rifle</th>
+                            <th scope="col">SWAT</th>
+                        </tr>
+                    </thead>
+                    <tbody id="standingRows">
+                        <tr><td colspan="5" class="table-empty">Loading officers...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Add scores dialog: ported from Oviya's oviyaTest branch ("AI-assisted change: open batch
+             score entry in a dialog above Results"). AI-modified (Claude): scores are saved on the
+             controller, and errors show inside the dialog. -->
+        <section class="add-scores" aria-label="Add qualification scores">
+            <div class="add-scores-toolbar">
+                <button class="btn btn-primary export-button add-scores-toggle" type="button" id="addScoresToggle" aria-expanded="false" aria-controls="addScoresDialog">
+                    <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                    <span>Add scores</span>
+                </button>
+            </div>
+            <dialog class="add-scores-dialog" id="addScoresDialog" aria-labelledby="addScoresTitle">
+                <div class="add-scores-dialog-heading">
+                    <h2 id="addScoresTitle">Add qualification scores</h2>
+                    <button class="btn-close" type="button" id="closeScoresDialog" aria-label="Close"></button>
+                </div>
+                <form id="addScoresForm" novalidate>
+                    <div class="add-scores-fields">
+                        <label for="scoreOfficer">
+                            Officer
+                            <select class="form-select" id="scoreOfficer" required>
+                                <option value="">Select an officer</option>
+                            </select>
+                        </label>
+                        <label for="scoreQualification">
+                            Qualification
+                            <select class="form-select" id="scoreQualification" required>
+                                <option value="pistol">Pistol</option>
+                                <option value="rifle">Rifle</option>
+                                <option value="swat">SWAT</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="score-entry-list" id="scoreEntries" aria-label="Scores to add">
+                        <div class="score-entry">
+                            <label class="score-entry-label" for="scoreValue1">Score 1</label>
+                            <input class="form-control score-entry-value" id="scoreValue1" type="number" min="0" step="1" inputmode="numeric" required>
+                            <label class="visually-hidden" for="scoreDate1">Date for score 1</label>
+                            <input class="form-control score-entry-date" id="scoreDate1" type="date" required>
+                            <button class="btn btn-outline-secondary remove-score-entry" type="button" aria-label="Remove score 1" disabled>
+                                <i class="bi bi-trash3" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <p class="add-scores-error" id="addScoresError" role="alert" hidden></p>
+                    <div class="add-scores-footer">
+                        <div class="add-scores-buttons">
+                            <button class="btn btn-outline-primary" type="button" id="addScoreEntry">
+                                <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                                Add another score
+                            </button>
+                            <button class="btn btn-primary" type="submit" id="saveScoresButton" disabled>Save scores</button>
+                        </div>
+                    </div>
+                </form>
+            </dialog>
+        </section>
+
         <section class="performance-records" aria-labelledby="recordsTitle">
             <div class="section-heading records-heading">
                 <div>
@@ -146,7 +256,7 @@
     </main>
 
     <!-- Bootstrap provides the shared menu interaction. -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="vendor/bootstrap.bundle.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

@@ -39,6 +39,12 @@ namespace{
     struct DrillStep {
         StepType type;
         uint32_t timeMs; // only used by Delay
+        // AI-generated (Claude): present/hide only. The step's own "targets" list as a mask, or 0
+        // for "all" (every target the drill was started on). See stepTargets().
+        uint32_t mask;
+        // AI-generated (Claude): present only. >0 = present this many targets picked at random
+        // (fresh each time the step runs) from the drill's targets; mask is then unused.
+        uint8_t randomCount;
     };
 
     // "Full Drill" -> "Stage N" is depth 2; anything deeper is almost certainly a drill that
@@ -80,6 +86,15 @@ namespace{
     // set by the runner when it aborts because of the hardware rather than stopDrill()
     bool drillFailed = false;
 
+    // AI-generated (Claude): timing of the delay step being run, for getDrillStatus() (the web
+    // UI's countdown). Only waitMs() calls made for a "delay" step publish these, not the short
+    // internal waits. delayTotalMs is 0 when no delay step is running. While the delay counts
+    // down it ends at tick delayDeadline; while paused, delayPausedRemainingMs holds the frozen
+    // time left instead. Written under runnerLock.
+    uint32_t delayTotalMs = 0;
+    TickType_t delayDeadline = 0;
+    uint32_t delayPausedRemainingMs = 0;
+
     // AI-assisted (Claude): emergency stop latch. Set by stopDrill() (before it freezes the HAL)
     // and cleared only by resetTargets(). While set, executeDrill() and setTargets() refuse,
     // and a drill that ends does not send its usual final hide.
@@ -114,6 +129,8 @@ namespace{
             filter["drills"][0]["drillName"] = true;
             filter["drills"][0]["sequence"][0]["action"] = true;
             filter["drills"][0]["sequence"][0]["timeMs"] = true;
+            filter["drills"][0]["sequence"][0]["targets"] = true; // AI-generated (Claude): per-step targets
+            filter["drills"][0]["sequence"][0]["random"] = true;  // AI-generated (Claude): random present
         }
         filter["targets"][0]["id"] = true;
         filter["targets"][0]["working"] = true;
@@ -165,12 +182,38 @@ namespace{
         for(JsonObjectConst step : drill["sequence"].as<JsonArrayConst>()){
             const char* action = step["action"] | "";
 
-            if(strcmp(action, "present") == 0){
-                out.push_back({StepType::Present, 0});
-            }else if(strcmp(action, "hide") == 0){
-                out.push_back({StepType::Hide, 0});
+            if(strcmp(action, "present") == 0 || strcmp(action, "hide") == 0){
+                // AI-modified (Claude): optional "targets": [n, ...] limits the step to those
+                // targets; missing means all of the drill's targets. A bad list rejects the drill.
+                uint32_t mask = 0;
+                if(!step["targets"].isNull()){
+                    JsonArrayConst list = step["targets"].as<JsonArrayConst>();
+                    if(list.isNull() || list.size() == 0){
+                        Serial.printf("executeDrill: %s step in \"%s\" has an invalid targets list\r\n", action, drillName);
+                        return false;
+                    }
+                    for(JsonVariantConst n : list){
+                        int id = n.is<int>() ? n.as<int>() : 0;
+                        if(id < 1 || id > NUM_TARGETS){
+                            Serial.printf("executeDrill: %s step in \"%s\" names target %d\r\n", action, drillName, id);
+                            return false;
+                        }
+                        mask |= targetBit(id);
+                    }
+                }
+                // AI-generated (Claude): "random": n (present only) picks n targets each run
+                uint8_t randomCount = 0;
+                if(!step["random"].isNull()){
+                    int count = step["random"].is<int>() ? step["random"].as<int>() : 0;
+                    if(strcmp(action, "present") != 0 || mask != 0 || count < 1 || count > NUM_TARGETS){
+                        Serial.printf("executeDrill: invalid random step in \"%s\"\r\n", drillName);
+                        return false;
+                    }
+                    randomCount = (uint8_t)count;
+                }
+                out.push_back({strcmp(action, "present") == 0 ? StepType::Present : StepType::Hide, 0, mask, randomCount});
             }else if(strcmp(action, "pause") == 0){
-                out.push_back({StepType::Pause, 0});
+                out.push_back({StepType::Pause, 0, 0});
             }else if(strcmp(action, "delay") == 0){
                 // A delay must have a whole, non-negative timeMs; reject the drill otherwise
                 // rather than guess a time during a qualification
@@ -178,7 +221,7 @@ namespace{
                     Serial.printf("executeDrill: delay step in \"%s\" has no valid timeMs\r\n", drillName);
                     return false;
                 }
-                out.push_back({StepType::Delay, step["timeMs"].as<uint32_t>()});
+                out.push_back({StepType::Delay, step["timeMs"].as<uint32_t>(), 0});
             }else if(!expandDrill(drills, action, depth + 1, out)){
                 // anything else must be the name of another drill: expand it in place, one level
                 // deeper. If it can't be expanded (not found, bad step, too deep), fail the whole drill.
@@ -240,10 +283,30 @@ namespace{
     /// Used instead of vTaskDelay() so that stopDrill() can cut a long delay short.
     /// AI-modified (Claude): pauseDrill() freezes the countdown; after resume, the wait continues
     /// with the time it had left (time spent paused doesn't count).
-    bool waitMs(uint32_t ms){
+    /// @param publish true for a drill "delay" step: its timing is reported by getDrillStatus()
+    bool waitMs(uint32_t ms, bool publish = false){
         // FreeRTOS measures time in "ticks" (1 tick = 1 ms on the ESP32 Arduino core)
         TickType_t start = xTaskGetTickCount();
         TickType_t total = pdMS_TO_TICKS(ms);
+
+        // AI-generated (Claude): publish the delay for the web UI; cleared however we return
+        struct DelayReport {
+            bool active;
+            DelayReport(bool on, uint32_t lengthMs, TickType_t deadline) : active(on) {
+                if(!active) return;
+                portENTER_CRITICAL(&runnerLock);
+                delayTotalMs = lengthMs;
+                delayDeadline = deadline;
+                delayPausedRemainingMs = 0;
+                portEXIT_CRITICAL(&runnerLock);
+            }
+            ~DelayReport(){
+                if(!active) return;
+                portENTER_CRITICAL(&runnerLock);
+                delayTotalMs = 0;
+                portEXIT_CRITICAL(&runnerLock);
+            }
+        } report(publish, ms, start + total);
 
         // Loop because a notification can wake us early; if it wasn't a stop, go back to
         // sleep for whatever time is left
@@ -264,10 +327,22 @@ namespace{
                     // Operator pause: sit here until resumed, then push the start time forward
                     // by however long we were paused, so "elapsed" only counts unpaused time
                     TickType_t pausedAt = xTaskGetTickCount();
+                    if(publish){
+                        // AI-generated (Claude): freeze the reported time left while paused
+                        TickType_t done = pausedAt - start;
+                        portENTER_CRITICAL(&runnerLock);
+                        delayPausedRemainingMs = done < total ? pdTICKS_TO_MS(total - done) : 0;
+                        portEXIT_CRITICAL(&runnerLock);
+                    }
                     if(!pauseUntilResumed()){
                         return false; // stopped while paused
                     }
                     start += xTaskGetTickCount() - pausedAt;
+                    if(publish){
+                        portENTER_CRITICAL(&runnerLock);
+                        delayDeadline = start + total; // the countdown continues from here
+                        portEXIT_CRITICAL(&runnerLock);
+                    }
                 }
             }
             // any other notification (e.g. a stray resume) just continues the wait
@@ -277,16 +352,17 @@ namespace{
     /// @brief after a present command, waits until the targets are fully facing the shooter so the
     ///        next delay is timed from that point. Waits for the HAL to actually fire every target
     ///        (it may hold one back for its MECHANICAL_BUFFER cooldown), then TARGET_FACE_TRAVEL_MS.
+    /// @param mask the targets the present step turned (AI-modified (Claude): was always activeMask)
     /// @return false if the drill is stopped, or the targets never fire (HAL not responding)
-    bool waitUntilFacing(){
+    bool waitUntilFacing(uint32_t mask){
         constexpr uint32_t POLL_MS = 5; // how often to re-check the HAL's target state
         // worst case the HAL holds a target for a full cooldown, plus margin for its 10 ms loop
         constexpr uint32_t TIMEOUT_MS = MECHANICAL_BUFFER + 100;
 
         // Phase 1: wait until every one of this drill's targets shows as fired.
-        // "& activeMask" looks only at our targets; the check passes when all of them are set.
+        // "& mask" looks only at this step's targets; the check passes when all of them are set.
         uint32_t waited = 0;
-        while((hal_getTargetStates() & activeMask) != activeMask){
+        while((hal_getTargetStates() & mask) != mask){
             // Something is wrong with the hardware task; abort instead of running with bad timing
             if(waited >= TIMEOUT_MS){
                 Serial.println("executeDrill: targets did not fire, aborting drill");
@@ -304,6 +380,34 @@ namespace{
         return waitMs(TARGET_FACE_TRAVEL_MS);
     }
 
+    /// @brief AI-generated (Claude): the targets a present/hide step moves: its own list limited to
+    ///        the targets the drill was started on (non-working ones are already excluded there),
+    ///        or all of those when the step has no list
+    uint32_t stepTargets(const DrillStep& step){
+        return step.mask ? (step.mask & activeMask) : activeMask;
+    }
+
+    /// @brief AI-generated (Claude): picks `count` targets at random from `from` (every one of them
+    ///        if it has `count` or fewer), using the ESP32's hardware random number generator
+    uint32_t pickRandomTargets(uint32_t from, uint8_t count){
+        uint8_t ids[NUM_TARGETS];
+        uint8_t available = 0;
+        for(uint8_t bit = 0; bit < NUM_TARGETS; bit++){
+            if(from & (1UL << bit)) ids[available++] = bit;
+        }
+        if(count >= available) return from;
+        // partial Fisher-Yates shuffle: the first `count` entries end up a uniform random pick
+        uint32_t picked = 0;
+        for(uint8_t i = 0; i < count; i++){
+            uint8_t j = i + esp_random() % (available - i);
+            uint8_t swap = ids[i];
+            ids[i] = ids[j];
+            ids[j] = swap;
+            picked |= 1UL << ids[i];
+        }
+        return picked;
+    }
+
     /// @brief runs activeSteps; returns false if stopped or a command couldn't be queued
     bool runSteps(){
         for(size_t i = 0; i < activeSteps.size(); i++){
@@ -316,22 +420,34 @@ namespace{
             portEXIT_CRITICAL(&runnerLock);
 
             switch(step.type){
-                case StepType::Present:
-                    // Ask the HAL to turn this drill's targets to face the shooter
-                    if(!hal_sendCommand(activeMask, true)){
+                case StepType::Present: {
+                    // AI-modified (Claude): a random step picks its targets now, so each run
+                    // differs; otherwise the step's list (or all). A custom list whose targets
+                    // were all left out of this run (or are not working) has nothing to move.
+                    uint32_t targets = step.randomCount ? pickRandomTargets(activeMask, step.randomCount)
+                                                        : stepTargets(step);
+                    if(!targets){
+                        break;
+                    }
+                    // Ask the HAL to turn this step's targets to face the shooter
+                    if(!hal_sendCommand(targets, true)){
                         Serial.println("executeDrill: target command not accepted (queue full or stopped), aborting drill");
                         drillFailed = true; // AI-modified (Claude)
                         return false;
                     }
                     // drill delays are timed from when the targets are fully facing
-                    if(!waitUntilFacing()){
+                    if(!waitUntilFacing(targets)){
                         return false;
                     }
                     break;
+                }
 
                 case StepType::Hide:
-                    // Ask the HAL to turn this drill's targets away from the shooter
-                    if(!hal_sendCommand(activeMask, false)){
+                    if(!stepTargets(step)){
+                        break; // AI-modified (Claude): see Present
+                    }
+                    // Ask the HAL to turn this step's targets away from the shooter
+                    if(!hal_sendCommand(stepTargets(step), false)){
                         Serial.println("executeDrill: target command not accepted (queue full or stopped), aborting drill");
                         drillFailed = true; // AI-modified (Claude)
                         return false;
@@ -340,7 +456,7 @@ namespace{
 
                 case StepType::Delay:
                     // Hold the current target position for timeMs (stop can cut it short)
-                    if(!waitMs(step.timeMs)){
+                    if(!waitMs(step.timeMs, true)){ // AI-modified (Claude): reported for the UI
                         return false;
                     }
                     break;
@@ -636,6 +752,7 @@ DrillState getDrillState(){
 
 DrillStatus getDrillStatus(){
     DrillStatus status;
+    TickType_t now = xTaskGetTickCount(); // AI-generated (Claude): for the delay time left
     // copy everything under the lock so the snapshot can't mix two drills or two steps
     portENTER_CRITICAL(&runnerLock);
     status.state = drillState;
@@ -646,6 +763,16 @@ DrillStatus getDrillStatus(){
     status.targetMask = activeMask;
     status.lastOutcome = lastOutcome;
     status.stopped = stopLatched;
+    // AI-generated (Claude): delay countdown. The signed difference handles tick wrap-around.
+    status.delayMs = delayTotalMs;
+    if(delayTotalMs == 0){
+        status.delayRemainingMs = 0;
+    }else if(drillState == DrillState::Paused){
+        status.delayRemainingMs = delayPausedRemainingMs;
+    }else{
+        int32_t left = (int32_t)(delayDeadline - now);
+        status.delayRemainingMs = left > 0 ? pdTICKS_TO_MS(left) : 0;
+    }
     portEXIT_CRITICAL(&runnerLock);
     return status;
 }

@@ -2,6 +2,7 @@
 #include "database.h"
 #include "target_manager.h"
 #include "hal.h"
+#include "wifi_manager.h"
 #include <AsyncJson.h>
 
 
@@ -205,6 +206,16 @@ static void handleAddQualScore(AsyncWebServerRequest* request, JsonVariant& json
     sendOk(request);
 }
 
+// AI-generated (Claude): PUT /api/officers?badge=<n>  {Name}   renames an officer (editOfficer)
+static void handleEditOfficer(AsyncWebServerRequest* request, JsonVariant& json) {
+    int badge;
+    if (!getQueryInt(request, "badge", badge)) return sendError(request, 400, "Badge is required");
+    const char* name = json["Name"] | "";
+    if (!*name) return sendError(request, 400, "Name is required");
+    if (!editOfficer(badge, name)) return sendError(request, 404, "Officer not found");
+    sendOk(request);
+}
+
 // DELETE /api/officers?badge=<n>
 static void handleDeleteOfficer(AsyncWebServerRequest* request) {
     int badge;
@@ -317,7 +328,7 @@ static void handleReset(AsyncWebServerRequest* request) {
 
 // GET /api/drill/status
 //   -> {state, drillName, step, stepCount, stepAction, targets: [n, ...], lastOutcome, stopped,
-//       hardwareReady}
+//       hardwareReady, facing: [n, ...]}
 // While idle, drillName/stepCount/targets describe the last drill run (step is 0).
 // stopped = emergency stop is latched; only /api/reset moves targets until it is cleared.
 static void handleDrillStatus(AsyncWebServerRequest* request) {
@@ -332,6 +343,11 @@ static void handleDrillStatus(AsyncWebServerRequest* request) {
     doc["lastOutcome"] = drillOutcomeName(status.lastOutcome);
     doc["stopped"] = status.stopped;
     doc["hardwareReady"] = hal_isReady(); // false: expanders missing/failed or HAL not started
+    // AI-generated (Claude): targets facing right now, so the web UI's poll needs one request
+    addTargetList(doc["facing"].to<JsonArray>(), hal_getTargetStates());
+    // AI-generated (Claude): the delay step being run (both 0 if it isn't a delay)
+    doc["delayMs"] = status.delayMs;
+    doc["delayRemainingMs"] = status.delayRemainingMs;
     sendJson(request, 200, doc);
 }
 
@@ -361,6 +377,22 @@ static void handleTargetState(AsyncWebServerRequest* request) {
     JsonDocument doc;
     addTargetList(doc["facing"].to<JsonArray>(), hal_getTargetStates());
     sendJson(request, 200, doc);
+}
+
+// WiFi -------------------------------------------------------------------------------------------
+
+// AI-generated (Claude): POST /api/wifi/password  {currentPassword, newPassword}
+// Replies first; the access point restarts with the new password about a second later, so every
+// phone (including this one) has to rejoin with it.
+static void handleChangeWiFiPassword(AsyncWebServerRequest* request, JsonVariant& json) {
+    const char* current = json["currentPassword"] | "";
+    const char* next = json["newPassword"] | "";
+    if (!*current || !*next) return sendError(request, 400, "currentPassword and newPassword are required");
+    if (!checkWiFiPassword(current)) return sendError(request, 403, "Current password is incorrect");
+    if (!scheduleWiFiPasswordChange(next)) {
+        return sendError(request, 400, "New password must be 8-63 characters (letters, numbers and symbols, no accents)");
+    }
+    sendOk(request);
 }
 
 // Registration ------------------------------------------------------------------------------------
@@ -400,7 +432,11 @@ void registerApiRoutes(AsyncWebServer& server) {
     onJsonBody(server, "/api/officers/scores", HTTP_POST, handleAddQualScore);
     server.on("/api/officers", HTTP_GET, handleGetOfficers);
     onJsonBody(server, "/api/officers", HTTP_POST, handleAddOfficer);
+    onJsonBody(server, "/api/officers", HTTP_PUT, handleEditOfficer); // AI-generated (Claude)
     server.on("/api/officers", HTTP_DELETE, handleDeleteOfficer);
+
+    // WiFi (AI-generated, Claude)
+    onJsonBody(server, "/api/wifi/password", HTTP_POST, handleChangeWiFiPassword);
 
     // Anything else under /api gets a JSON 404 instead of falling through to onNotFound (which
     // serves targets.html). This also catches JSON routes called without the JSON Content-Type.

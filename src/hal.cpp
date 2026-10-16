@@ -80,23 +80,35 @@ namespace{
 
     /// @brief writes the full output state to both expanders (one SPI write per chip)
     /// @param mask relays to energize (bit set = powered = target facing). Bits above
-    ///             ALL_TARGETS_MASK must be 0; they keep the spare relays on MCP2 GPA4-7 off.
+    ///             ALL_TARGETS_MASK must be 0; they keep the unconnected MCP2 pins off.
     void writeOutputs(uint32_t mask){
+        // AI-modified (Claude): place each target on the expander pin named in pins.h
+        // (TARGET_n_PIN). The result's bits 0-15 are MCP1's pins (0-7 = GPA0-7, 8-15 = GPB0-7),
+        // bits 16-23 are MCP2 port A (bit 16 + n = GPAn). Pins not named there stay 0 = off.
+        static const uint8_t targetPins[NUM_TARGETS] = {
+            TARGET_1_PIN,  TARGET_2_PIN,  TARGET_3_PIN,  TARGET_4_PIN,  TARGET_5_PIN,
+            TARGET_6_PIN,  TARGET_7_PIN,  TARGET_8_PIN,  TARGET_9_PIN,  TARGET_10_PIN,
+            TARGET_11_PIN, TARGET_12_PIN, TARGET_13_PIN, TARGET_14_PIN, TARGET_15_PIN,
+            TARGET_16_PIN, TARGET_17_PIN, TARGET_18_PIN, TARGET_19_PIN, TARGET_20_PIN,
+        };
+        uint32_t energized = 0;
+        for(uint8_t n = 1; n <= NUM_TARGETS; n++){
+            if(mask & targetBit(n)){
+                uint8_t chipOffset = (n <= 16) ? 0 : 16; // targets 1-16 on MCP1, 17-20 on MCP2
+                energized |= 1UL << (chipOffset + targetPins[n - 1]);
+            }
+        }
+
         // AI-modified (Claude): convert "energized" bits to pin levels. On active-low relay
         // boards a relay is ON when its pin is LOW, so every bit is inverted (~). This also
-        // turns the always-0 spare bits (MCP2 GPA4-7) into HIGH = off.
-        uint32_t pins = RELAY_ACTIVE_LOW ? ~mask : mask;
+        // turns the unconnected MCP2 pins into HIGH = off.
+        uint32_t pins = RELAY_ACTIVE_LOW ? ~energized : energized;
         writtenPins = pins; // remembered for the health check
 
-        // Targets 1-16 map to MCP1 (GPA0-7 and GPB0-7).
-        // The low 16 bits line up exactly with MCP1's 16 output pins:
-        // bits 0-7 -> port A (targets 1-8), bits 8-15 -> port B (targets 9-16).
-        // writeGPIOAB sets all 16 pins in a single SPI transaction.
+        // writeGPIOAB sets all 16 MCP1 pins in a single SPI transaction.
         mcp1.writeGPIOAB(pins & 0xFFFF);
 
-        // Targets 17-20 map to MCP2 GPA0-3; GPA4-7 drive the unused relays IN5-8.
-        // Shift bits 16-23 down to bits 0-7 and write the whole port so the spare relays
-        // are always held at their "off" level.
+        // Write the whole MCP2 port A so the unconnected pins are always held "off".
         mcp2.writeGPIOA((pins >> 16) & 0xFF);
     }
 
@@ -176,8 +188,8 @@ namespace{
         for(uint8_t i = 0; i < 16; i++){
             mcp1.pinMode(i, OUTPUT);
         }
-        // MCP2 port A: GPA0-3 drive targets 17-20, GPA4-7 drive the spare relays (held off
-        // so they never float). Port B (GPB0-7) is unconnected and stays as default inputs.
+        // MCP2 port A: GPA7-4 drive targets 17-20 (see pins.h), GPA0-3 are unconnected and
+        // held off so they never float. Port B (GPB0-7) is unconnected and stays as default inputs.
         for(uint8_t i = 0; i < 8; i++){
             mcp2.pinMode(i, OUTPUT);
         }
