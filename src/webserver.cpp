@@ -49,8 +49,14 @@ void initWebserver(){
     // REST API (see api.h). AI-modified (Claude): must be registered before serveStatic
     registerApiRoutes(server);
 
+    // AI-generated (Claude): cache headers. Without them phones guess how long to cache, and a
+    // stale style.css/script.js after an uploadfs makes new pages render wrong. vendor/ (Bootstrap,
+    // fonts) never changes, so it may be cached for a year; everything else is re-checked on
+    // every load ("no-cache" = revalidate, not "don't store").
+    server.serveStatic("/vendor/", LittleFS, "/vendor/").setCacheControl("public, max-age=31536000, immutable");
+
     // Serve static assets (CSS, JS, images)
-    server.serveStatic("/", LittleFS, "/");
+    server.serveStatic("/", LittleFS, "/").setCacheControl("no-cache");
 
     // Fallback handler
     server.onNotFound([](AsyncWebServerRequest *request){
