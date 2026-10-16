@@ -601,3 +601,23 @@
         display: none;
     }
 }
+
+/* AI-generated (Claude): Officer standing table (last 12 months, from the controller). */
+.standing-note {
+    color: var(--performance-muted);
+    font-size: 0.8rem;
+}
+
+.standing-cell {
+    white-space: nowrap;
+}
+
+.standing-average {
+    font-weight: 750;
+}
+
+.standing-detail {
+    display: block;
+    color: var(--performance-muted);
+    font-size: 0.75rem;
+}

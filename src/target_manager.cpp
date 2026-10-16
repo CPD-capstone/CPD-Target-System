@@ -39,6 +39,9 @@ namespace{
     struct DrillStep {
         StepType type;
         uint32_t timeMs; // only used by Delay
+        // AI-generated (Claude): present/hide only. The step's own "targets" list as a mask, or 0
+        // for "all" (every target the drill was started on). See stepTargets().
+        uint32_t mask;
     };
 
     // "Full Drill" -> "Stage N" is depth 2; anything deeper is almost certainly a drill that
@@ -123,6 +126,7 @@ namespace{
             filter["drills"][0]["drillName"] = true;
             filter["drills"][0]["sequence"][0]["action"] = true;
             filter["drills"][0]["sequence"][0]["timeMs"] = true;
+            filter["drills"][0]["sequence"][0]["targets"] = true; // AI-generated (Claude): per-step targets
         }
         filter["targets"][0]["id"] = true;
         filter["targets"][0]["working"] = true;
@@ -174,12 +178,28 @@ namespace{
         for(JsonObjectConst step : drill["sequence"].as<JsonArrayConst>()){
             const char* action = step["action"] | "";
 
-            if(strcmp(action, "present") == 0){
-                out.push_back({StepType::Present, 0});
-            }else if(strcmp(action, "hide") == 0){
-                out.push_back({StepType::Hide, 0});
+            if(strcmp(action, "present") == 0 || strcmp(action, "hide") == 0){
+                // AI-modified (Claude): optional "targets": [n, ...] limits the step to those
+                // targets; missing means all of the drill's targets. A bad list rejects the drill.
+                uint32_t mask = 0;
+                if(!step["targets"].isNull()){
+                    JsonArrayConst list = step["targets"].as<JsonArrayConst>();
+                    if(list.isNull() || list.size() == 0){
+                        Serial.printf("executeDrill: %s step in \"%s\" has an invalid targets list\r\n", action, drillName);
+                        return false;
+                    }
+                    for(JsonVariantConst n : list){
+                        int id = n.is<int>() ? n.as<int>() : 0;
+                        if(id < 1 || id > NUM_TARGETS){
+                            Serial.printf("executeDrill: %s step in \"%s\" names target %d\r\n", action, drillName, id);
+                            return false;
+                        }
+                        mask |= targetBit(id);
+                    }
+                }
+                out.push_back({strcmp(action, "present") == 0 ? StepType::Present : StepType::Hide, 0, mask});
             }else if(strcmp(action, "pause") == 0){
-                out.push_back({StepType::Pause, 0});
+                out.push_back({StepType::Pause, 0, 0});
             }else if(strcmp(action, "delay") == 0){
                 // A delay must have a whole, non-negative timeMs; reject the drill otherwise
                 // rather than guess a time during a qualification
@@ -187,7 +207,7 @@ namespace{
                     Serial.printf("executeDrill: delay step in \"%s\" has no valid timeMs\r\n", drillName);
                     return false;
                 }
-                out.push_back({StepType::Delay, step["timeMs"].as<uint32_t>()});
+                out.push_back({StepType::Delay, step["timeMs"].as<uint32_t>(), 0});
             }else if(!expandDrill(drills, action, depth + 1, out)){
                 // anything else must be the name of another drill: expand it in place, one level
                 // deeper. If it can't be expanded (not found, bad step, too deep), fail the whole drill.
@@ -318,16 +338,17 @@ namespace{
     /// @brief after a present command, waits until the targets are fully facing the shooter so the
     ///        next delay is timed from that point. Waits for the HAL to actually fire every target
     ///        (it may hold one back for its MECHANICAL_BUFFER cooldown), then TARGET_FACE_TRAVEL_MS.
+    /// @param mask the targets the present step turned (AI-modified (Claude): was always activeMask)
     /// @return false if the drill is stopped, or the targets never fire (HAL not responding)
-    bool waitUntilFacing(){
+    bool waitUntilFacing(uint32_t mask){
         constexpr uint32_t POLL_MS = 5; // how often to re-check the HAL's target state
         // worst case the HAL holds a target for a full cooldown, plus margin for its 10 ms loop
         constexpr uint32_t TIMEOUT_MS = MECHANICAL_BUFFER + 100;
 
         // Phase 1: wait until every one of this drill's targets shows as fired.
-        // "& activeMask" looks only at our targets; the check passes when all of them are set.
+        // "& mask" looks only at this step's targets; the check passes when all of them are set.
         uint32_t waited = 0;
-        while((hal_getTargetStates() & activeMask) != activeMask){
+        while((hal_getTargetStates() & mask) != mask){
             // Something is wrong with the hardware task; abort instead of running with bad timing
             if(waited >= TIMEOUT_MS){
                 Serial.println("executeDrill: targets did not fire, aborting drill");
@@ -345,6 +366,13 @@ namespace{
         return waitMs(TARGET_FACE_TRAVEL_MS);
     }
 
+    /// @brief AI-generated (Claude): the targets a present/hide step moves: its own list limited to
+    ///        the targets the drill was started on (non-working ones are already excluded there),
+    ///        or all of those when the step has no list
+    uint32_t stepTargets(const DrillStep& step){
+        return step.mask ? (step.mask & activeMask) : activeMask;
+    }
+
     /// @brief runs activeSteps; returns false if stopped or a command couldn't be queued
     bool runSteps(){
         for(size_t i = 0; i < activeSteps.size(); i++){
@@ -358,21 +386,29 @@ namespace{
 
             switch(step.type){
                 case StepType::Present:
-                    // Ask the HAL to turn this drill's targets to face the shooter
-                    if(!hal_sendCommand(activeMask, true)){
+                    // AI-modified (Claude): a custom list whose targets were all left out of
+                    // this run (or are not working) has nothing to move
+                    if(!stepTargets(step)){
+                        break;
+                    }
+                    // Ask the HAL to turn this step's targets to face the shooter
+                    if(!hal_sendCommand(stepTargets(step), true)){
                         Serial.println("executeDrill: target command not accepted (queue full or stopped), aborting drill");
                         drillFailed = true; // AI-modified (Claude)
                         return false;
                     }
                     // drill delays are timed from when the targets are fully facing
-                    if(!waitUntilFacing()){
+                    if(!waitUntilFacing(stepTargets(step))){
                         return false;
                     }
                     break;
 
                 case StepType::Hide:
-                    // Ask the HAL to turn this drill's targets away from the shooter
-                    if(!hal_sendCommand(activeMask, false)){
+                    if(!stepTargets(step)){
+                        break; // AI-modified (Claude): see Present
+                    }
+                    // Ask the HAL to turn this step's targets away from the shooter
+                    if(!hal_sendCommand(stepTargets(step), false)){
                         Serial.println("executeDrill: target command not accepted (queue full or stopped), aborting drill");
                         drillFailed = true; // AI-modified (Claude)
                         return false;

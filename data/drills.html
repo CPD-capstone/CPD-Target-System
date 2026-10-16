@@ -60,112 +60,62 @@
         <div class="d-flex align-items-center justify-content-between mb-4">
             <div>
                 <h1 class="h3 mb-1">Available Drills</h1>
-                <p class="text-secondary mb-0">Select a drill to review its setup.</p>
+                <p class="text-secondary mb-0">Saved on the controller. Tap Edit to change a drill's sequence.</p>
             </div>
-            <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#newDrillModal">
+            <button class="btn btn-primary" type="button" id="createDrillButton">
                 <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>
                 Create Drill
             </button>
         </div>
 
-        <!-- AI-generated (Claude): filter between full drill sequences, individual stages and
-             drills created with the New Drill form. -->
+        <!-- AI-modified (Claude): filter between full drills, custom drills (made here) and the
+             built-in stages. -->
         <div class="btn-group mb-4" role="group" aria-label="Filter drills">
             <button class="btn btn-outline-primary drill-filter active" type="button" data-drill-filter="all" aria-pressed="true">All</button>
             <button class="btn btn-outline-primary drill-filter" type="button" data-drill-filter="full" aria-pressed="false">Full drills</button>
-            <button class="btn btn-outline-primary drill-filter" type="button" data-drill-filter="stages" aria-pressed="false">Stages</button>
             <button class="btn btn-outline-primary drill-filter" type="button" data-drill-filter="custom" aria-pressed="false">Custom</button>
+            <button class="btn btn-outline-primary drill-filter" type="button" data-drill-filter="stages" aria-pressed="false">Stages</button>
         </div>
 
+        <div class="alert mb-4" id="drillListMessage" role="status" aria-live="polite" hidden></div>
         <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4" id="drillList" aria-live="polite"></div>
     </main>
 
-    <div class="modal fade" id="newDrillModal" tabindex="-1" aria-labelledby="newDrillModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+    <!-- AI-generated (Claude): drill editor with the drag-and-drop sequence builder, used for both
+         Create and Edit. Drills are saved on the controller (/api/drills). script.js drives it. -->
+    <div class="modal fade" id="drillEditorModal" tabindex="-1" aria-labelledby="drillEditorTitle" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="newDrillModalLabel">New Drill</h5>
+                    <h5 class="modal-title" id="drillEditorTitle">New drill</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form id="newDrillForm" novalidate>
-                    <div class="modal-body">
-                        <div class="form-validation-message" id="newDrillError" role="alert" aria-live="polite" hidden></div>
+                <div class="modal-body">
+                    <form id="drillEditorForm" novalidate>
+                        <div class="form-validation-message" id="drillEditorError" role="alert" aria-live="polite" hidden></div>
                         <div class="mb-3">
-                            <label for="drillName" class="form-label">Name</label>
-                            <input type="text" class="form-control" id="drillName" name="drillName" placeholder="Enter drill name" required>
+                            <label for="drillEditorName" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="drillEditorName" maxlength="47" autocomplete="off" placeholder="e.g. Pistol Qual Stage 6" required>
                         </div>
-                        <div class="mb-3">
-                            <!-- AI-assisted multi-target assignment controls. -->
-                            <span class="form-label">Target numbers</span>
-                            <!-- AI-generated (Claude): select all / odd / even targets in one click. -->
-                            <div class="target-quick-select" data-target-list="targetNumber" role="group" aria-label="Quick select targets">
-                                <button type="button" class="btn btn-sm btn-outline-primary" data-select="all">All</button>
-                                <button type="button" class="btn btn-sm btn-outline-primary" data-select="odd">Odd</button>
-                                <button type="button" class="btn btn-sm btn-outline-primary" data-select="even">Even</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" data-select="none">Clear</button>
-                            </div>
-                            <div class="target-options" id="targetNumber" role="group" aria-label="Target numbers" tabindex="-1"></div>
+                        <span class="form-label d-block mb-1">Blocks</span>
+                        <p class="small text-secondary mb-2">Drag a block into the sequence, or tap it to add it to the end.</p>
+                        <div class="block-palette" id="blockPalette" aria-label="Blocks">
+                            <button type="button" class="seq-palette-block seq-palette-block--present" data-block="present"><i class="bi bi-eye-fill" aria-hidden="true"></i> Present</button>
+                            <button type="button" class="seq-palette-block seq-palette-block--delay" data-block="delay"><i class="bi bi-stopwatch" aria-hidden="true"></i> Delay</button>
+                            <button type="button" class="seq-palette-block seq-palette-block--hide" data-block="hide"><i class="bi bi-eye-slash-fill" aria-hidden="true"></i> Hide</button>
+                            <button type="button" class="seq-palette-block seq-palette-block--pause" data-block="pause"><i class="bi bi-pause-circle" aria-hidden="true"></i> Pause</button>
                         </div>
-                        <!-- AI-generated (Claude): placeholder for the drill sequence builder (present / hide /
-                             delay / pause steps). Not built yet; drills from database.json keep their sequence. -->
-                        <div class="mb-0">
-                            <span class="form-label">Sequence</span>
-                            <div class="drill-sequence-placeholder">
-                                <i class="bi bi-list-ol" aria-hidden="true"></i>
-                                <span>Step builder coming soon: present, hide, delay and pause steps.</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Create</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="editDrillModal" tabindex="-1" aria-labelledby="editDrillModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="editDrillModalLabel">Edit Drill</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        <span class="form-label d-block mt-3 mb-1">Sequence</span>
+                        <ol class="sequence-list" id="sequenceList" aria-label="Drill sequence"></ol>
+                        <p class="small text-secondary mt-2 mb-0" id="sequenceSummary" aria-live="polite"></p>
+                    </form>
                 </div>
-                <form id="editDrillForm" novalidate>
-                    <div class="modal-body">
-                        <div class="form-validation-message" id="editDrillError" role="alert" aria-live="polite" hidden></div>
-                        <input type="hidden" id="editDrillId" name="editDrillId">
-                        <div class="mb-3">
-                            <label for="editDrillName" class="form-label">Name</label>
-                            <input type="text" class="form-control" id="editDrillName" name="editDrillName" placeholder="Enter drill name" required>
-                        </div>
-                        <div class="mb-3">
-                            <span class="form-label">Target numbers</span>
-                            <!-- AI-generated (Claude): select all / odd / even targets in one click. -->
-                            <div class="target-quick-select" data-target-list="editTargetNumber" role="group" aria-label="Quick select targets">
-                                <button type="button" class="btn btn-sm btn-outline-primary" data-select="all">All</button>
-                                <button type="button" class="btn btn-sm btn-outline-primary" data-select="odd">Odd</button>
-                                <button type="button" class="btn btn-sm btn-outline-primary" data-select="even">Even</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" data-select="none">Clear</button>
-                            </div>
-                            <div class="target-options" id="editTargetNumber" role="group" aria-label="Target numbers" tabindex="-1"></div>
-                        </div>
-                        <!-- AI-generated (Claude): placeholder for the drill sequence builder (present / hide /
-                             delay / pause steps). Not built yet; drills from database.json keep their sequence. -->
-                        <div class="mb-0">
-                            <span class="form-label">Sequence</span>
-                            <div class="drill-sequence-placeholder">
-                                <i class="bi bi-list-ol" aria-hidden="true"></i>
-                                <span>Step builder coming soon: present, hide, delay and pause steps.</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Edit</button>
-                    </div>
-                </form>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" form="drillEditorForm" id="drillEditorSave">
+                        <i class="bi bi-check-lg me-1" aria-hidden="true"></i>Save drill
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -197,5 +147,7 @@
 
     <!-- Bootstrap JS -->
     <script src="vendor/bootstrap.bundle.min.js"></script>
+    <!-- AI-generated (Claude): SortableJS 1.15.2 (MIT), vendored gzipped, for touch-friendly drag and drop -->
+    <script src="vendor/sortable.min.js"></script>
     <script src="script.js"></script>
 </html>

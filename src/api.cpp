@@ -206,6 +206,16 @@ static void handleAddQualScore(AsyncWebServerRequest* request, JsonVariant& json
     sendOk(request);
 }
 
+// AI-generated (Claude): PUT /api/officers?badge=<n>  {Name}   renames an officer (editOfficer)
+static void handleEditOfficer(AsyncWebServerRequest* request, JsonVariant& json) {
+    int badge;
+    if (!getQueryInt(request, "badge", badge)) return sendError(request, 400, "Badge is required");
+    const char* name = json["Name"] | "";
+    if (!*name) return sendError(request, 400, "Name is required");
+    if (!editOfficer(badge, name)) return sendError(request, 404, "Officer not found");
+    sendOk(request);
+}
+
 // DELETE /api/officers?badge=<n>
 static void handleDeleteOfficer(AsyncWebServerRequest* request) {
     int badge;
@@ -422,6 +432,7 @@ void registerApiRoutes(AsyncWebServer& server) {
     onJsonBody(server, "/api/officers/scores", HTTP_POST, handleAddQualScore);
     server.on("/api/officers", HTTP_GET, handleGetOfficers);
     onJsonBody(server, "/api/officers", HTTP_POST, handleAddOfficer);
+    onJsonBody(server, "/api/officers", HTTP_PUT, handleEditOfficer); // AI-generated (Claude)
     server.on("/api/officers", HTTP_DELETE, handleDeleteOfficer);
 
     // WiFi (AI-generated, Claude)

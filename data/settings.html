@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- AI-generated (Claude): Settings page: drill start delay (saved on this phone), defective
-     targets and the WiFi password (both saved on the controller). script.js wires the forms. -->
+     targets, officers and the WiFi password (saved on the controller). script.js wires the forms. -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -95,6 +95,58 @@
                 <p class="small mt-3 mb-0" id="defectiveTargetsMessage" role="status" hidden></p>
             </div>
         </section>
+
+        <!-- AI-generated (Claude): officer list (saved on the controller). -->
+        <section class="card mb-4" aria-labelledby="officersTitle">
+            <div class="card-body">
+                <h2 class="h5 card-title" id="officersTitle">Officers</h2>
+                <p class="text-secondary small">
+                    Officers who can be given qualification scores. Saved on the controller, so it
+                    applies to every phone.
+                </p>
+                <ul class="officer-list list-unstyled mb-3" id="officerList" aria-live="polite">
+                    <li class="small text-secondary">Loading officers...</li>
+                </ul>
+                <form class="officer-add" id="addOfficerForm" novalidate>
+                    <div class="officer-add-fields">
+                        <div>
+                            <label class="form-label small mb-1" for="newOfficerName">Name</label>
+                            <input class="form-control" type="text" id="newOfficerName" maxlength="60" autocomplete="off" required>
+                        </div>
+                        <div>
+                            <label class="form-label small mb-1" for="newOfficerBadge">Badge number</label>
+                            <input class="form-control" type="number" id="newOfficerBadge" min="1" step="1" inputmode="numeric" required>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" type="submit" id="addOfficerButton">
+                        <i class="bi bi-person-plus" aria-hidden="true"></i> Add officer
+                    </button>
+                </form>
+                <p class="small mt-3 mb-0" id="officersMessage" role="status" hidden></p>
+            </div>
+        </section>
+
+        <!-- AI-generated (Claude): confirms deleting an officer (their scores go too). -->
+        <div class="modal fade" id="deleteOfficerModal" tabindex="-1" aria-labelledby="deleteOfficerModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-sm">
+                <div class="modal-content">
+                    <div class="modal-header border-0 pb-0">
+                        <h5 class="modal-title" id="deleteOfficerModalLabel">
+                            <i class="bi bi-exclamation-triangle-fill text-danger me-2" aria-hidden="true"></i>
+                            Delete officer?
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-0">Delete <strong id="deleteOfficerName"></strong>? All of their qualification scores are deleted too. This cannot be undone.</p>
+                    </div>
+                    <div class="modal-footer border-0 pt-0">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-danger" id="confirmDeleteOfficerButton">Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <section class="card mb-4" aria-labelledby="wifiPasswordTitle">
             <div class="card-body">

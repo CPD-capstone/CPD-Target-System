@@ -22,7 +22,7 @@
     <link rel="stylesheet" href="vendor/bootstrap-icons.min.css">
     <link rel="stylesheet" href="vendor/barlow-condensed.css">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="Perfromance.css">
+    <link rel="stylesheet" href="performance.css">
 </head>
 <body class="performance-page">
     <!-- Match the title banner and menu placement used by the Drills page. -->
@@ -143,6 +143,34 @@
         </section>
 
         <!-- Each table row represents one dated qualification attempt. -->
+        <!-- AI-generated (Claude): each officer's qualification standing over the last 12 months,
+             calculated on the controller (GET /api/officers?today=..., Isaac's officer stats). -->
+        <section class="performance-records officer-standing" aria-labelledby="standingTitle">
+            <div class="section-heading records-heading">
+                <div>
+                    <h2 id="standingTitle">Officer standing</h2>
+                    <p class="standing-note mb-0">Last 12 months: average, top score and attempts per qualification.</p>
+                </div>
+                <span class="record-count" id="standingCount">0 officers</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table performance-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">Officer</th>
+                            <th scope="col">Badge</th>
+                            <th scope="col">Pistol</th>
+                            <th scope="col">Rifle</th>
+                            <th scope="col">SWAT</th>
+                        </tr>
+                    </thead>
+                    <tbody id="standingRows">
+                        <tr><td colspan="5" class="table-empty">Loading officers...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
         <!-- Add scores dialog: ported from Oviya's oviyaTest branch ("AI-assisted change: open batch
              score entry in a dialog above Results"). AI-modified (Claude): scores are saved on the
              controller, and errors show inside the dialog. -->

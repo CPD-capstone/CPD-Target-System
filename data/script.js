@@ -29,7 +29,6 @@ const targetViewButtons = document.querySelectorAll('.target-view-button');
 const targetGrid = document.getElementById('targetGrid');
 const targetStatusStorageKey = 'cpd-target-status';
 const targetViewStorageKey = 'cpd-target-view';
-const drillLibraryStorageKey = 'cpd-drill-library';
 // AI-generated (Claude): manual mode unlocks tapping targets to raise/hide them. Saved so the
 // status bar on other pages shows it too.
 const manualModeStorageKey = 'cpd-manual-mode';
@@ -85,6 +84,14 @@ const postToController = async (path, body, method = 'POST') => {
         throw new Error(payload.error || 'The target controller did not accept the command.');
     }
 };
+
+// AI-generated (Claude): today's date on this phone as YYYY-MM-DD (local time, not UTC). The
+// ESP32 has no clock, so APIs that need "today" (officer stats) are given this.
+const localDateString = (date = new Date()) => [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0')
+].join('-');
 
 // AI-generated (Claude): drill start delay (Settings page), saved on this phone. A countdown
 // runs after Start drill / Resume before the command is sent. mode is 'instant', 'fixed'
@@ -166,31 +173,24 @@ const basicDrillActions = new Set(['present', 'hide', 'pause', 'delay']);
 const isFullDrill = (drill) => (Array.isArray(drill?.sequence) ? drill.sequence : [])
     .some((step) => typeof step?.action === 'string' && !basicDrillActions.has(step.action));
 
-// AI-generated (Claude): 'custom' = created with the New Drill form (database drills have ids
-// like "database-drill-3"); otherwise 'full' or 'stages'.
+// AI-modified (Claude): 'full' = runs other drills; 'stages' = a built-in single drill (tagged
+// "builtIn": true in data/database.json); 'custom' = any other drill (made on the Drills page).
 const getDrillCategory = (drillId, drill) => {
-    if (!String(drillId).startsWith('database-drill-')) return 'custom';
-    return isFullDrill(drill) ? 'full' : 'stages';
+    if (isFullDrill(drill)) return 'full';
+    return drill?.builtIn === true ? 'stages' : 'custom';
 };
 
-// AI-modified (Claude): removed the five-drill limit so every database drill is listed.
-const getSavedDrillLibrary = () => {
-    try {
-        const stored = JSON.parse(localStorage.getItem(drillLibraryStorageKey) || '{}');
-        return stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
-    } catch (error) {
-        return {};
-    }
-};
-
+// AI-modified (Claude): drills come only from the controller (database.json); the phone-only
+// drill library in localStorage is gone. Every drill is listed (no five-drill limit).
 const getTargetDrillLibrary = (databaseDrills = []) => {
     const defaults = (Array.isArray(databaseDrills) ? databaseDrills : [])
         .filter((drill) => drill && typeof drill.drillName === 'string' && drill.drillName.trim())
         .map((drill, index) => [`database-drill-${index}`, {
             name: drill.drillName.trim(),
-            sequence: Array.isArray(drill.sequence) ? drill.sequence : []
+            sequence: Array.isArray(drill.sequence) ? drill.sequence : [],
+            builtIn: drill.builtIn === true
         }]);
-    return { ...Object.fromEntries(defaults), ...getSavedDrillLibrary() };
+    return Object.fromEntries(defaults);
 };
 
 // AI-assisted target availability workflow; include this change in the PR's AI-use disclosure.
@@ -205,39 +205,6 @@ const getSavedTargetStatus = () => {
 
 const saveTargetStatus = (status) => {
     localStorage.setItem(targetStatusStorageKey, JSON.stringify(status));
-};
-
-const syncDrillTargetsToTargetStatus = (drillId, targetNumbers) => {
-    const assignedTargets = new Set(targetNumbers.map(String));
-    const status = getSavedTargetStatus();
-
-    Object.entries(status).forEach(([targetNumber, targetState]) => {
-        const savedState = targetState && typeof targetState === 'object' && !Array.isArray(targetState)
-            ? targetState
-            : {};
-        const activeDrillIds = new Set(
-            (Array.isArray(savedState.activeDrillIds) ? savedState.activeDrillIds : []).map(String)
-        );
-        if (assignedTargets.has(targetNumber)) {
-            activeDrillIds.add(String(drillId));
-        } else {
-            activeDrillIds.delete(String(drillId));
-        }
-        status[targetNumber] = { ...savedState, activeDrillIds: Array.from(activeDrillIds) };
-    });
-
-    assignedTargets.forEach((targetNumber) => {
-        const targetState = status[targetNumber] && typeof status[targetNumber] === 'object' && !Array.isArray(status[targetNumber])
-            ? status[targetNumber]
-            : {};
-        const activeDrillIds = new Set(
-            (Array.isArray(targetState.activeDrillIds) ? targetState.activeDrillIds : []).map(String)
-        );
-        activeDrillIds.add(String(drillId));
-        status[targetNumber] = { ...targetState, activeDrillIds: Array.from(activeDrillIds) };
-    });
-
-    saveTargetStatus(status);
 };
 
 const saveTargetCardStatus = (targetCard) => {
@@ -489,8 +456,8 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             .filter(([, drill]) => drill && typeof (drill.name || drill.drillName) === 'string');
         const drillGroups = [
             { label: 'Full drills', category: 'full' },
-            { label: 'Stages', category: 'stages' },
-            { label: 'Custom', category: 'custom' }
+            { label: 'Custom', category: 'custom' },
+            { label: 'Stages', category: 'stages' }
         ]
             .map(({ label, category }) => ({
                 label,
@@ -544,31 +511,45 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             const drillId = drillSelect.value;
             const drill = targetAssignmentDrills[drillId];
             if (!drill) return;
-            if (getDrillCategory(drillId, drill) === 'custom') {
-                showLaunchMessage('Custom drills are saved on this phone only, so the controller cannot run them yet.');
-                return;
-            }
-
-            const assignedTargets = Array.isArray(drill.targets)
-                ? [...new Set(drill.targets.map(Number).filter((targetNumber) => Number.isInteger(targetNumber) && targetNumber >= 1 && targetNumber <= 20))]
-                : [];
-            const availableTargets = assignedTargets.filter((targetNumber) => (
-                !unavailableTargets.has(targetNumber) &&
-                targetGrid.querySelector(`[data-target-number="${targetNumber}"] .target-card`)
-            ));
-
-            // AI-modified (Claude): a drill with no assigned targets asks which targets to run.
-            if (!assignedTargets.length) {
+            // AI-modified (Claude): targets belong to each step. If every present/hide step (stages
+            // of a full drill included) lists its own targets, run on those right away. If any
+            // step is "All targets", ask which targets are in use (all working ones pre-checked).
+            const { usesAllTargets, targets } = getDrillStepTargets(drill);
+            if (usesAllTargets) {
                 openDrillTargetPicker(drillId);
                 return;
             }
-            if (!availableTargets.length) {
-                showLaunchMessage('All targets assigned to this drill are defective or unavailable.');
+            const runTargets = [...targets]
+                .filter((targetNumber) => !unavailableTargets.has(targetNumber))
+                .sort((first, second) => first - second);
+            if (!runTargets.length) {
+                showLaunchMessage(targets.size
+                    ? "All of this drill's targets are marked defective."
+                    : 'This drill has no present or hide steps, so there is nothing to run.');
                 return;
             }
-
-            runDrillOnTargets(drillId, availableTargets);
+            runDrillOnTargets(drillId, runTargets);
         });
+
+        // AI-generated (Claude): walks a drill's steps, following stages of full drills by name,
+        // the same way the controller flattens it. usesAllTargets = some present/hide step has no
+        // targets list; targets = every target named by the steps that do.
+        const getDrillStepTargets = (drill, depth = 1, found = { usesAllTargets: false, targets: new Set() }) => {
+            if (!drill || depth > maxDrillNesting) return found;
+            (Array.isArray(drill.sequence) ? drill.sequence : []).forEach((step) => {
+                const action = step?.action;
+                if (action === 'present' || action === 'hide') {
+                    const list = Array.isArray(step.targets) ? step.targets.map(Number) : [];
+                    if (list.length) list.forEach((targetNumber) => found.targets.add(targetNumber));
+                    else found.usesAllTargets = true;
+                } else if (!basicDrillActions.has(action)) {
+                    const stage = Object.values(targetAssignmentDrills)
+                        .find((candidate) => (candidate.name || candidate.drillName) === action);
+                    getDrillStepTargets(stage, depth + 1, found);
+                }
+            });
+            return found;
+        };
 
         // AI-modified (Claude): starts the drill on the controller. availableTargets is never
         // empty here (callers check), which matters because the API reads [] as all targets.
@@ -621,6 +602,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
                     const input = document.createElement('input');
                     input.className = 'form-check-input';
                     input.type = 'checkbox';
+                    input.checked = true; // AI-modified (Claude): start with every working target
                     input.value = String(targetNumber);
                     const text = document.createElement('span');
                     text.textContent = `Target ${targetNumber}`;
@@ -1128,10 +1110,60 @@ if (document.getElementById('performanceRows')) {
         });
     };
 
+    // AI-generated (Claude): Officer standing table. The numbers are the controller's 12-month
+    // stats (pistolStats / rifleStats / swatStats from GET /api/officers?today=...), so every
+    // phone shows the same figures; only the name/badge search narrows the list.
+    const renderOfficerStanding = () => {
+        const standingRows = document.getElementById('standingRows');
+        const query = performanceSearch.value.trim().toLocaleLowerCase();
+        const officers = performanceOfficers.filter((officer) => (
+            !query || `${officer?.Name || ''} ${officer?.BadgeNum ?? ''}`.toLocaleLowerCase().includes(query)
+        ));
+        document.getElementById('standingCount').textContent = `${officers.length} ${officers.length === 1 ? 'officer' : 'officers'}`;
+        standingRows.replaceChildren();
+        if (!officers.length) {
+            const row = document.createElement('tr');
+            const cell = document.createElement('td');
+            cell.colSpan = 5;
+            cell.className = 'table-empty';
+            cell.textContent = 'No officers match.';
+            row.append(cell);
+            standingRows.append(row);
+            return;
+        }
+        officers.forEach((officer) => {
+            const row = document.createElement('tr');
+            [officer.Name || 'Unknown officer', String(officer.BadgeNum ?? '—')].forEach((value) => {
+                const cell = document.createElement('td');
+                cell.textContent = value;
+                row.append(cell);
+            });
+            ['pistolStats', 'rifleStats', 'swatStats'].forEach((key) => {
+                const stats = officer[key];
+                const cell = document.createElement('td');
+                cell.className = 'standing-cell';
+                if (!stats || !stats.attempts) {
+                    cell.textContent = '—';
+                } else {
+                    const average = document.createElement('span');
+                    average.className = 'standing-average';
+                    average.textContent = Number(stats.average).toFixed(1);
+                    const detail = document.createElement('span');
+                    detail.className = 'standing-detail';
+                    detail.textContent = `top ${stats.top} · ${stats.attempts} ${stats.attempts === 1 ? 'attempt' : 'attempts'}`;
+                    cell.append(average, detail);
+                }
+                row.append(cell);
+            });
+            standingRows.append(row);
+        });
+    };
+
     const renderPerformance = () => {
         const visibleRecords = getVisibleRecords();
         renderPerformanceSummary(visibleRecords);
         renderPerformanceTable(visibleRecords);
+        renderOfficerStanding();
 
         const selectedQualifications = Array.from(qualificationFilters).filter((filter) => filter.checked).length;
         const hasOptionalFilters = Boolean(
@@ -1299,8 +1331,10 @@ if (document.getElementById('performanceRows')) {
     });
 
     // AI-modified (Claude): loading is a function so it can run again after scores are added.
-    // Also fills the Add scores officer list (value = badge number).
-    const loadPerformanceData = () => fetch('database.json', { cache: 'no-store' })
+    // Also fills the Add scores officer list (value = badge number). Officers come from the
+    // controller's API (GET /api/officers?today=...), which adds Isaac's 12-month stats; the ESP32
+    // has no clock, so this phone supplies today's date.
+    const loadPerformanceData = () => fetch(`/api/officers?today=${localDateString()}`, { cache: 'no-store' })
         .then((response) => {
             if (!response.ok) {
                 throw new Error('Unable to load qualification records.');
@@ -1308,7 +1342,7 @@ if (document.getElementById('performanceRows')) {
             return response.json();
         })
         .then((payload) => {
-            performanceOfficers = Array.isArray(payload?.Officers) ? payload.Officers : [];
+            performanceOfficers = Array.isArray(payload) ? payload : [];
 
             if (!performanceOfficers.length) {
                 performanceMessage.hidden = false;
@@ -1338,374 +1372,407 @@ if (document.getElementById('performanceRows')) {
     loadPerformanceData();
 }
 
+// AI-modified (Claude): Drills page, rewritten. Drills live on the controller (database.json in
+// flash, so they survive a power cycle) and are read and changed through /api/drills. New and
+// edited drills are built with the drag-and-drop sequence builder: Present / Delay / Hide /
+// Pause blocks. A Present or Hide step moves "All targets" (every target chosen when the drill is
+// started) or a custom list; a Delay is in seconds (decimals allowed, stored as whole ms).
+// Stages inside a full drill show as fixed "Run drill" steps, so editing a full drill keeps them.
 if (document.getElementById('drillList')) {
     const drillList = document.getElementById('drillList');
-    const drillForm = document.getElementById('newDrillForm');
-    const editDrillForm = document.getElementById('editDrillForm');
-    const storageKey = 'cpd-drill-library';
-    const deleteDrillModalElement = document.getElementById('deleteDrillModal');
-    const deleteDrillModal = deleteDrillModalElement ? new bootstrap.Modal(deleteDrillModalElement) : null;
+    const drillListMessage = document.getElementById('drillListMessage');
+    const editorModalElement = document.getElementById('drillEditorModal');
+    const editorModal = bootstrap.Modal.getOrCreateInstance(editorModalElement);
+    const editorForm = document.getElementById('drillEditorForm');
+    const editorTitle = document.getElementById('drillEditorTitle');
+    const editorError = document.getElementById('drillEditorError');
+    const nameInput = document.getElementById('drillEditorName');
+    const palette = document.getElementById('blockPalette');
+    const sequenceList = document.getElementById('sequenceList');
+    const sequenceSummary = document.getElementById('sequenceSummary');
+    const saveButton = document.getElementById('drillEditorSave');
+    const deleteModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('deleteDrillModal'));
     const deleteDrillName = document.getElementById('deleteDrillName');
-    const confirmDeleteDrillButton = document.getElementById('confirmDeleteDrillButton');
-    const targetNumberSelect = document.getElementById('targetNumber');
-    const editTargetNumberSelect = document.getElementById('editTargetNumber');
-    let pendingDeleteDrillId = null;
+    const targetCount = 20; // NUM_TARGETS in hal.h
+    let drills = [];              // [{drillName, sequence}] as stored on the controller
+    let editingName = null;       // name of the drill being edited; null while creating one
+    let pendingDeleteName = null;
     let activeDrillFilter = 'all';
-    let databaseDrills = [];
-    let databaseUnavailableTargets = new Set();
+    let blockCounter = 0;         // makes each block's input ids unique
 
-    const showFormError = (form, message, invalidInputs) => {
-        const errorMessage = document.getElementById(form.id === 'newDrillForm' ? 'newDrillError' : 'editDrillError');
-
-        errorMessage.textContent = message;
-        errorMessage.hidden = false;
-        invalidInputs.forEach((input) => input.classList.add('is-invalid'));
-        invalidInputs[0]?.focus();
+    const blockInfo = {
+        present: { title: 'Present', icon: 'bi-eye-fill' },
+        delay: { title: 'Delay', icon: 'bi-stopwatch' },
+        hide: { title: 'Hide', icon: 'bi-eye-slash-fill' },
+        pause: { title: 'Pause', icon: 'bi-pause-circle' }
     };
 
-    const clearFormError = (form) => {
-        const errorMessage = document.getElementById(form.id === 'newDrillForm' ? 'newDrillError' : 'editDrillError');
-
-        errorMessage.hidden = true;
-        errorMessage.textContent = '';
-        form.querySelectorAll('input:not([type="hidden"]), select').forEach((input) => input.classList.remove('is-invalid'));
-        form.querySelectorAll('.target-options').forEach((group) => group.classList.remove('is-invalid'));
+    const showListMessage = (text, kind = 'warning') => {
+        drillListMessage.className = `alert alert-${kind} mb-4`;
+        drillListMessage.textContent = text;
+        drillListMessage.hidden = !text;
     };
 
-    const validateDrillFields = (form) => {
-        const isEditForm = form.id === 'editDrillForm';
-        const targetFieldName = isEditForm ? 'editTargetNumber' : 'targetNumber';
-        const fields = [
-            { input: document.getElementById(isEditForm ? 'editDrillName' : 'drillName'), label: 'Name' },
-            {
-                input: document.getElementById(targetFieldName),
-                label: 'Target numbers',
-                valid: () => form.querySelector(`input[name="${targetFieldName}"]:checked`) !== null
-            }
-        ];
-        const missingFields = fields.filter(({ input, valid }) => valid ? !valid() : !input?.value.trim());
-
-        if (!missingFields.length) {
-            return { valid: true };
-        }
-
-        return {
-            valid: false,
-            message: `Please complete: ${missingFields.map(({ label }) => label).join(', ')}.`,
-            invalidInputs: missingFields.map(({ input }) => input)
-        };
+    const showEditorError = (text) => {
+        editorError.textContent = text;
+        editorError.hidden = !text;
     };
 
-    const getUnavailableTargetInputs = (form, fieldName) => {
-        const unavailableTargets = databaseUnavailableTargets;
-        return Array.from(form.querySelectorAll(`input[name="${fieldName}"]:checked`))
-            .filter((input) => unavailableTargets.has(Number(input.value)));
-    };
+    // ------------------------------------------------------------------ building blocks
+    const targetPickerHtml = (uid, selected) => `
+        <div class="target-quick-select" data-target-list="${uid}-targets" role="group" aria-label="Quick select targets">
+            <button type="button" class="btn btn-sm btn-outline-primary" data-select="all">All</button>
+            <button type="button" class="btn btn-sm btn-outline-primary" data-select="odd">Odd</button>
+            <button type="button" class="btn btn-sm btn-outline-primary" data-select="even">Even</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-select="none">Clear</button>
+        </div>
+        <div class="target-options seq-target-options" id="${uid}-targets" role="group" aria-label="Targets for this step">
+            ${Array.from({ length: targetCount }, (_, index) => `
+                <label class="target-option">
+                    <input class="form-check-input" type="checkbox" value="${index + 1}"${selected.has(index + 1) ? ' checked' : ''}>
+                    <span>${index + 1}</span>
+                </label>`).join('')}
+        </div>`;
 
-    const normalizeDrillMap = (source = []) => {
-        if (!Array.isArray(source)) {
-            return {};
-        }
+    // One <li> per step. step is a database step ({action, timeMs?, targets?}).
+    const createBlock = (step) => {
+        const action = String(step?.action || '');
+        const isBasic = Object.hasOwn(blockInfo, action);
+        const info = isBasic ? blockInfo[action] : { title: 'Run drill', icon: 'bi-collection' };
+        const uid = `seq${blockCounter += 1}`;
+        const block = document.createElement('li');
+        block.className = `seq-block seq-block--${isBasic ? action : 'drill'}`;
+        block.dataset.action = action;
 
-        return Object.fromEntries(source
-            .filter((drill) => drill && typeof drill.drillName === 'string' && drill.drillName.trim())
-            .map((drill, index) => [`database-drill-${index}`, {
-                name: drill.drillName.trim(),
-                sequence: Array.isArray(drill.sequence) ? drill.sequence : [],
-                status: 'available'
-            }]));
-    };
+        block.innerHTML = `
+            <div class="seq-block-head">
+                <span class="seq-handle" title="Drag to reorder" aria-hidden="true"><i class="bi bi-grip-vertical"></i></span>
+                <span class="seq-step-number"></span>
+                <i class="bi ${info.icon} seq-block-icon" aria-hidden="true"></i>
+                <span class="seq-block-title"></span>
+                <span class="seq-block-tools">
+                    <button type="button" class="btn btn-sm btn-light seq-move" data-move="up"><i class="bi bi-arrow-up" aria-hidden="true"></i></button>
+                    <button type="button" class="btn btn-sm btn-light seq-move" data-move="down"><i class="bi bi-arrow-down" aria-hidden="true"></i></button>
+                    <button type="button" class="btn btn-sm btn-light seq-remove"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                </span>
+            </div>
+            <div class="seq-block-body"></div>`;
+        block.querySelector('.seq-block-title').textContent = info.title;
+        const body = block.querySelector('.seq-block-body');
 
-    const populateDatabaseFields = (payload) => {
-        const databaseTargets = Array.isArray(payload?.targets) ? payload.targets : [];
-        databaseUnavailableTargets = new Set(databaseTargets
-            .filter((target) => target?.working === false)
-            .map((target) => Number(target?.id)));
-        const targets = databaseTargets
-            .filter((target) => target?.working !== false)
-            .map((target) => Number(target?.id))
-            .filter((id) => Number.isInteger(id) && id >= 1 && id <= 20)
-            .sort((first, second) => first - second);
-        const targetOptions = targets.map((target) => ({ label: `Target ${target}`, value: String(target) }));
-
-        [
-            { container: targetNumberSelect, name: 'targetNumber' },
-            { container: editTargetNumberSelect, name: 'editTargetNumber' }
-        ].forEach(({ container, name }) => {
-            if (!container) return;
-
-            container.replaceChildren();
-            if (!targetOptions.length) {
-                container.textContent = 'No targets are currently available.';
-                return;
-            }
-
-            targetOptions.forEach(({ label, value }) => {
-                const wrapper = document.createElement('label');
-                wrapper.className = 'target-option';
-
-                const input = document.createElement('input');
-                input.className = 'form-check-input';
-                input.type = 'checkbox';
-                input.name = name;
-                input.value = value;
-
-                const text = document.createElement('span');
-                text.textContent = label;
-
-                wrapper.append(input, text);
-                container.append(wrapper);
-            });
-        });
-    };
-
-    const setSelectedValues = (container, values) => {
-        if (!container) return;
-        const selectedValues = new Set(values.map((value) => String(value)));
-        container.querySelectorAll('input[type="checkbox"]').forEach((input) => {
-            input.checked = selectedValues.has(input.value);
-        });
-    };
-
-    // AI-generated (Claude): one-line summary of a drill's sequence for its card.
-    const getSequenceSummary = (drill) => {
-        const steps = Array.isArray(drill?.sequence) ? drill.sequence.length : 0;
-        return steps ? `${steps} ${steps === 1 ? 'step' : 'steps'}` : 'Not built yet';
-    };
-
-    const getTargets = (drill) => {
-        if (Array.isArray(drill?.targets) && drill.targets.length > 0) {
-            return drill.targets.join(', ');
-        }
-
-        return '—';
-    };
-
-    const getDrills = () => {
-        const stored = localStorage.getItem(storageKey);
-        if (!stored) {
-            return {};
-        }
-
-        try {
-            const parsed = JSON.parse(stored);
-            return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-        } catch (error) {
-            return {};
-        }
-    };
-
-    const saveDrills = (drills) => {
-        localStorage.setItem(storageKey, JSON.stringify(drills));
-    };
-
-    const openEditModal = (drillId) => {
-        const drills = getDrills();
-        const drill = drills[drillId];
-
-        if (!drill) {
-            return;
-        }
-
-        document.getElementById('editDrillId').value = drillId;
-        document.getElementById('editDrillName').value = drill.name || '';
-        setSelectedValues(editTargetNumberSelect, Array.isArray(drill.targets) ? drill.targets : []);
-
-        const editModal = new bootstrap.Modal(document.getElementById('editDrillModal'));
-        editModal.show();
-    };
-
-    const deleteDrill = (drillId) => {
-        const drills = getDrills();
-        delete drills[drillId];
-        saveDrills(drills);
-        syncDrillTargetsToTargetStatus(drillId, []);
-        renderDrills(drills);
-    };
-
-    // AI-modified (Claude): the list is narrowed by the All / Full drills / Stages / Custom filter.
-    const renderDrills = (drills) => {
-        const allEntries = Object.entries(drills || {});
-        const entries = allEntries.filter(([drillId, drill]) => (
-            activeDrillFilter === 'all' || getDrillCategory(drillId, drill) === activeDrillFilter
-        ));
-
-        if (!entries.length) {
-            drillList.innerHTML = `
-                <div class="col-12">
-                    <div class="alert alert-info mb-0">${allEntries.length ? 'No drills match this filter.' : 'No drills have been added yet.'}</div>
+        if (action === 'present' || action === 'hide') {
+            const chosen = new Set((Array.isArray(step.targets) ? step.targets : []).map(Number));
+            const custom = chosen.size > 0;
+            body.innerHTML = `
+                <div class="seq-target-mode">
+                    <label class="form-check form-check-inline mb-0">
+                        <input class="form-check-input" type="radio" name="${uid}-mode" value="all"${custom ? '' : ' checked'}>
+                        <span class="form-check-label">All targets</span>
+                    </label>
+                    <label class="form-check form-check-inline mb-0">
+                        <input class="form-check-input" type="radio" name="${uid}-mode" value="custom"${custom ? ' checked' : ''}>
+                        <span class="form-check-label">Custom</span>
+                    </label>
                 </div>
-            `;
+                <div class="seq-custom-targets"${custom ? '' : ' hidden'}>${targetPickerHtml(uid, chosen)}</div>`;
+            body.addEventListener('change', (event) => {
+                if (event.target.name === `${uid}-mode`) {
+                    body.querySelector('.seq-custom-targets').hidden = event.target.value !== 'custom';
+                }
+            });
+        } else if (action === 'delay') {
+            const seconds = Number(step.timeMs) > 0 ? Number(step.timeMs) / 1000 : 3;
+            body.innerHTML = `
+                <div class="input-group input-group-sm seq-delay">
+                    <input class="form-control seq-delay-input" type="number" id="${uid}-seconds" min="0.01" max="3600" step="0.01" inputmode="decimal" value="${seconds}" aria-label="Delay in seconds">
+                    <span class="input-group-text">seconds</span>
+                </div>`;
+        } else if (action === 'pause') {
+            body.innerHTML = '<p class="seq-block-note">Waits until the operator presses Resume.</p>';
+        } else {
+            body.innerHTML = '<p class="seq-block-note">Runs the drill <strong></strong>. Edit it on its own card.</p>';
+            body.querySelector('strong').textContent = action;
+        }
+        return block;
+    };
+
+    const defaultStep = (type) => (type === 'delay' ? { action: 'delay', timeMs: 3000 } : { action: type });
+
+    // Step numbers, move-button state, and the summary line under the sequence.
+    const refreshSequence = () => {
+        const blocks = Array.from(sequenceList.querySelectorAll(':scope > .seq-block'));
+        let delaySeconds = 0;
+        blocks.forEach((block, index) => {
+            const title = block.querySelector('.seq-block-title').textContent;
+            block.querySelector('.seq-step-number').textContent = String(index + 1);
+            const [up, down] = block.querySelectorAll('.seq-move');
+            up.disabled = index === 0;
+            down.disabled = index === blocks.length - 1;
+            up.setAttribute('aria-label', `Move step ${index + 1} (${title}) up`);
+            down.setAttribute('aria-label', `Move step ${index + 1} (${title}) down`);
+            block.querySelector('.seq-remove').setAttribute('aria-label', `Remove step ${index + 1} (${title})`);
+            const seconds = Number(block.querySelector('.seq-delay-input')?.value);
+            if (seconds > 0) delaySeconds += seconds;
+        });
+        sequenceSummary.textContent = blocks.length
+            ? `${blocks.length} ${blocks.length === 1 ? 'step' : 'steps'} · ${Number(delaySeconds.toFixed(2))} s of delay`
+            : '';
+    };
+
+    const addBlock = (type) => {
+        const block = createBlock(defaultStep(type));
+        sequenceList.append(block);
+        refreshSequence();
+        block.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    };
+
+    // Turns the blocks back into database steps, or reports the first problem.
+    const readSequence = () => {
+        const blocks = Array.from(sequenceList.querySelectorAll(':scope > .seq-block'));
+        if (!blocks.length) return { error: 'Add at least one block to the sequence.' };
+        const steps = [];
+        for (const [index, block] of blocks.entries()) {
+            const action = block.dataset.action;
+            const label = `Step ${index + 1} (${block.querySelector('.seq-block-title').textContent})`;
+            const step = { step: index + 1, action };
+            if (action === 'present' || action === 'hide') {
+                if (block.querySelector('input[type="radio"]:checked')?.value === 'custom') {
+                    const targets = Array.from(
+                        block.querySelectorAll('.seq-target-options input:checked'),
+                        (box) => Number(box.value)
+                    );
+                    if (!targets.length) {
+                        return { error: `${label}: check at least one target, or choose All targets.`, block };
+                    }
+                    step.targets = targets;
+                }
+            } else if (action === 'delay') {
+                const seconds = Number(block.querySelector('.seq-delay-input').value);
+                const timeMs = Math.round(seconds * 1000);
+                if (!Number.isFinite(seconds) || timeMs < 1 || seconds > 3600) {
+                    return { error: `${label}: enter a time between 0.01 and 3600 seconds.`, block };
+                }
+                step.timeMs = timeMs;
+            }
+            steps.push(step);
+        }
+        return { steps };
+    };
+
+    // ------------------------------------------------------------------ editor wiring
+    palette.addEventListener('click', (event) => {
+        const paletteBlock = event.target.closest('[data-block]');
+        if (paletteBlock) addBlock(paletteBlock.dataset.block);
+    });
+
+    sequenceList.addEventListener('click', (event) => {
+        const block = event.target.closest('.seq-block');
+        if (!block) return;
+        const move = event.target.closest('.seq-move');
+        if (move) {
+            const sibling = move.dataset.move === 'up' ? block.previousElementSibling : block.nextElementSibling;
+            if (sibling) {
+                if (move.dataset.move === 'up') sibling.before(block);
+                else sibling.after(block);
+                refreshSequence();
+                move.focus();
+            }
+            return;
+        }
+        if (event.target.closest('.seq-remove')) {
+            block.remove();
+            refreshSequence();
+        }
+    });
+
+    sequenceList.addEventListener('input', (event) => {
+        event.target.closest('.seq-block')?.classList.remove('is-invalid');
+        refreshSequence();
+    });
+    sequenceList.addEventListener('change', (event) => {
+        event.target.closest('.seq-block')?.classList.remove('is-invalid');
+    });
+    // The shared All/Odd/Even/Clear handler changes boxes without a change event
+    sequenceList.addEventListener('click', (event) => {
+        if (event.target.closest('.target-quick-select')) {
+            event.target.closest('.seq-block')?.classList.remove('is-invalid');
+        }
+    });
+
+    // Drag from the palette (copies a block) and drag to reorder (by the grip handle). The
+    // palette waits briefly on touch so a quick tap still counts as "add to the end".
+    if (typeof Sortable !== 'undefined') {
+        Sortable.create(palette, {
+            group: { name: 'drill-steps', pull: 'clone', put: false },
+            sort: false,
+            animation: 150,
+            delay: 150,
+            delayOnTouchOnly: true,
+            draggable: '[data-block]'
+        });
+        Sortable.create(sequenceList, {
+            group: { name: 'drill-steps', pull: false, put: true },
+            handle: '.seq-handle',
+            draggable: '.seq-block',
+            animation: 150,
+            onAdd: (event) => {
+                // The dropped palette button becomes a real block
+                const block = createBlock(defaultStep(event.item.dataset.block));
+                event.item.replaceWith(block);
+                refreshSequence();
+            },
+            onSort: refreshSequence
+        });
+    }
+
+    const openEditor = (drill) => {
+        editingName = drill ? drill.drillName : null;
+        editorTitle.textContent = drill ? `Edit ${drill.drillName}` : 'New drill';
+        nameInput.value = drill ? drill.drillName : '';
+        sequenceList.replaceChildren(...(Array.isArray(drill?.sequence) ? drill.sequence : []).map(createBlock));
+        showEditorError('');
+        refreshSequence();
+        editorModal.show();
+    };
+
+    document.getElementById('createDrillButton').addEventListener('click', () => openEditor(null));
+    editorModalElement.addEventListener('shown.bs.modal', () => {
+        if (!editingName) nameInput.focus();
+    });
+
+    editorForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const name = nameInput.value.trim();
+        if (!name) {
+            showEditorError('Enter a name for the drill.');
+            nameInput.focus();
+            return;
+        }
+        if (basicDrillActions.has(name)) {
+            showEditorError(`"${name}" is a step name and can't be used as a drill name.`);
+            return;
+        }
+        if (drills.some((drill) => drill.drillName === name && drill.drillName !== editingName)) {
+            showEditorError(`A drill named "${name}" already exists.`);
+            return;
+        }
+        const { steps, error, block } = readSequence();
+        if (error) {
+            showEditorError(error);
+            block?.classList.add('is-invalid');
+            block?.scrollIntoView({ block: 'center', behavior: 'smooth' });
             return;
         }
 
-        drillList.innerHTML = entries.map(([drillId, drill], index) => `
-            <div class="col">
+        saveButton.disabled = true;
+        try {
+            if (editingName === null) {
+                await postToController('/api/drills', { drillName: name, sequence: steps });
+            } else {
+                // Isaac's rename: a new drillName also updates full drills that include this one
+                await postToController(`/api/drills?name=${encodeURIComponent(editingName)}`, { drillName: name, sequence: steps }, 'PUT');
+            }
+            editorModal.hide();
+            showListMessage(`${name} saved.`, 'success');
+            await loadDrills();
+        } catch (saveError) {
+            showEditorError(saveError.message);
+        }
+        saveButton.disabled = false;
+    });
+
+    // ------------------------------------------------------------------ drill list
+    const describeDrill = (drill) => {
+        const sequence = Array.isArray(drill.sequence) ? drill.sequence : [];
+        const stages = sequence.filter((step) => !basicDrillActions.has(step?.action)).length;
+        const delayMs = sequence
+            .filter((step) => step?.action === 'delay')
+            .reduce((total, step) => total + (Number(step.timeMs) || 0), 0);
+        return { steps: sequence.length, stages, delaySeconds: Number((delayMs / 1000).toFixed(2)) };
+    };
+
+    const renderDrills = () => {
+        const visible = drills.filter((drill) => (
+            activeDrillFilter === 'all' || getDrillCategory(null, drill) === activeDrillFilter
+        ));
+        if (!visible.length) {
+            const column = document.createElement('div');
+            column.className = 'col-12';
+            column.innerHTML = '<div class="alert alert-info mb-0"></div>';
+            column.firstChild.textContent = drills.length ? 'No drills match this filter.' : 'No drills yet. Tap Create Drill to build one.';
+            drillList.replaceChildren(column);
+            return;
+        }
+        drillList.replaceChildren(...visible.map((drill) => {
+            const { steps, stages, delaySeconds } = describeDrill(drill);
+            const full = isFullDrill(drill);
+            const category = getDrillCategory(null, drill);
+            const column = document.createElement('div');
+            column.className = 'col';
+            column.innerHTML = `
                 <article class="drill-ticket h-100">
                     <div class="drill-ticket-heading">
-                        <span class="drill-ticket-label">Drill ${String(index + 1).padStart(2, '0')}</span>
-                        <i class="bi bi-crosshair text-primary" aria-hidden="true"></i>
+                        <span class="drill-ticket-label">${{ full: 'Full drill', custom: 'Custom', stages: 'Stage' }[category]}</span>
+                        <i class="bi ${full ? 'bi-collection' : 'bi-crosshair'} text-primary" aria-hidden="true"></i>
                     </div>
-                    <h2 class="h4 mb-4">${(drill?.name || 'Untitled Drill').replace(/</g, '&lt;')}</h2>
+                    <h2 class="h4 mb-4 drill-ticket-name"></h2>
                     <dl class="drill-details">
-                        <div><dt>Name</dt><dd>${(drill?.name || 'Untitled Drill').replace(/</g, '&lt;')}</dd></div>
-                        <div><dt>Target Numbers</dt><dd>${getTargets(drill)}</dd></div>
-                        <div><dt>Sequence</dt><dd>${getSequenceSummary(drill)}</dd></div>
+                        <div><dt>${full ? 'Stages' : 'Steps'}</dt><dd>${full ? stages : steps}</dd></div>
+                        <div><dt>Delay time</dt><dd>${full ? 'set by its stages' : `${delaySeconds} s`}</dd></div>
                     </dl>
                     <div class="drill-actions">
-                        <button class="btn btn-secondary edit-drill-btn" type="button" data-drill-id="${drillId}"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Edit</button>
-                        <button class="btn btn-danger delete-drill-btn" type="button" data-drill-id="${drillId}"><i class="bi bi-trash3 me-1" aria-hidden="true"></i>Delete</button>
+                        <button class="btn btn-secondary" type="button" data-drill-action="edit"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Edit</button>
+                        <button class="btn btn-danger" type="button" data-drill-action="delete"><i class="bi bi-trash3 me-1" aria-hidden="true"></i>Delete</button>
                     </div>
-                </article>
-            </div>
-        `).join('');
-
-        document.querySelectorAll('.edit-drill-btn').forEach((button) => {
-            button.addEventListener('click', () => openEditModal(button.dataset.drillId));
-        });
-
-        document.querySelectorAll('.delete-drill-btn').forEach((button) => {
-            button.addEventListener('click', () => {
-                const drillId = button.dataset.drillId;
-                const drills = getDrills();
-                const drillName = drills[drillId]?.name || 'this drill';
-
-                pendingDeleteDrillId = drillId;
-                deleteDrillName.textContent = drillName;
-                deleteDrillModal?.show();
+                </article>`;
+            column.querySelector('.drill-ticket-name').textContent = drill.drillName;
+            column.querySelector('[data-drill-action="edit"]').addEventListener('click', () => openEditor(drill));
+            column.querySelector('[data-drill-action="delete"]').addEventListener('click', () => {
+                // The controller refuses to delete a stage a full drill still uses; say which one
+                const usedBy = drills
+                    .filter((other) => (Array.isArray(other.sequence) ? other.sequence : []).some((step) => step?.action === drill.drillName))
+                    .map((other) => other.drillName);
+                if (usedBy.length) {
+                    showListMessage(`${drill.drillName} is part of ${usedBy.join(', ')}. Remove it from there first.`);
+                    return;
+                }
+                pendingDeleteName = drill.drillName;
+                deleteDrillName.textContent = drill.drillName;
+                deleteModal.show();
             });
-        });
+            return column;
+        }));
     };
-
-    confirmDeleteDrillButton?.addEventListener('click', () => {
-        if (!pendingDeleteDrillId) {
-            return;
-        }
-
-        deleteDrill(pendingDeleteDrillId);
-        pendingDeleteDrillId = null;
-        deleteDrillModal?.hide();
-    });
-
-    deleteDrillModalElement?.addEventListener('hidden.bs.modal', () => {
-        pendingDeleteDrillId = null;
-        deleteDrillName.textContent = '';
-    });
 
     const loadDrills = async () => {
-        const savedDrills = getDrills();
-
         try {
-            const response = await fetch('database.json', { cache: 'no-store' });
-            if (!response.ok) {
-                throw new Error('Unable to load database.json');
-            }
-
+            const response = await fetch('/api/drills', { cache: 'no-store' });
+            if (!response.ok) throw new Error('bad response');
             const payload = await response.json();
-            const fileDrills = normalizeDrillMap(payload?.drills);
-            const mergedDrills = { ...fileDrills, ...savedDrills };
-            databaseDrills = Array.isArray(payload?.drills) ? payload.drills : [];
-
-            saveDrills(mergedDrills);
-            populateDatabaseFields(payload);
-            renderDrills(mergedDrills);
-        } catch (error) {
-            renderDrills(savedDrills || {});
+            drills = (Array.isArray(payload) ? payload : [])
+                .filter((drill) => typeof drill?.drillName === 'string' && drill.drillName.trim());
+        } catch {
+            drills = [];
+            showListMessage('Could not load drills from the controller. Check that you are on the CPD Range Control WiFi.', 'danger');
         }
+        renderDrills();
     };
 
-    drillForm?.addEventListener('submit', (event) => {
-        event.preventDefault();
-
-        const formData = new FormData(drillForm);
-        const name = String(formData.get('drillName') || '').trim();
-        const targetNumbers = formData.getAll('targetNumber').map((value) => Number(value));
-
-        const validation = validateDrillFields(drillForm);
-        if (!validation.valid) {
-            showFormError(drillForm, validation.message, validation.invalidInputs);
-            return;
+    document.getElementById('confirmDeleteDrillButton').addEventListener('click', async () => {
+        const name = pendingDeleteName;
+        deleteModal.hide();
+        if (!name) return;
+        try {
+            await postToController(`/api/drills?name=${encodeURIComponent(name)}`, undefined, 'DELETE');
+            showListMessage(`${name} deleted.`, 'success');
+        } catch (error) {
+            showListMessage(error.message, 'danger');
         }
-
-        const unavailableInputs = getUnavailableTargetInputs(drillForm, 'targetNumber');
-        if (unavailableInputs.length) {
-            const targetNumber = unavailableInputs[0].value;
-            showFormError(drillForm, `Target ${targetNumber} is defective or unavailable and cannot be assigned to a drill.`, unavailableInputs);
-            return;
-        }
-
-        clearFormError(drillForm);
-
-        const currentDrills = getDrills();
-        const nextDrillId = `drill-${Date.now()}`;
-
-        currentDrills[nextDrillId] = {
-            name,
-            sequence: databaseDrills.find((drill) => drill.drillName === name)?.sequence || [],
-            targets: targetNumbers,
-            status: 'available'
-        };
-
-        saveDrills(currentDrills);
-        syncDrillTargetsToTargetStatus(nextDrillId, targetNumbers);
-        renderDrills(currentDrills);
-
-        const modal = bootstrap.Modal.getInstance(document.getElementById('newDrillModal'));
-        if (modal) {
-            modal.hide();
-        }
-
-        drillForm.reset();
+        pendingDeleteName = null;
+        loadDrills();
     });
 
-    editDrillForm?.addEventListener('submit', (event) => {
-        event.preventDefault();
-
-        const formData = new FormData(editDrillForm);
-        const drillId = String(formData.get('editDrillId') || '').trim();
-        const name = String(formData.get('editDrillName') || '').trim();
-        const targetNumbers = formData.getAll('editTargetNumber').map((value) => Number(value));
-
-        const validation = validateDrillFields(editDrillForm);
-        if (!drillId || !validation.valid) {
-            showFormError(
-                editDrillForm,
-                !drillId ? 'This drill could not be identified. Please close and reopen the editor.' : validation.message,
-                validation.invalidInputs || []
-            );
-            return;
-        }
-
-        const unavailableInputs = getUnavailableTargetInputs(editDrillForm, 'editTargetNumber');
-        if (unavailableInputs.length) {
-            const targetNumber = unavailableInputs[0].value;
-            showFormError(editDrillForm, `Target ${targetNumber} is defective or unavailable and cannot be assigned to a drill.`, unavailableInputs);
-            return;
-        }
-
-        clearFormError(editDrillForm);
-
-        const currentDrills = getDrills();
-        currentDrills[drillId] = {
-            ...currentDrills[drillId],
-            name,
-            targets: targetNumbers,
-            status: 'available'
-        };
-
-        saveDrills(currentDrills);
-        syncDrillTargetsToTargetStatus(drillId, targetNumbers);
-        renderDrills(currentDrills);
-
-        const modal = bootstrap.Modal.getInstance(document.getElementById('editDrillModal'));
-        if (modal) {
-            modal.hide();
-        }
-
-        editDrillForm.reset();
-    });
-
-    // AI-generated (Claude): All / Full drills / Stages filter buttons.
+    // All / Full drills / Custom / Stages filter buttons
     document.querySelectorAll('.drill-filter').forEach((button) => {
         button.addEventListener('click', () => {
             activeDrillFilter = button.dataset.drillFilter;
@@ -1714,7 +1781,7 @@ if (document.getElementById('drillList')) {
                 other.classList.toggle('active', isActive);
                 other.setAttribute('aria-pressed', String(isActive));
             });
-            renderDrills(getDrills());
+            renderDrills();
         });
     });
 
@@ -1865,4 +1932,149 @@ if (defectiveTargetList) {
     });
 
     loadDefectiveTargets();
+}
+
+// AI-generated (Claude): Settings > Officers. Add, rename and delete officers on the controller
+// (POST / PUT / DELETE /api/officers). Deleting also deletes the officer's scores, so it asks.
+const officerList = document.getElementById('officerList');
+if (officerList) {
+    const officersMessage = document.getElementById('officersMessage');
+    const addOfficerForm = document.getElementById('addOfficerForm');
+    const nameInput = document.getElementById('newOfficerName');
+    const badgeInput = document.getElementById('newOfficerBadge');
+    const deleteModalElement = document.getElementById('deleteOfficerModal');
+    const deleteModal = typeof bootstrap === 'undefined' ? null : bootstrap.Modal.getOrCreateInstance(deleteModalElement);
+    let pendingDeleteBadge = null;
+
+    const showOfficersMessage = (text, ok) => {
+        officersMessage.textContent = text;
+        officersMessage.className = `small mt-3 mb-0 ${ok ? 'text-success' : 'text-danger'}`;
+        officersMessage.hidden = false;
+    };
+
+    const button = (label, className, icon) => {
+        const element = document.createElement('button');
+        element.type = 'button';
+        element.className = `btn btn-sm ${className}`;
+        element.innerHTML = `<i class="bi ${icon}" aria-hidden="true"></i> `;
+        element.append(label);
+        return element;
+    };
+
+    // One row per officer; Rename swaps the name for an input with Save / Cancel.
+    const renderOfficerRow = (officer) => {
+        const row = document.createElement('li');
+        row.className = 'officer-row';
+        const name = document.createElement('span');
+        name.className = 'officer-row-name';
+        name.textContent = officer.Name || 'Unnamed officer';
+        const badge = document.createElement('span');
+        badge.className = 'officer-row-badge';
+        badge.textContent = `Badge ${officer.BadgeNum}`;
+        const renameButton = button('Rename', 'btn-outline-secondary', 'bi-pencil');
+        const deleteButton = button('Delete', 'btn-outline-danger', 'bi-trash3');
+        renameButton.setAttribute('aria-label', `Rename ${officer.Name}`);
+        deleteButton.setAttribute('aria-label', `Delete ${officer.Name}`);
+        row.append(name, badge, renameButton, deleteButton);
+
+        renameButton.addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.className = 'form-control form-control-sm';
+            input.value = officer.Name || '';
+            input.maxLength = 60;
+            input.setAttribute('aria-label', `New name for badge ${officer.BadgeNum}`);
+            const saveButton = button('Save', 'btn-primary', 'bi-check-lg');
+            const cancelButton = button('Cancel', 'btn-outline-secondary', 'bi-x-lg');
+            row.replaceChildren(input, badge, saveButton, cancelButton);
+            input.focus();
+
+            const save = async () => {
+                const newName = input.value.trim();
+                if (!newName) {
+                    showOfficersMessage('Enter a name.', false);
+                    return;
+                }
+                saveButton.disabled = true;
+                try {
+                    await postToController(`/api/officers?badge=${officer.BadgeNum}`, { Name: newName }, 'PUT');
+                    showOfficersMessage(`Renamed to ${newName}.`, true);
+                    loadOfficers();
+                } catch (error) {
+                    showOfficersMessage(error.message, false);
+                    saveButton.disabled = false;
+                }
+            };
+            saveButton.addEventListener('click', save);
+            cancelButton.addEventListener('click', () => loadOfficers());
+            input.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') save();
+                if (event.key === 'Escape') loadOfficers();
+            });
+        });
+
+        deleteButton.addEventListener('click', () => {
+            pendingDeleteBadge = officer.BadgeNum;
+            document.getElementById('deleteOfficerName').textContent = `${officer.Name} (badge ${officer.BadgeNum})`;
+            deleteModal?.show();
+        });
+        return row;
+    };
+
+    const loadOfficers = async () => {
+        try {
+            const response = await fetch(`/api/officers?today=${localDateString()}`, { cache: 'no-store' });
+            if (!response.ok) throw new Error('bad response');
+            const officers = (await response.json() || [])
+                .filter((officer) => Number.isInteger(Number(officer?.BadgeNum)))
+                .sort((first, second) => String(first.Name).localeCompare(String(second.Name)));
+            if (!officers.length) {
+                const empty = document.createElement('li');
+                empty.className = 'small text-secondary';
+                empty.textContent = 'No officers yet. Add one below.';
+                officerList.replaceChildren(empty);
+                return;
+            }
+            officerList.replaceChildren(...officers.map(renderOfficerRow));
+        } catch {
+            const failed = document.createElement('li');
+            failed.className = 'small text-danger';
+            failed.textContent = 'Could not load officers from the controller. Check that you are on the CPD Range Control WiFi.';
+            officerList.replaceChildren(failed);
+        }
+    };
+
+    document.getElementById('confirmDeleteOfficerButton').addEventListener('click', async () => {
+        const badge = pendingDeleteBadge;
+        deleteModal?.hide();
+        if (badge === null) return;
+        try {
+            await postToController(`/api/officers?badge=${badge}`, undefined, 'DELETE');
+            showOfficersMessage(`Officer with badge ${badge} deleted.`, true);
+        } catch (error) {
+            showOfficersMessage(error.message, false);
+        }
+        pendingDeleteBadge = null;
+        loadOfficers();
+    });
+
+    addOfficerForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const name = nameInput.value.trim();
+        const badge = Number(badgeInput.value);
+        if (!name || !Number.isInteger(badge) || badge < 1) {
+            showOfficersMessage('Enter a name and a whole-number badge number.', false);
+            return;
+        }
+        try {
+            await postToController('/api/officers', { Name: name, BadgeNum: badge });
+            showOfficersMessage(`${name} added.`, true);
+            addOfficerForm.reset();
+            nameInput.focus();
+            loadOfficers();
+        } catch (error) {
+            showOfficersMessage(error.message, false);
+        }
+    });
+
+    loadOfficers();
 }
