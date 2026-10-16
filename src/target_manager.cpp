@@ -42,6 +42,9 @@ namespace{
         // AI-generated (Claude): present/hide only. The step's own "targets" list as a mask, or 0
         // for "all" (every target the drill was started on). See stepTargets().
         uint32_t mask;
+        // AI-generated (Claude): present only. >0 = present this many targets picked at random
+        // (fresh each time the step runs) from the drill's targets; mask is then unused.
+        uint8_t randomCount;
     };
 
     // "Full Drill" -> "Stage N" is depth 2; anything deeper is almost certainly a drill that
@@ -127,6 +130,7 @@ namespace{
             filter["drills"][0]["sequence"][0]["action"] = true;
             filter["drills"][0]["sequence"][0]["timeMs"] = true;
             filter["drills"][0]["sequence"][0]["targets"] = true; // AI-generated (Claude): per-step targets
+            filter["drills"][0]["sequence"][0]["random"] = true;  // AI-generated (Claude): random present
         }
         filter["targets"][0]["id"] = true;
         filter["targets"][0]["working"] = true;
@@ -197,7 +201,17 @@ namespace{
                         mask |= targetBit(id);
                     }
                 }
-                out.push_back({strcmp(action, "present") == 0 ? StepType::Present : StepType::Hide, 0, mask});
+                // AI-generated (Claude): "random": n (present only) picks n targets each run
+                uint8_t randomCount = 0;
+                if(!step["random"].isNull()){
+                    int count = step["random"].is<int>() ? step["random"].as<int>() : 0;
+                    if(strcmp(action, "present") != 0 || mask != 0 || count < 1 || count > NUM_TARGETS){
+                        Serial.printf("executeDrill: invalid random step in \"%s\"\r\n", drillName);
+                        return false;
+                    }
+                    randomCount = (uint8_t)count;
+                }
+                out.push_back({strcmp(action, "present") == 0 ? StepType::Present : StepType::Hide, 0, mask, randomCount});
             }else if(strcmp(action, "pause") == 0){
                 out.push_back({StepType::Pause, 0, 0});
             }else if(strcmp(action, "delay") == 0){
@@ -373,6 +387,27 @@ namespace{
         return step.mask ? (step.mask & activeMask) : activeMask;
     }
 
+    /// @brief AI-generated (Claude): picks `count` targets at random from `from` (every one of them
+    ///        if it has `count` or fewer), using the ESP32's hardware random number generator
+    uint32_t pickRandomTargets(uint32_t from, uint8_t count){
+        uint8_t ids[NUM_TARGETS];
+        uint8_t available = 0;
+        for(uint8_t bit = 0; bit < NUM_TARGETS; bit++){
+            if(from & (1UL << bit)) ids[available++] = bit;
+        }
+        if(count >= available) return from;
+        // partial Fisher-Yates shuffle: the first `count` entries end up a uniform random pick
+        uint32_t picked = 0;
+        for(uint8_t i = 0; i < count; i++){
+            uint8_t j = i + esp_random() % (available - i);
+            uint8_t swap = ids[i];
+            ids[i] = ids[j];
+            ids[j] = swap;
+            picked |= 1UL << ids[i];
+        }
+        return picked;
+    }
+
     /// @brief runs activeSteps; returns false if stopped or a command couldn't be queued
     bool runSteps(){
         for(size_t i = 0; i < activeSteps.size(); i++){
@@ -385,23 +420,27 @@ namespace{
             portEXIT_CRITICAL(&runnerLock);
 
             switch(step.type){
-                case StepType::Present:
-                    // AI-modified (Claude): a custom list whose targets were all left out of
-                    // this run (or are not working) has nothing to move
-                    if(!stepTargets(step)){
+                case StepType::Present: {
+                    // AI-modified (Claude): a random step picks its targets now, so each run
+                    // differs; otherwise the step's list (or all). A custom list whose targets
+                    // were all left out of this run (or are not working) has nothing to move.
+                    uint32_t targets = step.randomCount ? pickRandomTargets(activeMask, step.randomCount)
+                                                        : stepTargets(step);
+                    if(!targets){
                         break;
                     }
                     // Ask the HAL to turn this step's targets to face the shooter
-                    if(!hal_sendCommand(stepTargets(step), true)){
+                    if(!hal_sendCommand(targets, true)){
                         Serial.println("executeDrill: target command not accepted (queue full or stopped), aborting drill");
                         drillFailed = true; // AI-modified (Claude)
                         return false;
                     }
                     // drill delays are timed from when the targets are fully facing
-                    if(!waitUntilFacing(stepTargets(step))){
+                    if(!waitUntilFacing(targets)){
                         return false;
                     }
                     break;
+                }
 
                 case StepType::Hide:
                     if(!stepTargets(step)){

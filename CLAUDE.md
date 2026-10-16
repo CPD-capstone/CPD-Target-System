@@ -61,7 +61,7 @@ Static pages (`targets.html`, `drills.html`, `Performance.html`, `settings.html`
 
 ## Database schema
 
-`data/database.json` is the **authoritative** schema: top-level arrays `Officers` (keyed by `BadgeNum`, with `pistol/rifle/swatQualScores` as newest-first `[score, "YYYY-MM-DD"]` pairs), `drills` (`drillName` + `sequence` of steps whose `action` is `present`/`hide` (optional `targets: [n, ...]`, default all), `pause`, `delay`+`timeMs` (whole ms), or another drill's name for composite "Full Drill" entries; the shipped drills also carry `"builtIn": true`, which the UI uses to list them as Stages rather than Custom — `addDrill()` stores only name + sequence, so drills made on the Drills page never have it), and `targets` (`{id, working}`).
+`data/database.json` is the **authoritative** schema: top-level arrays `Officers` (keyed by `BadgeNum`, with `pistol/rifle/swatQualScores` as newest-first `[score, "YYYY-MM-DD"]` pairs), `drills` (`drillName` + `sequence` of steps whose `action` is `present`/`hide` (optional `targets: [n, ...]`, default all; `present` may instead have `random: n` — n targets picked by the controller each time the step runs), `pause`, `delay`+`timeMs` (whole ms), or another drill's name for composite "Full Drill" entries; the shipped drills also carry `"builtIn": true`, which the UI uses to list them as Stages rather than Custom — `addDrill()` stores only name + sequence, so drills made on the Drills page never have it), and `targets` (`{id, working}`).
 
 ## Known issues / open items
 

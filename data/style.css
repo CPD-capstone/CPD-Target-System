@@ -736,6 +736,15 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
     max-width: 12rem;
 }
 
+/* AI-generated (Claude): Present block, Random option */
+.seq-random {
+    margin-top: 0.5rem;
+}
+
+.seq-random-count {
+    max-width: 10rem;
+}
+
 @media (max-width: 575.98px) {
     .block-palette {
         grid-template-columns: repeat(2, minmax(0, 1fr));

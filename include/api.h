@@ -13,6 +13,7 @@
 //   DELETE /api/drills?name=<drillName>                           -> deleteDrill
 //   AI-generated (Claude): a present/hide step may carry "targets": [n, ...] (only those
 //   targets, of the ones the drill was started on); without it the step moves all of them.
+//   A present step may instead carry "random": n to present n of those targets picked at random.
 //   GET    /api/targets                    -> targets array
 //   PUT    /api/targets?id=<n>             {working}              -> editTarget
 //   GET    /api/officers?today=YYYY-MM-DD[&badge=<n>]            -> Officers array (or one officer)

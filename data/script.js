@@ -539,8 +539,10 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             (Array.isArray(drill.sequence) ? drill.sequence : []).forEach((step) => {
                 const action = step?.action;
                 if (action === 'present' || action === 'hide') {
+                    // AI-modified (Claude): a random present picks from the run's targets, so like
+                    // "All targets" it needs to know which targets are in use
                     const list = Array.isArray(step.targets) ? step.targets.map(Number) : [];
-                    if (list.length) list.forEach((targetNumber) => found.targets.add(targetNumber));
+                    if (list.length && !step.random) list.forEach((targetNumber) => found.targets.add(targetNumber));
                     else found.usesAllTargets = true;
                 } else if (!basicDrillActions.has(action)) {
                     const stage = Object.values(targetAssignmentDrills)
@@ -1461,23 +1463,37 @@ if (document.getElementById('drillList')) {
         const body = block.querySelector('.seq-block-body');
 
         if (action === 'present' || action === 'hide') {
+            // AI-modified (Claude): Present also offers Random: that many targets, picked by the
+            // controller each time the step runs ("random": n)
             const chosen = new Set((Array.isArray(step.targets) ? step.targets : []).map(Number));
-            const custom = chosen.size > 0;
+            const randomCount = action === 'present' && Number(step.random) > 0 ? Number(step.random) : 0;
+            const mode = randomCount ? 'random' : chosen.size > 0 ? 'custom' : 'all';
+            const modeOption = (value, label) => `
+                    <label class="form-check form-check-inline mb-0">
+                        <input class="form-check-input" type="radio" name="${uid}-mode" value="${value}"${mode === value ? ' checked' : ''}>
+                        <span class="form-check-label">${label}</span>
+                    </label>`;
             body.innerHTML = `
                 <div class="seq-target-mode">
-                    <label class="form-check form-check-inline mb-0">
-                        <input class="form-check-input" type="radio" name="${uid}-mode" value="all"${custom ? '' : ' checked'}>
-                        <span class="form-check-label">All targets</span>
-                    </label>
-                    <label class="form-check form-check-inline mb-0">
-                        <input class="form-check-input" type="radio" name="${uid}-mode" value="custom"${custom ? ' checked' : ''}>
-                        <span class="form-check-label">Custom</span>
-                    </label>
+                    ${modeOption('all', 'All targets')}
+                    ${modeOption('custom', 'Custom')}
+                    ${action === 'present' ? modeOption('random', 'Random') : ''}
                 </div>
-                <div class="seq-custom-targets"${custom ? '' : ' hidden'}>${targetPickerHtml(uid, chosen)}</div>`;
+                <div class="seq-custom-targets"${mode === 'custom' ? '' : ' hidden'}>${targetPickerHtml(uid, chosen)}</div>
+                ${action === 'present' ? `
+                <div class="seq-random"${mode === 'random' ? '' : ' hidden'}>
+                    <label class="form-label small mb-1" for="${uid}-random">How many random targets</label>
+                    <div class="input-group input-group-sm seq-random-count">
+                        <input class="form-control seq-random-input" type="number" id="${uid}-random" min="1" max="${targetCount}" step="1" inputmode="numeric" value="${randomCount || 3}">
+                        <span class="input-group-text">targets</span>
+                    </div>
+                    <p class="seq-block-note mt-1">Picked from the targets the drill is started on, fresh each time this step runs.</p>
+                </div>` : ''}`;
             body.addEventListener('change', (event) => {
                 if (event.target.name === `${uid}-mode`) {
                     body.querySelector('.seq-custom-targets').hidden = event.target.value !== 'custom';
+                    const random = body.querySelector('.seq-random');
+                    if (random) random.hidden = event.target.value !== 'random';
                 }
             });
         } else if (action === 'delay') {
@@ -1536,7 +1552,15 @@ if (document.getElementById('drillList')) {
             const label = `Step ${index + 1} (${block.querySelector('.seq-block-title').textContent})`;
             const step = { step: index + 1, action };
             if (action === 'present' || action === 'hide') {
-                if (block.querySelector('input[type="radio"]:checked')?.value === 'custom') {
+                const mode = block.querySelector('input[type="radio"]:checked')?.value;
+                if (mode === 'random') {
+                    // AI-generated (Claude): whole number from 1 to the number of targets
+                    const count = Number(block.querySelector('.seq-random-input').value);
+                    if (!Number.isInteger(count) || count < 1 || count > targetCount) {
+                        return { error: `${label}: enter how many random targets, from 1 to ${targetCount}.`, block };
+                    }
+                    step.random = count;
+                } else if (mode === 'custom') {
                     const targets = Array.from(
                         block.querySelectorAll('.seq-target-options input:checked'),
                         (box) => Number(box.value)

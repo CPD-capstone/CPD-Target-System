@@ -339,9 +339,26 @@
         width: 100%;
     }
 
+    /* AI-modified (Claude): was 3 equal columns, but the Sort select's 8.5rem minimum is wider
+       than a third of a phone screen, so it overlapped Export PDF. Now Filter and Sort share
+       the first row (each allowed to shrink) and Export PDF gets its own full-width row. */
     .performance-actions {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.5rem;
+    }
+
+    .performance-actions > .dropdown,
+    .performance-actions .performance-action-button,
+    .performance-sort,
+    .performance-sort .form-select {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .performance-actions .export-button {
+        grid-column: 1 / -1;
+        justify-content: center;
     }
 
     .performance-action-button {
