@@ -54,6 +54,17 @@ struct TargetCommand {
     bool newState;       // true = UP/FACING, false = DOWN/HIDDEN
 };
 
+<<<<<<< HEAD
+// TEMP: WILL PROBABLY CHANGE
+struct TargetCommand { 
+    uint8_t targetId; // Target index (0 to 23)
+    bool newState;    // true = UP/FLIP, false = DOWN/UNFLIP
+};
+
+extern Target targets[24];
+
+=======
+>>>>>>> dev
 // =============================================================================
 // FUNCTION PROTOTYPES
 // =============================================================================
