@@ -139,6 +139,15 @@ static int findIndex(JsonArrayConst arr, const char* key, const char* value) {
     return -1;
 }
 
+// AI-assisted (Claude): true if date looks like "YYYY-MM-DD" (digits in the right places)
+bool isDateString(const char* date) {
+    if (!date || strlen(date) != 10 || date[4] != '-' || date[7] != '-') return false;
+    for (int i = 0; i < 10; i++) {
+        if (i != 4 && i != 7 && !isdigit((unsigned char)date[i])) return false;
+    }
+    return true;
+}
+
 static bool isBasicAction(const char* action) {
     return strcmp(action, "present") == 0 || strcmp(action, "hide") == 0 ||
            strcmp(action, "pause") == 0 || strcmp(action, "delay") == 0;
@@ -192,6 +201,29 @@ static bool validateSequence(JsonArrayConst drills, const char* drillName, JsonA
                 return false;
             }
         }
+    }
+    return true;
+}
+
+// AI-assisted (Claude): public wrapper so the API can report a reserved name before saving anything
+bool isReservedDrillName(const char* drillName) {
+    return drillName && isBasicAction(drillName);
+}
+
+// AI-assisted (Claude): a new drill name must be non-empty, unused, and not a basic action --
+// a drill named "delay" would be read as a delay step wherever another drill includes it
+static bool isValidDrillName(JsonArrayConst drills, const char* drillName) {
+    if (!drillName || !*drillName) {
+        Serial.println("Drill name is empty");
+        return false;
+    }
+    if (isBasicAction(drillName)) {
+        Serial.printf("Drill name %s is reserved for a step action\r\n", drillName);
+        return false;
+    }
+    if (findIndex(drills, "drillName", drillName) >= 0) {
+        Serial.printf("Drill %s already exists\r\n", drillName);
+        return false;
     }
     return true;
 }
@@ -276,22 +308,81 @@ bool deleteTarget(int id) {
 
 // ---- Officers ------------------------------------------------------------------------------
 
+// ---- AI-assisted (Claude): qualification stats ---------------------------------------------
+
+//Writes { attempts, average, top } for the scores in a [[score, "YYYY-MM-DD"], ...] list dated
+//from cutoff (a year ago) through today (both "YYYY-MM-DD", so plain string comparison orders them). The
+//average is rounded to one decimal place; average and top are null when attempts is 0.
+static void writeStats(JsonObject dest, JsonArrayConst scores, const char* cutoff, const char* today) {
+    long sum = 0;
+    int count = 0;
+    int top = 0;
+    for (JsonArrayConst entry : scores) {
+        const char* date = entry[1];
+        if (!entry[0].is<int>() || !date) continue;
+        if (strcmp(date, cutoff) < 0 || strcmp(date, today) > 0) continue;
+        int score = entry[0].as<int>();
+        if (count == 0 || score > top) top = score;
+        sum += score;
+        count++;
+    }
+    dest["attempts"] = count;
+    if (count == 0) {
+        dest["average"] = nullptr;
+        dest["top"] = nullptr;
+        return;
+    }
+    dest["average"] = round((double)sum / count * 10.0) / 10.0;
+    dest["top"] = top;
+}
+
+//Adds pistolStats / rifleStats / swatStats to an officer object, from its own score lists
+static void addStats(JsonObject officer, const char* cutoff, const char* today) {
+    writeStats(officer["pistolStats"].to<JsonObject>(), officer["pistolQualScores"], cutoff, today);
+    writeStats(officer["rifleStats"].to<JsonObject>(), officer["rifleQualScores"], cutoff, today);
+    writeStats(officer["swatStats"].to<JsonObject>(), officer["swatQualScores"], cutoff, today);
+}
+
+//Validates today and writes the date one year earlier ("YYYY-MM-DD") into cutoff[11].
+//Feb 29 maps to "YYYY-02-29" of the previous year, which still compares correctly as a string.
+static bool makeCutoff(const char* today, char* cutoff) {
+    if (!isDateString(today)) {
+        Serial.printf("Date must be YYYY-MM-DD: %s\r\n", today ? today : "(null)");
+        return false;
+    }
+    snprintf(cutoff, 11, "%04d%s", atoi(today) - 1, today + 4);
+    return true;
+}
+
+// AI-modified (Claude): getters also return each officer's 12-month qualification stats
 // Getter for officers (all of them)
-bool getOfficers(JsonDocument& out) {
+bool getOfficers(const char* today, JsonDocument& out) {
+    out.clear();
+    char cutoff[11];
+    if (!makeCutoff(today, cutoff)) return false;
+
     JsonDocument doc;
-    return copyInto(out, loadSection(doc, "Officers"));
+    JsonArray officers = loadSection(doc, "Officers");
+    for (JsonObject officer : officers) {
+        addStats(officer, cutoff, today);
+    }
+    return copyInto(out, officers);
 }
 
 // Getter for officer (just one)
-bool getOfficer(int badgeNum, JsonDocument& out) {
+bool getOfficer(int badgeNum, const char* today, JsonDocument& out) {
+    out.clear();
+    char cutoff[11];
+    if (!makeCutoff(today, cutoff)) return false;
+
     JsonDocument doc;
     JsonArray officers = loadSection(doc, "Officers");
     int i = findIndex(officers, "BadgeNum", badgeNum);
-    if (i < 0) {
-        out.clear();
-        return false;
-    }
-    return copyInto(out, officers[i]);
+    if (i < 0) return false;
+
+    JsonObject officer = officers[i];
+    addStats(officer, cutoff, today);
+    return copyInto(out, officer);
 }
 
 // AI-modified (Claude): officers are identified by BadgeNum and start with empty score lists
@@ -343,7 +434,7 @@ bool addQualScore(int badgeNum, const char* qualType, int score, const char* dat
         return false;
     }
     //Expect "YYYY-MM-DD"
-    if (!date || strlen(date) != 10 || date[4] != '-' || date[7] != '-') {
+    if (!isDateString(date)) {
         Serial.printf("Date must be YYYY-MM-DD: %s\r\n", date ? date : "(null)");
         return false;
     }
@@ -422,10 +513,7 @@ bool addDrill(const char* drillName, JsonArrayConst sequence) {
         drills = doc["drills"].to<JsonArray>();
     }
 
-    if (findIndex(drills, "drillName", drillName) >= 0) {
-        Serial.printf("Drill %s already exists\r\n", drillName);
-        return false;
-    }
+    if (!isValidDrillName(drills, drillName)) return false;
     if (!validateSequence(drills, drillName, sequence)) return false;
 
     JsonObject drill = drills.add<JsonObject>();
@@ -435,7 +523,7 @@ bool addDrill(const char* drillName, JsonArrayConst sequence) {
     return saveDatabase(doc);
 }
 
-// AI-modified (Claude): replaces the sequence only; renaming isn't supported, so Full Drills
+// AI-modified (Claude): replaces the sequence only (see renameDrill for the name), so Full Drills
 // that reference this drill by name stay valid
 bool editDrill(const char* drillName, JsonArrayConst newSequence) {
     JsonDocument doc;
@@ -450,6 +538,32 @@ bool editDrill(const char* drillName, JsonArrayConst newSequence) {
     if (!validateSequence(drills, drillName, newSequence)) return false;
 
     drills[i]["sequence"] = newSequence;
+    return saveDatabase(doc);
+}
+
+// AI-assisted (Claude): renames a drill and every step that includes it, in one save, so Full
+// Drills that reference it stay valid
+bool renameDrill(const char* oldName, const char* newName) {
+    JsonDocument doc;
+    if (!loadDatabase(doc)) return false;
+
+    JsonArray drills = doc["drills"];
+    int i = findIndex(drills, "drillName", oldName);
+    if (i < 0) {
+        Serial.printf("No drill found: %s\r\n", oldName);
+        return false;
+    }
+    if (!isValidDrillName(drills, newName)) return false;
+
+    // Update references first: comparing against drills[i]["drillName"] would change under us
+    for (JsonObject drill : drills) {
+        for (JsonObject step : drill["sequence"].as<JsonArray>()) {
+            const char* action = step["action"];
+            if (action && strcmp(action, oldName) == 0) step["action"] = newName;
+        }
+    }
+    drills[i]["drillName"] = newName;
+
     return saveDatabase(doc);
 }
 

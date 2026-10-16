@@ -46,16 +46,31 @@ bool editTarget(int id, bool working);
 /// @return true if the target exists and the change was saved
 bool deleteTarget(int id);
 
-/// @brief Reads the Officers array, including each officer's score lists.
-/// @param out document to fill
-/// @return true if the Officers section exists and was copied
-bool getOfficers(JsonDocument& out);
+// AI-modified (Claude): the officer getters also report qualification stats. Each officer gets
+// "pistolStats", "rifleStats" and "swatStats", each { "attempts", "average", "top" }. The ESP32
+// has no clock (offline AP, no NTP/RTC), so the caller supplies today's date. Only scores dated
+// within the past 12 months (same date last year through today, inclusive) count. The average is
+// rounded to one decimal place; average and top are null when attempts is 0.
 
-/// @brief Reads one officer: { "Name", "BadgeNum", "pistolQualScores", ... }.
-/// @param badgeNum badge number of the officer
+/// @brief Checks that a string is a date in "YYYY-MM-DD" form (digits and dashes only).
+/// @param date string to check; may be null
+/// @return true if the format is valid
+bool isDateString(const char* date);
+
+/// @brief Reads the Officers array, including each officer's score lists, with
+///        "pistolStats", "rifleStats" and "swatStats" added to every officer.
+/// @param today current date, "YYYY-MM-DD"; the stats cover the 12 months ending today
 /// @param out document to fill
-/// @return true if the officer exists and was copied
-bool getOfficer(int badgeNum, JsonDocument& out);
+/// @return true if today is valid, the Officers section exists, and the result was copied
+bool getOfficers(const char* today, JsonDocument& out);
+
+/// @brief Reads one officer: { "Name", "BadgeNum", "pistolQualScores", ..., "pistolStats",
+///        "rifleStats", "swatStats" }.
+/// @param badgeNum badge number of the officer
+/// @param today current date, "YYYY-MM-DD"; the stats cover the 12 months ending today
+/// @param out document to fill
+/// @return true if today is valid, the officer exists, and the result was copied
+bool getOfficer(int badgeNum, const char* today, JsonDocument& out);
 
 /// @brief Adds an officer with empty pistol/rifle/swat score lists.
 /// @param badgeNum badge number; must not already exist
@@ -95,7 +110,7 @@ bool getDrill(const char* drillName, JsonDocument& out);
 
 /// @brief Adds a drill. Each step's action must be present/hide/pause/delay (delay needs a
 ///        positive timeMs) or the name of another existing drill, without forming a loop.
-/// @param drillName unique drill name
+/// @param drillName unique, non-empty drill name other than present/hide/pause/delay
 /// @param sequence array of { "step", "action", "timeMs"? } objects
 /// @return true if the drill is valid and was saved
 bool addDrill(const char* drillName, JsonArrayConst sequence);
@@ -105,6 +120,18 @@ bool addDrill(const char* drillName, JsonArrayConst sequence);
 /// @param newSequence replacement sequence
 /// @return true if the drill exists, the sequence is valid, and the change was saved
 bool editDrill(const char* drillName, JsonArrayConst newSequence);
+
+/// @brief Checks whether a name is reserved for a step action (present/hide/pause/delay) and so
+///        can't be used as a drill name.
+/// @param drillName name to check
+/// @return true if the name is reserved
+bool isReservedDrillName(const char* drillName);
+
+/// @brief Renames a drill and updates every step in other drills that includes it by name.
+/// @param oldName current name of the drill
+/// @param newName new name; must be non-empty, unused, and not present/hide/pause/delay
+/// @return true if the drill exists, the new name is valid, and the change was saved
+bool renameDrill(const char* oldName, const char* newName);
 
 /// @brief Deletes a drill, refusing while another drill still includes it as a step.
 /// @param drillName name of the drill to delete
