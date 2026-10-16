@@ -518,6 +518,38 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
     font-variant-numeric: tabular-nums;
 }
 
+/* AI-generated (Claude): drill timer under the Run a drill buttons */
+.drill-timer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 0.75rem;
+    padding: 0.4rem 1rem;
+    border-radius: 0.5rem;
+    background: #212529;
+    color: #ffffff;
+}
+
+.drill-timer-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.drill-timer-value {
+    font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    font-size: 2.75rem;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.drill-timer-value small {
+    font-size: 1.25rem;
+}
+
 /* AI-generated (Claude): Settings page */
 .settings-main {
     max-width: 36rem;

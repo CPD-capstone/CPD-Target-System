@@ -78,6 +78,12 @@
                     Reset
                 </button>
             </div>
+            <!-- AI-generated (Claude): drill timer. Time left in the delay step being run, shown only
+                 while a drill is running or paused. script.js drives it from /api/drill/status. -->
+            <div class="drill-timer" id="drillTimer" role="timer" hidden>
+                <span class="drill-timer-label" id="drillTimerLabel">Targets up</span>
+                <span class="drill-timer-value"><span id="drillTimerValue">0.00</span><small>&nbsp;s</small></span>
+            </div>
         </section>
 
         <section class="control-section" aria-labelledby="manualPanelTitle">
@@ -179,6 +185,29 @@
     </div>
 
     <!-- AI-generated (Claude): confirms ending the running drill before entering manual mode. -->
+    <!-- AI-generated (Claude): asks before Stop ends a paused drill (it hides the drill's targets
+         and the drill has to be started again from the beginning). -->
+    <div class="modal fade" id="endDrillConfirmModal" tabindex="-1" aria-labelledby="endDrillConfirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content delete-confirmation">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title" id="endDrillConfirmModalLabel">
+                        <i class="bi bi-exclamation-triangle-fill text-danger me-2" aria-hidden="true"></i>
+                        End drill?
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0"><strong id="endDrillName"></strong> is paused. Ending it hides its targets, and it will have to be started again from the beginning.</p>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Keep drill</button>
+                    <button type="button" class="btn btn-danger" id="confirmEndDrillButton">End drill</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade" id="manualModeConfirmModal" tabindex="-1" aria-labelledby="manualModeConfirmModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-sm">
             <div class="modal-content delete-confirmation">

@@ -403,6 +403,53 @@ if (drillStatus) {
     });
 }
 
+// AI-generated (Claude): drill timer (Targets page, Run a drill). Shows the time left in the
+// delay step being run. Each status poll resyncs it (delayRemainingMs) and it counts down
+// locally in between, so it moves smoothly although the controller is asked twice a second.
+const drillTimer = document.getElementById('drillTimer');
+if (drillTimer) {
+    const timerLabel = document.getElementById('drillTimerLabel');
+    const timerValue = document.getElementById('drillTimerValue');
+    let timerSync = null;   // {remainingMs, at} from the last poll, while a delay step runs
+    let timerTicker = null;
+
+    const renderDrillTimer = () => {
+        const status = controllerStatus;
+        const active = Boolean(status) && status.state !== 'idle' && !status.stopped;
+        drillTimer.hidden = !active;
+        if (!active) return;
+
+        const paused = status.state === 'paused';
+        const drillTargets = new Set((status.targets || []).map(Number));
+        const targetsUp = (status.facing || []).some((number) => drillTargets.has(Number(number)));
+        if (timerSync) {
+            const left = paused
+                ? timerSync.remainingMs
+                : Math.max(0, timerSync.remainingMs - (performance.now() - timerSync.at));
+            timerValue.textContent = (left / 1000).toFixed(2);
+            timerLabel.textContent = `${paused ? 'Paused: ' : ''}Targets ${targetsUp ? 'up' : 'down'}`;
+        } else {
+            timerValue.textContent = '--';
+            timerLabel.textContent = paused
+                ? 'Waiting for Resume'
+                : status.stepAction === 'present' ? 'Targets turning' : 'Next step';
+        }
+    };
+
+    controllerStatusListeners.push((status) => {
+        timerSync = status && status.delayMs > 0
+            ? { remainingMs: status.delayRemainingMs, at: performance.now() }
+            : null;
+        renderDrillTimer();
+        const counting = Boolean(timerSync) && status.state === 'running';
+        if (counting && !timerTicker) timerTicker = setInterval(renderDrillTimer, 30);
+        if (!counting && timerTicker) {
+            clearInterval(timerTicker);
+            timerTicker = null;
+        }
+    });
+}
+
 const renderTargets = (targetIds) => {
     if (!targetGrid) return;
 
@@ -623,6 +670,24 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             saveTargetStatus(status);
         };
 
+        // AI-generated (Claude): ends a paused drill (stop, then reset: hides its targets). Run
+        // after the operator confirms in the "End drill?" dialog.
+        const endDrillModalElement = document.getElementById('endDrillConfirmModal');
+        const endPausedDrill = async (drillName) => {
+            try {
+                await postToController('/api/stop');
+                await postToController('/api/reset');
+                showLaunchMessage(`${drillName} ended. Targets hidden.`);
+            } catch (error) {
+                showLaunchMessage(`${error.message} If targets are still up, press Reset.`);
+            }
+            pollDrillStatus();
+        };
+        document.getElementById('confirmEndDrillButton')?.addEventListener('click', () => {
+            bootstrapModal.getInstance(endDrillModalElement)?.hide();
+            endPausedDrill(document.getElementById('endDrillName').textContent || 'The drill');
+        });
+
         // AI-modified (Claude): Stop. While a drill runs it is the controller's emergency stop: it
         // freezes every target where it is (the controller never moves a target on Stop) and
         // latches until Reset, which hides them all. While the drill is paused there is nothing
@@ -636,15 +701,14 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
                 }
             }
             if (controllerStatus?.state === 'paused') {
+                // AI-modified (Claude): ask first; confirmEndDrillButton does the ending
                 const drillName = controllerStatus.drillName || 'The drill';
-                try {
-                    await postToController('/api/stop');
-                    await postToController('/api/reset');
-                    showLaunchMessage(`${drillName} ended. Targets hidden.`);
-                } catch (error) {
-                    showLaunchMessage(`${error.message} If targets are still up, press Reset.`);
+                if (endDrillModalElement && bootstrapModal) {
+                    document.getElementById('endDrillName').textContent = drillName;
+                    bootstrapModal.getOrCreateInstance(endDrillModalElement).show();
+                } else if (window.confirm(`End ${drillName}? Its targets will be hidden.`)) {
+                    endPausedDrill(drillName);
                 }
-                pollDrillStatus();
                 return;
             }
             try {
@@ -1107,8 +1171,136 @@ if (document.getElementById('performanceRows')) {
     // Browser print supports Save as PDF without a separate PDF-generation dependency.
     document.getElementById('exportPdfButton').addEventListener('click', () => window.print());
 
-    // Populate officer choices from the same payload as the score history.
-    fetch('database.json', { cache: 'no-store' })
+    // Add scores dialog: ported from Oviya's oviyaTest branch. AI-modified (Claude): scores are
+    // saved on the controller (POST /api/officers/scores, one per score) instead of localStorage,
+    // and the officer data is reloaded afterwards so they show up in Results.
+    const addScoresToggle = document.getElementById('addScoresToggle');
+    const addScoresDialog = document.getElementById('addScoresDialog');
+    const addScoresForm = document.getElementById('addScoresForm');
+    const addScoresError = document.getElementById('addScoresError');
+    const scoreOfficerSelect = document.getElementById('scoreOfficer');
+    const scoreEntries = document.getElementById('scoreEntries');
+    const saveScoresButton = document.getElementById('saveScoresButton');
+
+    const getTodayDate = () => {
+        const today = new Date();
+        return [
+            today.getFullYear(),
+            String(today.getMonth() + 1).padStart(2, '0'),
+            String(today.getDate()).padStart(2, '0')
+        ].join('-');
+    };
+    scoreEntries.querySelector('.score-entry-date').value = getTodayDate();
+
+    const showAddScoresError = (text) => {
+        addScoresError.textContent = text;
+        addScoresError.hidden = !text;
+    };
+
+    addScoresToggle.addEventListener('click', () => {
+        showAddScoresError('');
+        addScoresDialog.showModal();
+        addScoresToggle.setAttribute('aria-expanded', 'true');
+    });
+    document.getElementById('closeScoresDialog').addEventListener('click', () => addScoresDialog.close());
+    addScoresDialog.addEventListener('close', () => addScoresToggle.setAttribute('aria-expanded', 'false'));
+
+    const updateScoreEntryLabels = () => {
+        const entries = scoreEntries.querySelectorAll('.score-entry');
+        entries.forEach((entry, index) => {
+            const scoreNumber = index + 1;
+            const scoreInput = entry.querySelector('.score-entry-value');
+            const dateInput = entry.querySelector('.score-entry-date');
+            const scoreLabel = entry.querySelector('.score-entry-label');
+            const removeButton = entry.querySelector('.remove-score-entry');
+            scoreInput.id = `scoreValue${scoreNumber}`;
+            scoreInput.setAttribute('aria-label', `Score ${scoreNumber}`);
+            scoreLabel.htmlFor = scoreInput.id;
+            scoreLabel.textContent = `Score ${scoreNumber}`;
+            dateInput.id = `scoreDate${scoreNumber}`;
+            dateInput.setAttribute('aria-label', `Date for score ${scoreNumber}`);
+            removeButton.disabled = entries.length === 1;
+            removeButton.setAttribute('aria-label', `Remove score ${scoreNumber}`);
+        });
+    };
+
+    document.getElementById('addScoreEntry').addEventListener('click', () => {
+        const entry = scoreEntries.querySelector('.score-entry').cloneNode(true);
+        entry.querySelector('.score-entry-value').value = '';
+        entry.querySelector('.score-entry-date').value = getTodayDate();
+        scoreEntries.append(entry);
+        updateScoreEntryLabels();
+        entry.querySelector('.score-entry-value').focus();
+    });
+
+    // One listener for every row's remove button (rows are cloned)
+    scoreEntries.addEventListener('click', (event) => {
+        const removeButton = event.target.closest('.remove-score-entry');
+        if (!removeButton || scoreEntries.querySelectorAll('.score-entry').length <= 1) return;
+        removeButton.closest('.score-entry').remove();
+        updateScoreEntryLabels();
+    });
+
+    const resetAddScoresForm = () => {
+        addScoresForm.reset();
+        scoreOfficerSelect.value = '';
+        scoreEntries.querySelectorAll('.score-entry:not(:first-child)').forEach((entry) => entry.remove());
+        scoreEntries.querySelector('.score-entry-date').value = getTodayDate();
+        updateScoreEntryLabels();
+        showAddScoresError('');
+    };
+
+    addScoresForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const badgeNum = Number(scoreOfficerSelect.value);
+        const officer = performanceOfficers.find((candidate) => Number(candidate?.BadgeNum) === badgeNum);
+        if (!scoreOfficerSelect.value || !officer) {
+            showAddScoresError('Select an officer.');
+            return;
+        }
+        const qualType = document.getElementById('scoreQualification').value;
+        const scores = Array.from(scoreEntries.querySelectorAll('.score-entry'), (entry) => ({
+            score: entry.querySelector('.score-entry-value').value.trim(),
+            date: entry.querySelector('.score-entry-date').value
+        }));
+        const badRow = scores.findIndex(({ score, date }) => (
+            !/^\d+$/.test(score) || !/^\d{4}-\d{2}-\d{2}$/.test(date)
+        ));
+        if (badRow !== -1) {
+            showAddScoresError(`Score ${badRow + 1} needs a whole-number score and a date.`);
+            return;
+        }
+
+        saveScoresButton.disabled = true;
+        showAddScoresError('');
+        let saved = 0;
+        try {
+            // One at a time, so a refusal tells us exactly which ones were stored
+            for (const { score, date } of scores) {
+                await postToController('/api/officers/scores', { BadgeNum: badgeNum, qualType, score: Number(score), date });
+                saved += 1;
+            }
+        } catch (error) {
+            showAddScoresError(saved
+                ? `${saved} of ${scores.length} scores were saved; score ${saved + 1} was not: ${error.message} Remove the saved rows before trying again.`
+                : error.message);
+            saveScoresButton.disabled = false;
+            loadPerformanceData();
+            return;
+        }
+
+        const officerName = officer.Name || 'the officer';
+        resetAddScoresForm();
+        addScoresDialog.close();
+        await loadPerformanceData();
+        performanceMessage.hidden = false;
+        performanceMessage.classList.remove('is-error');
+        performanceMessage.textContent = `${saved} ${saved === 1 ? 'score' : 'scores'} saved for ${officerName}.`;
+    });
+
+    // AI-modified (Claude): loading is a function so it can run again after scores are added.
+    // Also fills the Add scores officer list (value = badge number).
+    const loadPerformanceData = () => fetch('database.json', { cache: 'no-store' })
         .then((response) => {
             if (!response.ok) {
                 throw new Error('Unable to load qualification records.');
@@ -1122,6 +1314,18 @@ if (document.getElementById('performanceRows')) {
                 performanceMessage.hidden = false;
                 performanceMessage.textContent = 'No officer records were found in the database.';
             }
+            const selectedBadge = scoreOfficerSelect.value;
+            scoreOfficerSelect.replaceChildren(
+                new Option('Select an officer', ''),
+                ...performanceOfficers
+                    .filter((officer) => Number.isInteger(Number(officer?.BadgeNum)))
+                    .map((officer) => new Option(
+                        `${officer?.Name || 'Unknown officer'} · Badge ${officer.BadgeNum}`,
+                        String(officer.BadgeNum)
+                    ))
+            );
+            scoreOfficerSelect.value = selectedBadge;
+            saveScoresButton.disabled = !performanceOfficers.length;
             renderPerformance();
         })
         .catch(() => {
@@ -1130,6 +1334,8 @@ if (document.getElementById('performanceRows')) {
             performanceMessage.textContent = 'Qualification data could not be loaded. Check the connection and try again.';
             renderPerformance();
         });
+
+    loadPerformanceData();
 }
 
 if (document.getElementById('drillList')) {

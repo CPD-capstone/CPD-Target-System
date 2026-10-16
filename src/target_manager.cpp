@@ -80,6 +80,15 @@ namespace{
     // set by the runner when it aborts because of the hardware rather than stopDrill()
     bool drillFailed = false;
 
+    // AI-generated (Claude): timing of the delay step being run, for getDrillStatus() (the web
+    // UI's countdown). Only waitMs() calls made for a "delay" step publish these, not the short
+    // internal waits. delayTotalMs is 0 when no delay step is running. While the delay counts
+    // down it ends at tick delayDeadline; while paused, delayPausedRemainingMs holds the frozen
+    // time left instead. Written under runnerLock.
+    uint32_t delayTotalMs = 0;
+    TickType_t delayDeadline = 0;
+    uint32_t delayPausedRemainingMs = 0;
+
     // AI-assisted (Claude): emergency stop latch. Set by stopDrill() (before it freezes the HAL)
     // and cleared only by resetTargets(). While set, executeDrill() and setTargets() refuse,
     // and a drill that ends does not send its usual final hide.
@@ -240,10 +249,30 @@ namespace{
     /// Used instead of vTaskDelay() so that stopDrill() can cut a long delay short.
     /// AI-modified (Claude): pauseDrill() freezes the countdown; after resume, the wait continues
     /// with the time it had left (time spent paused doesn't count).
-    bool waitMs(uint32_t ms){
+    /// @param publish true for a drill "delay" step: its timing is reported by getDrillStatus()
+    bool waitMs(uint32_t ms, bool publish = false){
         // FreeRTOS measures time in "ticks" (1 tick = 1 ms on the ESP32 Arduino core)
         TickType_t start = xTaskGetTickCount();
         TickType_t total = pdMS_TO_TICKS(ms);
+
+        // AI-generated (Claude): publish the delay for the web UI; cleared however we return
+        struct DelayReport {
+            bool active;
+            DelayReport(bool on, uint32_t lengthMs, TickType_t deadline) : active(on) {
+                if(!active) return;
+                portENTER_CRITICAL(&runnerLock);
+                delayTotalMs = lengthMs;
+                delayDeadline = deadline;
+                delayPausedRemainingMs = 0;
+                portEXIT_CRITICAL(&runnerLock);
+            }
+            ~DelayReport(){
+                if(!active) return;
+                portENTER_CRITICAL(&runnerLock);
+                delayTotalMs = 0;
+                portEXIT_CRITICAL(&runnerLock);
+            }
+        } report(publish, ms, start + total);
 
         // Loop because a notification can wake us early; if it wasn't a stop, go back to
         // sleep for whatever time is left
@@ -264,10 +293,22 @@ namespace{
                     // Operator pause: sit here until resumed, then push the start time forward
                     // by however long we were paused, so "elapsed" only counts unpaused time
                     TickType_t pausedAt = xTaskGetTickCount();
+                    if(publish){
+                        // AI-generated (Claude): freeze the reported time left while paused
+                        TickType_t done = pausedAt - start;
+                        portENTER_CRITICAL(&runnerLock);
+                        delayPausedRemainingMs = done < total ? pdTICKS_TO_MS(total - done) : 0;
+                        portEXIT_CRITICAL(&runnerLock);
+                    }
                     if(!pauseUntilResumed()){
                         return false; // stopped while paused
                     }
                     start += xTaskGetTickCount() - pausedAt;
+                    if(publish){
+                        portENTER_CRITICAL(&runnerLock);
+                        delayDeadline = start + total; // the countdown continues from here
+                        portEXIT_CRITICAL(&runnerLock);
+                    }
                 }
             }
             // any other notification (e.g. a stray resume) just continues the wait
@@ -340,7 +381,7 @@ namespace{
 
                 case StepType::Delay:
                     // Hold the current target position for timeMs (stop can cut it short)
-                    if(!waitMs(step.timeMs)){
+                    if(!waitMs(step.timeMs, true)){ // AI-modified (Claude): reported for the UI
                         return false;
                     }
                     break;
@@ -636,6 +677,7 @@ DrillState getDrillState(){
 
 DrillStatus getDrillStatus(){
     DrillStatus status;
+    TickType_t now = xTaskGetTickCount(); // AI-generated (Claude): for the delay time left
     // copy everything under the lock so the snapshot can't mix two drills or two steps
     portENTER_CRITICAL(&runnerLock);
     status.state = drillState;
@@ -646,6 +688,16 @@ DrillStatus getDrillStatus(){
     status.targetMask = activeMask;
     status.lastOutcome = lastOutcome;
     status.stopped = stopLatched;
+    // AI-generated (Claude): delay countdown. The signed difference handles tick wrap-around.
+    status.delayMs = delayTotalMs;
+    if(delayTotalMs == 0){
+        status.delayRemainingMs = 0;
+    }else if(drillState == DrillState::Paused){
+        status.delayRemainingMs = delayPausedRemainingMs;
+    }else{
+        int32_t left = (int32_t)(delayDeadline - now);
+        status.delayRemainingMs = left > 0 ? pdTICKS_TO_MS(left) : 0;
+    }
     portEXIT_CRITICAL(&runnerLock);
     return status;
 }

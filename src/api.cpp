@@ -335,6 +335,9 @@ static void handleDrillStatus(AsyncWebServerRequest* request) {
     doc["hardwareReady"] = hal_isReady(); // false: expanders missing/failed or HAL not started
     // AI-generated (Claude): targets facing right now, so the web UI's poll needs one request
     addTargetList(doc["facing"].to<JsonArray>(), hal_getTargetStates());
+    // AI-generated (Claude): the delay step being run (both 0 if it isn't a delay)
+    doc["delayMs"] = status.delayMs;
+    doc["delayRemainingMs"] = status.delayRemainingMs;
     sendJson(request, 200, doc);
 }
 
