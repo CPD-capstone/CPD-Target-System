@@ -1,66 +1,12 @@
 const drillStatus = document.getElementById('drillStatus');
-// AI-generated (Claude): the scrolling text inside the status bar.
+// AI-generated (Claude): the text inside the status bar.
 const drillStatusText = document.getElementById('drillStatusText') || drillStatus;
 
-// AI-generated (Claude): continuous scrolling banners (.drill-status-bar on every page).
-// Fills the track with enough copies of the text to cover the bar twice, so sliding it left
-// by half its width (see style.css) loops with no empty gap. Speed stays constant however
-// long the text is.
-const bannerSpeedPxPerSecond = 110;
-
-const fillScrollingBanner = (bar, force = false) => {
-    const source = bar.querySelector('.drill-status-text');
-    if (!source) return;
-    const text = source.textContent.trim();
-
-    let track = bar.querySelector('.banner-track');
-    if (!track) {
-        track = document.createElement('div');
-        track.className = 'banner-track';
-        track.setAttribute('aria-hidden', 'true');
-        bar.append(track);
-    }
-    if (!force && track.dataset.text === text) return;
-    track.dataset.text = text;
-
-    const makeCopy = () => {
-        const item = document.createElement('span');
-        item.textContent = text;
-        const separator = document.createElement('span');
-        separator.className = 'banner-sep';
-        return [item, separator];
-    };
-
-    track.style.animation = 'none';
-    track.replaceChildren(...makeCopy());
-    const copyWidth = track.getBoundingClientRect().width;
-    if (!copyWidth) return; // track hidden (reduced motion or print): static text shows instead
-
-    const copiesPerHalf = Math.max(1, Math.ceil(bar.clientWidth / copyWidth));
-    for (let index = 1; index < copiesPerHalf * 2; index += 1) {
-        track.append(...makeCopy());
-    }
-    void track.offsetWidth; // restart the animation from the start
-    track.style.animation = '';
-    track.style.animationDuration = `${(copiesPerHalf * copyWidth) / bannerSpeedPxPerSecond}s`;
-};
-
-const refreshScrollingBanners = () => {
-    document.querySelectorAll('.drill-status-bar').forEach((bar) => fillScrollingBanner(bar, true));
-};
-
+// AI-modified (Claude): the status banner is static text now (it used to scroll).
 const setDrillStatusText = (text) => {
     drillStatusText.textContent = text;
-    if (drillStatus) fillScrollingBanner(drillStatus);
 };
 
-refreshScrollingBanners();
-document.fonts?.ready.then(refreshScrollingBanners);
-let bannerResizeTimer;
-window.addEventListener('resize', () => {
-    clearTimeout(bannerResizeTimer);
-    bannerResizeTimer = setTimeout(refreshScrollingBanners, 150);
-});
 // AI-generated (Claude): All / Odd / Even / Clear buttons above a target checkbox list
 // (Create/Edit Drill forms, and the target picker for drills with no targets). Sets the
 // selection to exactly that group.

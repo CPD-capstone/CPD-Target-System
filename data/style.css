@@ -30,77 +30,19 @@
     flex: 1 0 auto;
 }
 
-/* AI-generated (Claude): edge-to-edge scrolling banner used at the top of every page.
-   .drill-status-text holds the real text (read by screen readers, shown when the banner
-   can't scroll); script.js fills .banner-track with enough copies of it that the bar is
-   never empty, then slides the track left by half its width and loops seamlessly. */
+/* AI-modified (Claude): status banner at the top of every page. Static, centered text that
+   wraps onto a second line when long (it used to scroll, which was hard to read). */
 .drill-status-bar {
-    position: relative;
-    overflow: hidden;
-    white-space: nowrap;
-    padding: 0.7rem 0;
+    padding: 0.6rem 1rem;
     border-bottom: 4px solid var(--bs-secondary);
     font-family: 'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', sans-serif;
-    font-size: clamp(1.7rem, 4.5vw, 2.75rem);
+    font-size: clamp(1.35rem, 4.5vw, 2.25rem);
     font-weight: 700;
-    line-height: 1.1;
-    letter-spacing: 0.08em;
+    line-height: 1.15;
+    letter-spacing: 0.06em;
+    text-align: center;
     text-transform: uppercase;
-}
-
-.drill-status-text {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    border: 0;
-}
-
-.banner-track {
-    display: inline-flex;
-    align-items: center;
-    animation: drill-status-scroll 20s linear infinite;
-    will-change: transform;
-}
-
-/* Small diamond between repeats; drawn with CSS so it doesn't depend on a font glyph. */
-.banner-sep {
-    display: inline-block;
-    width: 0.32em;
-    height: 0.32em;
-    margin: 0 2.75em;
-    background: currentColor;
-    opacity: 0.6;
-    transform: rotate(45deg);
-}
-
-@keyframes drill-status-scroll {
-    from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
-}
-
-/* Hold the text still and centered for users who turn off animations, and when printing
-   (Performance "Export PDF") so the title isn't captured mid-scroll. */
-@media (prefers-reduced-motion: reduce), print {
-    .drill-status-bar {
-        text-align: center;
-    }
-
-    .banner-track {
-        display: none;
-    }
-
-    .drill-status-text {
-        position: static;
-        width: auto;
-        height: auto;
-        margin: 0;
-        overflow: visible;
-        clip: auto;
-    }
+    overflow-wrap: anywhere;
 }
 
 .page-readout {
