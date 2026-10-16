@@ -312,6 +312,48 @@ const saveTargetCardStatus = (targetCard) => {
     saveTargetStatus(status);
 };
 
+// AI-generated (Claude): names the stage of a full drill for the status bar. The controller
+// flattens a drill into steps (expandDrill() in target_manager.cpp): each present/hide/pause/
+// delay is one step and a step naming another drill is expanded in place, up to 4 drills deep.
+// This mirrors that on database.json, so step N of a full drill maps back to the stage (the
+// drill named at the top level) it belongs to.
+let statusDrills = null; // drills array from database.json, once loaded
+const maxDrillNesting = 4; // MAX_NESTING_DEPTH in target_manager.cpp
+
+const findStatusDrill = (name) => statusDrills?.find((drill) => drill?.drillName === name);
+
+const countDrillSteps = (name, depth) => {
+    const drill = findStatusDrill(name);
+    if (!drill || depth > maxDrillNesting) return 0;
+    return (Array.isArray(drill.sequence) ? drill.sequence : []).reduce((count, step) => (
+        count + (basicDrillActions.has(step?.action) ? 1 : countDrillSteps(step?.action, depth + 1))
+    ), 0);
+};
+
+// Returns {stage, between} for step (1-based) of drillName, or null for a single-stage drill.
+// between = the step sits between stages (e.g. the pause before the next one); stage is then
+// the stage that comes next.
+const describeDrillStage = (drillName, step) => {
+    const drill = findStatusDrill(drillName);
+    if (!drill || !step) return null;
+    const stages = [];
+    let nextStep = 1;
+    (Array.isArray(drill.sequence) ? drill.sequence : []).forEach((entry) => {
+        if (basicDrillActions.has(entry?.action)) {
+            nextStep += 1;
+            return;
+        }
+        const count = countDrillSteps(entry?.action, 2);
+        stages.push({ name: entry.action, first: nextStep, last: nextStep + count - 1 });
+        nextStep += count;
+    });
+    if (!stages.length) return null;
+    const current = stages.find((stage) => step >= stage.first && step <= stage.last);
+    if (current) return { stage: current.name, between: false };
+    const upcoming = stages.find((stage) => stage.first > step);
+    return upcoming ? { stage: upcoming.name, between: true } : null;
+};
+
 // AI-modified (Claude): draws the status bar (every page) and, on the Targets page, the drill
 // buttons, from the controller's last status reply instead of the old frontend-only demo
 // state. Card colors are set by the Targets page's own status listener (initializeTargetPage).
@@ -335,11 +377,20 @@ const updateDrillStatus = () => {
         setStatusBarStyle('active');
         setDrillStatusText('Stopped: targets frozen. Press Reset to hide them');
     } else if (state === 'paused') {
+        // AI-modified (Claude): name the stage (full drills) instead of a step number
+        const stageInfo = describeDrillStage(status.drillName, status.step);
         setStatusBarStyle('active');
-        setDrillStatusText(`${drillName} paused (step ${status.step} of ${status.stepCount}). Press Resume`);
+        setDrillStatusText(!stageInfo
+            ? `${drillName} paused. Press Resume`
+            : stageInfo.between
+                ? `${drillName} paused before ${stageInfo.stage}. Press Resume`
+                : `${drillName}: ${stageInfo.stage} paused. Press Resume`);
     } else if (state === 'running') {
+        const stageInfo = describeDrillStage(status.drillName, status.step);
         setStatusBarStyle('active');
-        setDrillStatusText(`${drillName} in progress (step ${status.step} of ${status.stepCount})`);
+        setDrillStatusText(stageInfo && !stageInfo.between
+            ? `${drillName}: ${stageInfo.stage} in progress`
+            : `${drillName} in progress`);
     } else if (manualMode) {
         setStatusBarStyle('manual');
         setDrillStatusText('Manual mode');
@@ -391,6 +442,16 @@ const updateDrillStatus = () => {
 if (drillStatus) {
     controllerStatusListeners.push(updateDrillStatus);
     pollDrillStatus();
+    // AI-generated (Claude): drill list for stage names in the status bar
+    fetch('database.json', { cache: 'no-store' })
+        .then((response) => response.json())
+        .then((payload) => {
+            statusDrills = Array.isArray(payload?.drills) ? payload.drills : [];
+            updateDrillStatus();
+        })
+        .catch(() => {
+            // not on the controller: the bar just shows the drill name
+        });
     // Captive-portal browsers suspend the page; refresh as soon as it is visible again.
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') pollDrillStatus();
@@ -618,9 +679,10 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             saveTargetStatus(status);
         };
 
-        // AI-modified (Claude): Stop is the controller's emergency stop. It freezes every target
-        // where it is (the controller never moves a target on Stop) and latches until Reset,
-        // which hides them all.
+        // AI-modified (Claude): Stop. While a drill runs it is the controller's emergency stop: it
+        // freezes every target where it is (the controller never moves a target on Stop) and
+        // latches until Reset, which hides them all. While the drill is paused there is nothing
+        // to freeze, so Stop ends the drill instead: stop, then reset (hides its targets).
         document.getElementById('stopDrillButton')?.addEventListener('click', async () => {
             if (cancelStartCountdown) {
                 cancelStartCountdown();
@@ -628,6 +690,18 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
                     showLaunchMessage('Start cancelled.');
                     return;
                 }
+            }
+            if (controllerStatus?.state === 'paused') {
+                const drillName = controllerStatus.drillName || 'The drill';
+                try {
+                    await postToController('/api/stop');
+                    await postToController('/api/reset');
+                    showLaunchMessage(`${drillName} ended. Targets hidden.`);
+                } catch (error) {
+                    showLaunchMessage(`${error.message} If targets are still up, press Reset.`);
+                }
+                pollDrillStatus();
+                return;
             }
             try {
                 await postToController('/api/stop');
