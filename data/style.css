@@ -656,3 +656,13 @@
     line-height: 1.2;
     font-variant-numeric: tabular-nums;
 }
+
+/* AI-generated (Claude): Settings page */
+.settings-main {
+    max-width: 36rem;
+}
+
+.start-delay-seconds {
+    max-width: 12rem;
+    margin-left: 1.5rem;
+}

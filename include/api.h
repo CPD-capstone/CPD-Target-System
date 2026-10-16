@@ -32,7 +32,12 @@
 //   POST   /api/targets/hide     {targets?}             -> setTargets(.., false) (refused mid-drill/stopped)
 //   GET    /api/targets/state    -> {facing: [n, ...]}
 //
-// Errors reply {"error": message} with 400 (bad input), 404 (not found), 409 (conflict, e.g. a
+// AI-generated (Claude): WiFi settings (wifi_manager)
+//   POST   /api/wifi/password    {currentPassword, newPassword}  -> replies, then restarts the
+//                                    access point with the new password ~1 s later (403 if the
+//                                    current password is wrong)
+//
+// Errors reply {"error": message} with 400 (bad input), 403 (wrong password), 404 (not found), 409 (conflict, e.g. a
 // drill is already running), 422 (drill is invalid), 500, or 503 (target hardware not ready).
 
 /// @brief registers every /api route on server. Call before server.serveStatic().

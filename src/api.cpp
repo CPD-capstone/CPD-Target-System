@@ -2,6 +2,7 @@
 #include "database.h"
 #include "target_manager.h"
 #include "hal.h"
+#include "wifi_manager.h"
 #include <AsyncJson.h>
 
 
@@ -327,6 +328,22 @@ static void handleTargetState(AsyncWebServerRequest* request) {
     sendJson(request, 200, doc);
 }
 
+// WiFi -------------------------------------------------------------------------------------------
+
+// AI-generated (Claude): POST /api/wifi/password  {currentPassword, newPassword}
+// Replies first; the access point restarts with the new password about a second later, so every
+// phone (including this one) has to rejoin with it.
+static void handleChangeWiFiPassword(AsyncWebServerRequest* request, JsonVariant& json) {
+    const char* current = json["currentPassword"] | "";
+    const char* next = json["newPassword"] | "";
+    if (!*current || !*next) return sendError(request, 400, "currentPassword and newPassword are required");
+    if (!checkWiFiPassword(current)) return sendError(request, 403, "Current password is incorrect");
+    if (!scheduleWiFiPasswordChange(next)) {
+        return sendError(request, 400, "New password must be 8-63 characters (letters, numbers and symbols, no accents)");
+    }
+    sendOk(request);
+}
+
 // Registration ------------------------------------------------------------------------------------
 
 // ESPAsyncWebServer matches handlers in the order they are added, and a handler for "/a" also
@@ -365,6 +382,9 @@ void registerApiRoutes(AsyncWebServer& server) {
     server.on("/api/officers", HTTP_GET, handleGetOfficers);
     onJsonBody(server, "/api/officers", HTTP_POST, handleAddOfficer);
     server.on("/api/officers", HTTP_DELETE, handleDeleteOfficer);
+
+    // WiFi (AI-generated, Claude)
+    onJsonBody(server, "/api/wifi/password", HTTP_POST, handleChangeWiFiPassword);
 
     // Anything else under /api gets a JSON 404 instead of falling through to onNotFound (which
     // serves targets.html). This also catches JSON routes called without the JSON Content-Type.

@@ -1687,3 +1687,91 @@ if (document.getElementById('drillList')) {
 
     loadDrills();
 }
+
+// AI-generated (Claude): Settings page (settings.html).
+// Drill start delay: saved on this phone as soon as it changes.
+const startDelayForm = document.getElementById('startDelayForm');
+if (startDelayForm) {
+    const secondsInput = document.getElementById('startDelaySeconds');
+    const savedNote = document.getElementById('startDelaySaved');
+    const setting = getStartDelaySetting();
+    startDelayForm.querySelector(`input[name="startDelayMode"][value="${setting.mode}"]`).checked = true;
+    secondsInput.value = setting.seconds;
+    let savedNoteTimer;
+
+    const saveStartDelay = () => {
+        const mode = startDelayForm.querySelector('input[name="startDelayMode"]:checked')?.value || 'fixed';
+        const seconds = Math.min(30, Math.max(1, Math.round(Number(secondsInput.value)) || 3));
+        secondsInput.value = seconds;
+        try {
+            localStorage.setItem(startDelayStorageKey, JSON.stringify({ mode, seconds }));
+        } catch {
+            return; // storage blocked: nothing was saved, so don't say it was
+        }
+        savedNote.hidden = false;
+        clearTimeout(savedNoteTimer);
+        savedNoteTimer = setTimeout(() => { savedNote.hidden = true; }, 2000);
+    };
+
+    // Typing a number picks "Set time".
+    secondsInput.addEventListener('focus', () => { document.getElementById('startDelayFixed').checked = true; });
+    startDelayForm.addEventListener('change', saveStartDelay);
+    startDelayForm.addEventListener('submit', (event) => {
+        event.preventDefault(); // Enter in the seconds box
+        saveStartDelay();
+    });
+}
+
+// WiFi password: sent to the controller, which restarts the access point about a second later.
+const wifiPasswordForm = document.getElementById('wifiPasswordForm');
+if (wifiPasswordForm) {
+    const currentInput = document.getElementById('wifiCurrentPassword');
+    const newInput = document.getElementById('wifiNewPassword');
+    const confirmInput = document.getElementById('wifiConfirmPassword');
+    const showPasswords = document.getElementById('wifiShowPasswords');
+    const message = document.getElementById('wifiPasswordMessage');
+    const submitButton = document.getElementById('wifiPasswordSubmit');
+    const passwordInputs = [currentInput, newInput, confirmInput];
+
+    const showWifiMessage = (text, kind) => {
+        message.textContent = text;
+        message.className = `alert py-2 alert-${kind}`;
+        message.hidden = false;
+    };
+
+    showPasswords.addEventListener('change', () => {
+        passwordInputs.forEach((input) => { input.type = showPasswords.checked ? 'text' : 'password'; });
+    });
+
+    wifiPasswordForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const newPassword = newInput.value;
+        if (!currentInput.value) {
+            showWifiMessage('Enter the current password.', 'danger');
+            return;
+        }
+        if (newPassword.length < 8 || newPassword.length > 63) {
+            showWifiMessage('The new password must be 8 to 63 characters.', 'danger');
+            return;
+        }
+        if (!/^[\x20-\x7E]+$/.test(newPassword)) {
+            showWifiMessage('Use only letters, numbers, spaces and standard symbols (no accents or emoji).', 'danger');
+            return;
+        }
+        if (newPassword !== confirmInput.value) {
+            showWifiMessage('The new passwords do not match.', 'danger');
+            return;
+        }
+
+        submitButton.disabled = true;
+        try {
+            await postToController('/api/wifi/password', { currentPassword: currentInput.value, newPassword });
+            wifiPasswordForm.reset();
+            passwordInputs.forEach((input) => { input.type = 'password'; });
+            showWifiMessage('Password changed. The WiFi restarts in a moment: rejoin "CPD Range Control" with the new password.', 'success');
+        } catch (error) {
+            showWifiMessage(error.message, 'danger');
+        }
+        submitButton.disabled = false;
+    });
+}
