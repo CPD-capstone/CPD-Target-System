@@ -1,5 +1,15 @@
 #include "hal.h"
 
+// AI-generated (Claude): DEMO MODE, for showing the system with only the ESP32 board (no
+// expanders or relay boards). Set by the CPD-demo branch's platformio.ini (-DDEMO_NO_HARDWARE=1).
+// The SPI expanders are skipped entirely: no setup, no writes, no health check. hal_isReady()
+// is true and target states are kept in memory, so drills, timing, the per-target cooldown,
+// Stop/Reset, the API and the web UI all behave as they would with hardware. Never flash this
+// build onto the range controller: it never energizes a relay.
+#ifndef DEMO_NO_HARDWARE
+#define DEMO_NO_HARDWARE 0
+#endif
+
 // AI-assisted (Claude): rewritten to track target state as bitmasks and write each
 // expander in a single SPI transaction, so every target in a command flips together.
 //
@@ -105,6 +115,20 @@ namespace{
         uint32_t pins = RELAY_ACTIVE_LOW ? ~energized : energized;
         writtenPins = pins; // remembered for the health check
 
+#if DEMO_NO_HARDWARE
+        // AI-generated (Claude): demo mode -- no expanders to write; log what the relays would do
+        Serial.print("demo: facing targets:");
+        bool any = false;
+        for(uint8_t n = 1; n <= NUM_TARGETS; n++){
+            if(mask & targetBit(n)){
+                Serial.printf(" %u", n);
+                any = true;
+            }
+        }
+        Serial.println(any ? "" : " none");
+        return;
+#endif
+
         // writeGPIOAB sets all 16 MCP1 pins in a single SPI transaction.
         mcp1.writeGPIOAB(pins & 0xFFFF);
 
@@ -151,6 +175,9 @@ namespace{
     /// @brief AI-assisted (Claude): runs expanderHealthy() on both chips against what the HAL wrote
     /// @return true if both expanders are present and configured as expected
     bool checkExpanders(){
+#if DEMO_NO_HARDWARE
+        return true; // AI-generated (Claude): demo mode has no expanders to check
+#endif
         // MCP1: all 16 pins are outputs, latch = the pins last written for targets 1-16
         bool ok1 = expanderHealthy(mcp1, "#1", 0x0000, writtenPins & 0xFFFF, 0xFFFF);
         // MCP2: port A outputs, port B untouched inputs (0xFF); only port A's latch is written
@@ -161,6 +188,14 @@ namespace{
     /// @brief starts the SPI bus and both expanders, sets relay pins as outputs, and hides every target
     /// @return false if either expander is missing or didn't take its configuration
     bool initSPI(){
+#if DEMO_NO_HARDWARE
+        // AI-generated (Claude): demo mode -- skip the SPI bus and expanders entirely
+        Serial.println("**************************************************************");
+        Serial.println("** DEMO MODE: no expanders or relays are driven (CPD-demo).  **");
+        Serial.println("** Do NOT use this firmware on the range controller.         **");
+        Serial.println("**************************************************************");
+        return true;
+#endif
         // Initialize SPI Bus and Expanders on Core 1 (pin numbers come from pins.h)
         SPI.begin(PIN_SPI_SCK, PIN_SPI_MISO, PIN_SPI_MOSI);
 
