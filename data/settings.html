@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-<!-- AI-generated (Claude): Settings page: drill start delay (saved on this phone) and the
-     controller's WiFi password. script.js wires both forms. -->
+<!-- AI-generated (Claude): Settings page: drill start delay (saved on this phone), defective
+     targets and the WiFi password (both saved on the controller). script.js wires the forms. -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -79,6 +79,20 @@
                         <i class="bi bi-check-circle-fill" aria-hidden="true"></i> Saved
                     </p>
                 </form>
+            </div>
+        </section>
+
+        <section class="card mb-4" aria-labelledby="defectiveTargetsTitle">
+            <div class="card-body">
+                <h2 class="h5 card-title" id="defectiveTargetsTitle">Defective targets</h2>
+                <p class="text-secondary small">
+                    Check any target that is broken. Drills and manual control skip it, and it shows
+                    grey on the Targets page. Saved on the controller, so it applies to every phone.
+                </p>
+                <div class="target-options" id="defectiveTargetList" role="group" aria-labelledby="defectiveTargetsTitle">
+                    <p class="small text-secondary mb-0">Loading targets...</p>
+                </div>
+                <p class="small mt-3 mb-0" id="defectiveTargetsMessage" role="status" hidden></p>
             </div>
         </section>
 

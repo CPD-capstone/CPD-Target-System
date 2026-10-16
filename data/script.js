@@ -123,14 +123,15 @@ const pollDrillStatus = async () => {
     drillStatusTimer = setTimeout(pollDrillStatus, drillActive ? 500 : 3000);
 };
 
-// AI-generated (Claude): POSTs to the controller and throws an Error with the controller's
-// message if it refuses. Never pass an empty "targets" list: the API reads [] as ALL targets.
-const postToController = async (path, body) => {
+// AI-generated (Claude): POSTs (or PUTs, via method) to the controller and throws an Error with
+// the controller's message if it refuses. Never pass an empty "targets" list: the API reads []
+// as ALL targets.
+const postToController = async (path, body, method = 'POST') => {
     let response;
     try {
         response = await fetch(path, body === undefined
-            ? { method: 'POST' }
-            : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            ? { method }
+            : { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     } catch {
         throw new Error('Could not reach the target controller. Check that you are on the CPD Range Control WiFi.');
     }
@@ -294,11 +295,6 @@ const syncDrillTargetsToTargetStatus = (drillId, targetNumbers) => {
     saveTargetStatus(status);
 };
 
-const getDefectiveTargetNumbers = () => Object.entries(getSavedTargetStatus())
-    .filter(([, state]) => state?.defective)
-    .map(([targetNumber]) => Number(targetNumber))
-    .filter((targetNumber) => Number.isInteger(targetNumber));
-
 const saveTargetCardStatus = (targetCard) => {
     const targetNumber = targetCard.closest('[data-target-number]')?.dataset.targetNumber;
     if (!targetNumber) return;
@@ -307,13 +303,11 @@ const saveTargetCardStatus = (targetCard) => {
     const savedState = status[targetNumber] && typeof status[targetNumber] === 'object' && !Array.isArray(status[targetNumber])
         ? status[targetNumber]
         : {};
+    // AI-modified (Claude): "defective" is no longer saved here; it is the controller's
+    // working flag (Settings page).
     status[targetNumber] = {
         ...savedState,
-        defective: targetCard.classList.contains('is-defective'),
-        red: targetCard.classList.contains('is-red'),
-        activeDrillIds: targetCard.classList.contains('is-defective')
-            ? []
-            : (Array.isArray(savedState.activeDrillIds) ? savedState.activeDrillIds : [])
+        red: targetCard.classList.contains('is-red')
     };
     saveTargetStatus(status);
 };
@@ -419,15 +413,6 @@ const renderTargets = (targetIds) => {
                 </span>
                 <span class="target-list-label">Target ${targetNumber}</span>
             </button>
-            <div class="target-actions">
-                <button class="target-defect-toggle" type="button" aria-label="Mark target ${targetNumber} defective" title="Mark target ${targetNumber} defective">
-                    <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
-                    <span>Defect</span>
-                </button>
-                <button class="target-drill-assign" type="button" aria-label="Assign drills to target ${targetNumber}" title="Assign drills">
-                    <i class="bi bi-list-check" aria-hidden="true"></i>
-                </button>
-            </div>
         </div>
     `).join('');
 };
@@ -437,17 +422,14 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
 
     const targetCards = document.querySelectorAll('.target-card');
     const targetColumns = Array.from(targetCards, (targetCard) => targetCard.closest('[data-target-number]'));
+    // AI-modified (Claude): defective targets = marked not working on the controller
+    // (Settings page). Drills and manual moves skip them, and the cards show them grey.
     const unavailableTargets = new Set(unavailableTargetIds);
-    const assignmentModalElement = document.getElementById('drillAssignmentModal');
-    const assignmentList = document.getElementById('drillAssignmentList');
-    const assignmentTargetLabel = document.getElementById('drillAssignmentTargetLabel');
-    const saveAssignmentButton = document.getElementById('saveDrillAssignments');
     const drillSelect = document.getElementById('drillSelect');
     const startDrillButton = document.getElementById('startDrillButton');
     const drillLaunchMessage = document.getElementById('drillLaunchMessage');
     const bootstrapModal = typeof bootstrap === 'undefined' ? null : bootstrap.Modal;
     let activeFilter = 'all';
-    let activeTargetNumber = null;
 
     if (drillSelect) {
         // AI-modified (Claude): options are grouped into full drills, stages and custom drills.
@@ -518,9 +500,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             const assignedTargets = Array.isArray(drill.targets)
                 ? [...new Set(drill.targets.map(Number).filter((targetNumber) => Number.isInteger(targetNumber) && targetNumber >= 1 && targetNumber <= 20))]
                 : [];
-            const defectiveTargets = new Set(getDefectiveTargetNumbers());
             const availableTargets = assignedTargets.filter((targetNumber) => (
-                !defectiveTargets.has(targetNumber) &&
                 !unavailableTargets.has(targetNumber) &&
                 targetGrid.querySelector(`[data-target-number="${targetNumber}"] .target-card`)
             ));
@@ -576,10 +556,9 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             document.getElementById('drillTargetPickerDrillName').textContent = drill.name || drill.drillName;
             pickerError.hidden = true;
 
-            const defectiveTargets = new Set(getDefectiveTargetNumbers());
             const pickableTargets = targetColumns
                 .map((column) => Number(column.dataset.targetNumber))
-                .filter((targetNumber) => !defectiveTargets.has(targetNumber) && !unavailableTargets.has(targetNumber));
+                .filter((targetNumber) => !unavailableTargets.has(targetNumber));
 
             if (!pickableTargets.length) {
                 pickerList.textContent = 'No targets are currently available.';
@@ -634,7 +613,6 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
                 targetCard.classList.remove('is-red');
                 targetCard.setAttribute('aria-pressed', 'false');
                 targetCard.setAttribute('aria-label', `Mark target ${targetNumber} red`);
-                targetColumn.querySelector('.target-defect-toggle').disabled = false;
                 status[targetNumber] = { ...(status[targetNumber] || {}), red: false };
             });
             saveTargetStatus(status);
@@ -726,101 +704,20 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         });
     }
 
-    const renderDrillAssignments = (targetNumber) => {
-        if (!assignmentList || !assignmentTargetLabel) return;
-
-        assignmentTargetLabel.textContent = `Target ${targetNumber}`;
-        const storedIds = getSavedTargetStatus()[String(targetNumber)]?.activeDrillIds;
-        const selectedIds = new Set((Array.isArray(storedIds) ? storedIds : []).map(String));
-        const drillEntries = Object.entries(targetAssignmentDrills)
-            .filter(([, drill]) => drill && typeof (drill.name || drill.drillName) === 'string');
-
-        if (!drillEntries.length) {
-            assignmentList.textContent = 'No drills are available.';
-            return;
-        }
-
-        assignmentList.replaceChildren(...drillEntries.map(([drillId, drill]) => {
-            const label = document.createElement('label');
-            label.className = 'form-check-label d-flex align-items-center gap-2 p-2 border rounded bg-light';
-
-            const checkbox = document.createElement('input');
-            checkbox.className = 'form-check-input mt-0';
-            checkbox.type = 'checkbox';
-            checkbox.value = drillId;
-            checkbox.checked = selectedIds.has(String(drillId));
-
-            const name = document.createElement('span');
-            name.textContent = drill.name || drill.drillName;
-            label.append(checkbox, name);
-            return label;
-        }));
-    };
-
-    const openDrillAssignments = (targetNumber) => {
-        if (!assignmentModalElement || !bootstrapModal) return;
-        activeTargetNumber = String(targetNumber);
-        renderDrillAssignments(activeTargetNumber);
-        bootstrapModal.getOrCreateInstance(assignmentModalElement).show();
-    };
-
-    saveAssignmentButton?.addEventListener('click', () => {
-        if (!activeTargetNumber) return;
-
-        const status = getSavedTargetStatus();
-        const targetState = status[activeTargetNumber] && typeof status[activeTargetNumber] === 'object' && !Array.isArray(status[activeTargetNumber])
-            ? status[activeTargetNumber]
-            : {};
-        if (targetState.defective || unavailableTargets.has(Number(activeTargetNumber))) return;
-
-        const previousDrillIds = Array.isArray(targetState.activeDrillIds) ? targetState.activeDrillIds : [];
-        const nextDrillIds = Array.from(
-            assignmentList.querySelectorAll('input[type="checkbox"]:checked'),
-            (checkbox) => checkbox.value
-        );
-        updateDrillTargetsForTarget(activeTargetNumber, previousDrillIds, nextDrillIds);
-        status[activeTargetNumber] = {
-            ...targetState,
-            activeDrillIds: nextDrillIds
-        };
-        saveTargetStatus(status);
-        bootstrapModal.getInstance(assignmentModalElement)?.hide();
-    });
-
     targetCards.forEach((targetCard) => {
         const targetNumber = targetCard.closest('[data-target-number]').dataset.targetNumber;
         const savedState = getSavedTargetStatus()[targetNumber] || {};
-        const isUnavailable = unavailableTargets.has(Number(targetNumber));
-        const isDefective = Boolean(savedState.defective) || isUnavailable;
+        const isDefective = unavailableTargets.has(Number(targetNumber));
         const isRed = Boolean(savedState.red) && !isDefective;
 
         targetCard.classList.toggle('is-defective', isDefective);
         targetCard.classList.toggle('is-red', isRed);
         targetCard.setAttribute('aria-pressed', String(isRed));
-        targetCard.setAttribute('aria-label', isUnavailable
-            ? `Target ${targetNumber} is unavailable`
-            : isDefective
-                ? `Target ${targetNumber} is defective`
-                : isRed
-                    ? `Return target ${targetNumber} to green`
-                    : `Mark target ${targetNumber} red`);
-
-        const defectButton = targetCard.closest('[data-target-number]').querySelector('.target-defect-toggle');
-        const assignmentButton = targetCard.closest('[data-target-number]').querySelector('.target-drill-assign');
-        const unavailable = unavailableTargets.has(Number(targetNumber));
-        defectButton.setAttribute('aria-label', isUnavailable
-            ? `Target ${targetNumber} is unavailable`
-            : isDefective
-                ? `Mark target ${targetNumber} usable`
-                : `Mark target ${targetNumber} defective`);
-        defectButton.disabled = isRed || isUnavailable;
-        defectButton.classList.toggle('is-active', Boolean(savedState.defective));
-        assignmentButton.disabled = isDefective || isUnavailable;
-        assignmentButton.title = isUnavailable
-                ? `Target ${targetNumber} is unavailable`
-                : isDefective
-                    ? `Target ${targetNumber} is defective`
-                    : `Assign drills to target ${targetNumber}`;
+        targetCard.setAttribute('aria-label', isDefective
+            ? `Target ${targetNumber} is defective`
+            : isRed
+                ? `Return target ${targetNumber} to green`
+                : `Mark target ${targetNumber} red`);
     });
 
     // AI-modified (Claude): defective/unavailable targets are hidden only by the "Hide
@@ -829,7 +726,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
     const applyTargetFilter = (filter) => {
         activeFilter = filter;
         let visibleNumbers;
-        const defectiveNumbers = new Set([...getDefectiveTargetNumbers(), ...unavailableTargets]);
+        const defectiveNumbers = unavailableTargets;
         const hideDefective = Boolean(hideDefectiveSwitch?.checked);
 
         visibleNumbers = targetColumns
@@ -877,49 +774,6 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         const targetColumn = event.target.closest('[data-target-number]');
         if (!targetColumn) return;
         const targetCard = targetColumn.querySelector('.target-card');
-        const defectButton = event.target.closest('.target-defect-toggle');
-        const assignmentButton = event.target.closest('.target-drill-assign');
-        if (assignmentButton) {
-            event.preventDefault();
-            if (!targetCard.classList.contains('is-defective') && !unavailableTargets.has(Number(targetColumn.dataset.targetNumber))) {
-                openDrillAssignments(targetColumn.dataset.targetNumber);
-            }
-            return;
-        }
-
-        if (defectButton) {
-            event.preventDefault();
-            event.stopPropagation();
-            if (targetCard.classList.contains('is-red') || unavailableTargets.has(Number(targetColumn.dataset.targetNumber))) return;
-
-            const isDefective = !targetCard.classList.contains('is-defective');
-            targetCard.classList.toggle('is-defective', isDefective);
-            if (isDefective) {
-                targetCard.classList.remove('is-red');
-                targetCard.setAttribute('aria-pressed', 'false');
-            }
-            const targetNumber = targetColumn.dataset.targetNumber;
-            if (isDefective) {
-                const previousDrillIds = getSavedTargetStatus()[targetNumber]?.activeDrillIds || [];
-                updateDrillTargetsForTarget(targetNumber, previousDrillIds, []);
-            }
-            defectButton.classList.toggle('is-active', isDefective);
-            defectButton.setAttribute('aria-label', isDefective
-                ? `Mark target ${targetNumber} usable`
-                : `Mark target ${targetNumber} defective`);
-            defectButton.setAttribute('title', isDefective
-                ? `Target ${targetNumber} is defective`
-                : `Mark target ${targetNumber} defective`);
-            targetCard.setAttribute('aria-label', isDefective
-                ? `Target ${targetNumber} is defective`
-                : `Mark target ${targetNumber} red`);
-            saveTargetCardStatus(targetCard);
-            targetColumn.querySelector('.target-drill-assign').disabled = isDefective || unavailableTargets.has(Number(targetNumber));
-            applyTargetFilter(activeFilter);
-            updateDrillStatus();
-            return;
-        }
-
         if (!event.target.closest('.target-card')) return;
         if (targetCard.classList.contains('is-defective') || unavailableTargets.has(Number(targetColumn.dataset.targetNumber))) return;
         // AI-generated (Claude): tapping a target only flips it in manual mode.
@@ -943,7 +797,6 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         targetCard.setAttribute('aria-label', isRed
             ? `Return target ${targetNumber} to green`
             : `Mark target ${targetNumber} red`);
-        targetColumn.querySelector('.target-defect-toggle').disabled = isRed;
         saveTargetCardStatus(targetCard);
     };
 
@@ -1043,26 +896,6 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             applyManualTargets(changes).then(updateDrillStatus);
         });
     });
-
-    const updateDrillTargetsForTarget = (targetNumber, previousDrillIds, nextDrillIds) => {
-        const previousIds = new Set((Array.isArray(previousDrillIds) ? previousDrillIds : []).map(String));
-        const nextIds = new Set((Array.isArray(nextDrillIds) ? nextDrillIds : []).map(String));
-
-        new Set([...previousIds, ...nextIds]).forEach((drillId) => {
-            const drill = targetAssignmentDrills[drillId];
-            if (!drill) return;
-
-            const targets = new Set((Array.isArray(drill.targets) ? drill.targets : []).map(String));
-            if (nextIds.has(drillId)) {
-                targets.add(String(targetNumber));
-            } else {
-                targets.delete(String(targetNumber));
-            }
-            drill.targets = Array.from(targets, Number).filter(Number.isInteger);
-        });
-
-        localStorage.setItem(drillLibraryStorageKey, JSON.stringify(targetAssignmentDrills));
-    };
 
     updateDrillStatus();
 };
@@ -1360,10 +1193,7 @@ if (document.getElementById('drillList')) {
     };
 
     const getUnavailableTargetInputs = (form, fieldName) => {
-        const unavailableTargets = new Set([
-            ...getDefectiveTargetNumbers(),
-            ...databaseUnavailableTargets
-        ]);
+        const unavailableTargets = databaseUnavailableTargets;
         return Array.from(form.querySelectorAll(`input[name="${fieldName}"]:checked`))
             .filter((input) => unavailableTargets.has(Number(input.value)));
     };
@@ -1387,9 +1217,8 @@ if (document.getElementById('drillList')) {
         databaseUnavailableTargets = new Set(databaseTargets
             .filter((target) => target?.working === false)
             .map((target) => Number(target?.id)));
-        const defectiveTargets = new Set(getDefectiveTargetNumbers());
         const targets = databaseTargets
-            .filter((target) => target?.working !== false && !defectiveTargets.has(Number(target?.id)))
+            .filter((target) => target?.working !== false)
             .map((target) => Number(target?.id))
             .filter((id) => Number.isInteger(id) && id >= 1 && id <= 20)
             .sort((first, second) => first - second);
@@ -1774,4 +1603,62 @@ if (wifiPasswordForm) {
         }
         submitButton.disabled = false;
     });
+}
+
+// AI-generated (Claude): Settings > Defective targets. Each box is the controller's "working"
+// flag (checked = defective) in database.json, so it applies to every phone; drills and manual
+// control skip defective targets and the Targets page shows them grey. Saved on every change.
+const defectiveTargetList = document.getElementById('defectiveTargetList');
+if (defectiveTargetList) {
+    const defectMessage = document.getElementById('defectiveTargetsMessage');
+    const showDefectMessage = (text, ok) => {
+        defectMessage.textContent = text;
+        defectMessage.className = `small mt-3 mb-0 ${ok ? 'text-success' : 'text-danger'}`;
+        defectMessage.hidden = false;
+    };
+
+    const loadDefectiveTargets = async () => {
+        try {
+            const response = await fetch('/api/targets', { cache: 'no-store' });
+            if (!response.ok) throw new Error('bad response');
+            const targets = (await response.json() || [])
+                .filter((target) => Number.isInteger(Number(target?.id)))
+                .sort((first, second) => Number(first.id) - Number(second.id));
+            if (!targets.length) {
+                defectiveTargetList.textContent = 'No targets found on the controller.';
+                return;
+            }
+            defectiveTargetList.replaceChildren(...targets.map((target) => {
+                const wrapper = document.createElement('label');
+                wrapper.className = 'target-option';
+                const input = document.createElement('input');
+                input.className = 'form-check-input';
+                input.type = 'checkbox';
+                input.value = String(target.id);
+                input.checked = target.working === false;
+                const text = document.createElement('span');
+                text.textContent = `Target ${target.id}`;
+                wrapper.append(input, text);
+                return wrapper;
+            }));
+        } catch {
+            defectiveTargetList.textContent = 'Could not load targets from the controller. Check that you are on the CPD Range Control WiFi.';
+        }
+    };
+
+    defectiveTargetList.addEventListener('change', async (event) => {
+        const box = event.target.closest('input[type="checkbox"]');
+        if (!box) return;
+        box.disabled = true;
+        try {
+            await postToController(`/api/targets?id=${box.value}`, { working: !box.checked }, 'PUT');
+            showDefectMessage(`Target ${box.value} marked ${box.checked ? 'defective' : 'working'}.`, true);
+        } catch (error) {
+            box.checked = !box.checked; // the controller didn't save it, so show what it still has
+            showDefectMessage(error.message, false);
+        }
+        box.disabled = false;
+    });
+
+    loadDefectiveTargets();
 }
