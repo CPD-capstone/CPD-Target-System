@@ -140,6 +140,80 @@ const postToController = async (path, body) => {
     }
 };
 
+// AI-generated (Claude): drill start delay (Settings page), saved on this phone. A countdown
+// runs after Start drill / Resume before the command is sent. mode is 'instant', 'fixed'
+// (seconds, 1-30, default 3) or 'random' (1-5 s).
+const startDelayStorageKey = 'cpd-start-delay';
+
+const getStartDelaySetting = () => {
+    try {
+        const saved = JSON.parse(localStorage.getItem(startDelayStorageKey) || 'null');
+        if (saved && ['instant', 'fixed', 'random'].includes(saved.mode)) {
+            return { mode: saved.mode, seconds: Math.min(30, Math.max(1, Math.round(Number(saved.seconds)) || 3)) };
+        }
+    } catch {
+        // unreadable setting: use the default
+    }
+    return { mode: 'fixed', seconds: 3 };
+};
+
+const pickStartDelayMs = () => {
+    const setting = getStartDelaySetting();
+    if (setting.mode === 'instant') return 0;
+    if (setting.mode === 'random') return 1000 + Math.random() * 4000;
+    return setting.seconds * 1000;
+};
+
+// AI-modified (Claude): shows the countdown beside the Stop button (targets.html
+// #startCountdown, seconds to 2 decimals) and resolves true when it reaches zero, or false if it
+// is cancelled (Stop, Escape, or the page being hidden, e.g. the phone locking). Nothing is sent
+// to the controller during it. While it runs, Stop is enabled and Start is disabled.
+let cancelStartCountdown = null;
+
+const startCountdown = (label) => new Promise((resolve) => {
+    const countdown = document.getElementById('startCountdown');
+    const delayMs = pickStartDelayMs();
+    if (!countdown || delayMs <= 0) {
+        resolve(true);
+        return;
+    }
+    const number = document.getElementById('startCountdownNumber');
+    countdown.setAttribute('aria-label', label);
+    countdown.title = label;
+    const endsAt = Date.now() + delayMs;
+    let timer;
+
+    const finish = (go) => {
+        clearInterval(timer);
+        countdown.hidden = true;
+        document.removeEventListener('keydown', onKey);
+        cancelStartCountdown = null;
+        resolve(go);
+    };
+    const onKey = (event) => {
+        if (event.key === 'Escape') finish(false);
+    };
+    const tick = () => {
+        const remaining = endsAt - Date.now();
+        if (remaining <= 0) {
+            finish(true);
+            return;
+        }
+        number.textContent = (remaining / 1000).toFixed(2);
+    };
+
+    cancelStartCountdown = () => finish(false);
+    document.addEventListener('keydown', onKey);
+    countdown.hidden = false;
+    tick();
+    timer = setInterval(tick, 20);
+    updateDrillStatus(); // enable Stop (it cancels the countdown), lock Start
+});
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') cancelStartCountdown?.();
+});
+
 // AI-generated (Claude): a "full drill" is a composite whose sequence runs other drills by
 // name (e.g. "Pistol Qual Full Drill"); everything else is a single stage.
 const basicDrillActions = new Set(['present', 'hide', 'pause', 'delay']);
@@ -309,14 +383,15 @@ const updateDrillStatus = () => {
 
     // Start doubles as Resume while the controller is paused (operator pause or a "pause" step).
     if (startDrillLabel) startDrillLabel.textContent = state === 'paused' ? 'Resume drill' : 'Start drill';
+    const countingDown = Boolean(cancelStartCountdown);
     if (startDrillButton) {
-        startDrillButton.disabled = !status || manualMode || stopped
+        startDrillButton.disabled = !status || manualMode || stopped || countingDown
             || (state === 'paused' ? false : drillActive || !drillSelect?.value);
     }
-    if (pauseDrillButton) pauseDrillButton.disabled = state !== 'running';
-    if (stopDrillButton) stopDrillButton.disabled = !drillActive || stopped;
+    if (pauseDrillButton) pauseDrillButton.disabled = state !== 'running' || countingDown;
+    if (stopDrillButton) stopDrillButton.disabled = !(drillActive || countingDown) || stopped;
     if (resetTargetsButton) resetTargetsButton.hidden = !stopped;
-    if (drillSelect) drillSelect.disabled = manualMode || drillActive || stopped;
+    if (drillSelect) drillSelect.disabled = manualMode || drillActive || stopped || countingDown;
 };
 
 if (drillStatus) {
@@ -416,6 +491,12 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             if (manualMode) return;
             // While the controller is paused (operator pause or a "pause" step) this is Resume.
             if (controllerStatus?.state === 'paused') {
+                // AI-modified (Claude): start delay countdown before resuming (cancellable)
+                startDrillButton.disabled = true;
+                if (!(await startCountdown(`Resuming ${controllerStatus.drillName || 'drill'}`))) {
+                    updateDrillStatus();
+                    return;
+                }
                 try {
                     await postToController('/api/drill/resume');
                     drillLaunchMessage.hidden = true;
@@ -462,6 +543,11 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         const runDrillOnTargets = async (drillId, availableTargets) => {
             const drill = targetAssignmentDrills[drillId];
             startDrillButton.disabled = true;
+            // AI-modified (Claude): start delay countdown first; Cancel sends nothing
+            if (!(await startCountdown(`Starting ${drill.name || drill.drillName}`))) {
+                updateDrillStatus();
+                return;
+            }
             try {
                 await postToController('/api/drill/start', {
                     drillName: drill.name || drill.drillName,
@@ -558,6 +644,13 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         // where it is (the controller never moves a target on Stop) and latches until Reset,
         // which hides them all.
         document.getElementById('stopDrillButton')?.addEventListener('click', async () => {
+            if (cancelStartCountdown) {
+                cancelStartCountdown();
+                if (!controllerStatus || controllerStatus.state === 'idle') {
+                    showLaunchMessage('Start cancelled.');
+                    return;
+                }
+            }
             try {
                 await postToController('/api/stop');
                 showLaunchMessage('Drill stopped. Targets are frozen where they are; press Reset to hide them.');
