@@ -59,6 +59,11 @@
                     <i class="bi bi-pause-fill" aria-hidden="true"></i>
                     Pause
                 </button>
+                <!-- Replay the paused stage without ending the drill (AI-assisted with Codex). -->
+                <button class="btn btn-outline-secondary" id="resetStageButton" type="button" aria-describedby="resetStageHint" disabled>
+                    <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+                    Reset stage
+                </button>
                 <!-- AI-generated (Claude): stop button for the active drill. -->
                 <button class="btn btn-danger" id="stopDrillButton" type="button" aria-label="Stop drill" title="Stop drill" disabled>
                     <i class="bi bi-stop-fill" aria-hidden="true"></i>
@@ -78,6 +83,8 @@
                     Reset
                 </button>
             </div>
+            <!-- Show which stage will replay and when it is ready (AI-assisted with Codex). -->
+            <p class="small text-muted mb-0" id="resetStageHint" aria-live="polite" hidden></p>
             <!-- AI-generated (Claude): drill timer. Time left in the delay step being run, shown only
                  while a drill is running or paused. script.js drives it from /api/drill/status. -->
             <div class="drill-timer" id="drillTimer" role="timer" hidden>
@@ -232,7 +239,8 @@
 
     <!-- Bootstrap JS -->
     <script src="vendor/bootstrap.bundle.min.js"></script>
-    <script src="script.js"></script>
+    <!-- Fetch the updated drill controls when this page reloads (AI-assisted with Codex). -->
+    <script src="script.js?v=stage-controls-2"></script>
 
 </body>
 </html>

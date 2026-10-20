@@ -303,8 +303,23 @@ static void handlePauseDrill(AsyncWebServerRequest* request) {
 
 // POST /api/drill/resume
 static void handleResumeDrill(AsyncWebServerRequest* request) {
-    if (!resumeDrill()) return sendError(request, 409, "No drill is paused");
+    // Resume is unavailable until the stage reset finishes (AI-assisted with Codex).
+    if (!resumeDrill()) return sendError(request, 409, "No paused drill is ready to resume");
     sendOk(request);
+}
+
+// POST /api/drill/reset-stage: rewind the stage and wait for Resume (AI-assisted with Codex).
+// Acceptance is asynchronous; status reports stageResetPending until the hide/rewind completes.
+static void handleResetStage(AsyncWebServerRequest* request) {
+    switch (resetDrillStage()) {
+        case StageResetResult::Accepted:    return sendOk(request);
+        case StageResetResult::NotPaused:   return sendError(request, 409, "Pause the full drill before resetting a stage");
+        case StageResetResult::NoStage:     return sendError(request, 409, "No full-drill stage is available to reset");
+        case StageResetResult::Busy:        return sendError(request, 409, "A stage reset or Resume is already pending");
+        case StageResetResult::Stopped:     return sendError(request, 409, "Targets are stopped; press Reset first");
+        case StageResetResult::HalNotReady: return sendError(request, 503, "Target hardware is not ready");
+    }
+    sendError(request, 500, "Unknown error");
 }
 
 // POST /api/stop   EMERGENCY STOP: freeze every target where it is. Always allowed, with or
@@ -348,6 +363,13 @@ static void handleDrillStatus(AsyncWebServerRequest* request) {
     // AI-generated (Claude): the delay step being run (both 0 if it isn't a delay)
     doc["delayMs"] = status.delayMs;
     doc["delayRemainingMs"] = status.delayRemainingMs;
+    // Use the running drill's stage and replay state (AI-assisted with Codex).
+    doc["stageName"] = status.stageName;
+    doc["stageIndex"] = status.stageIndex;
+    doc["betweenStages"] = status.betweenStages;
+    doc["canResetStage"] = status.canResetStage && hal_isReady();
+    doc["stageResetPending"] = status.stageResetPending;
+    doc["stageRestartReady"] = status.stageRestartReady;
     sendJson(request, 200, doc);
 }
 
@@ -409,6 +431,7 @@ void registerApiRoutes(AsyncWebServer& server) {
     onJsonBody(server, "/api/drill/start", HTTP_POST, handleStartDrill);
     server.on("/api/drill/pause", HTTP_POST, handlePauseDrill);
     server.on("/api/drill/resume", HTTP_POST, handleResumeDrill);
+    server.on("/api/drill/reset-stage", HTTP_POST, handleResetStage);
     server.on("/api/drill/status", HTTP_GET, handleDrillStatus);
 
     // Manual target control (before /api/targets)
