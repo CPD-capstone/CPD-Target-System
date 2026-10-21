@@ -1,3 +1,18 @@
+// ============================================================================
+// TEMPORARY CONTROLLER BYPASS FOR WEBPAGE TESTING (AI-ASSISTED WITH CODEX).
+// ENABLE ON LOCALHOST WITH ?test=1. REMOVE THIS BLOCK AND controller-test.js
+// AFTER TESTING; REPLACE controllerFetch CALLS BELOW WITH fetch.
+// ============================================================================
+const controllerTestMode = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
+    && new URLSearchParams(location.search).get('test') === '1';
+const controllerTest = controllerTestMode
+    ? import('./controller-test.js').then((module) => module.createControllerTest())
+    : null;
+const controllerFetch = async (...args) => controllerTest
+    ? (await controllerTest)(...args)
+    : fetch(...args);
+// END TEMPORARY CONTROLLER BYPASS.
+
 const drillStatus = document.getElementById('drillStatus');
 // AI-generated (Claude): the text inside the status bar.
 const drillStatusText = document.getElementById('drillStatusText') || drillStatus;
@@ -51,16 +66,23 @@ let targetAssignmentDrills = {};
 // controllerStatus = last reply ({state, drillName, step, stepCount, stepAction, targets,
 // lastOutcome, stopped, hardwareReady, facing}), or null if the controller can't be reached.
 let controllerStatus = null;
+// Keep this phone's Reset and Resume requests in order; leave Stop available (AI-assisted with Codex).
+let stageControlRequestPending = false;
 const controllerStatusListeners = [];
 let drillStatusTimer = null;
 
 const pollDrillStatus = async () => {
     clearTimeout(drillStatusTimer);
     try {
-        const response = await fetch('/api/drill/status', { cache: 'no-store' });
+        const response = await controllerFetch('/api/drill/status', { cache: 'no-store' });
         controllerStatus = response.ok ? await response.json() : null;
     } catch {
         controllerStatus = null;
+    }
+    // An active drill takes precedence over a saved manual-mode preference (AI-assisted with Codex).
+    if (manualMode && ['running', 'paused'].includes(controllerStatus?.state)) {
+        manualMode = false;
+        localStorage.removeItem(manualModeStorageKey);
     }
     controllerStatusListeners.forEach((listener) => listener(controllerStatus));
     const drillActive = controllerStatus && controllerStatus.state !== 'idle';
@@ -73,7 +95,7 @@ const pollDrillStatus = async () => {
 const postToController = async (path, body, method = 'POST') => {
     let response;
     try {
-        response = await fetch(path, body === undefined
+        response = await controllerFetch(path, body === undefined
             ? { method }
             : { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     } catch {
@@ -224,46 +246,13 @@ const saveTargetCardStatus = (targetCard) => {
     saveTargetStatus(status);
 };
 
-// AI-generated (Claude): names the stage of a full drill for the status bar. The controller
-// flattens a drill into steps (expandDrill() in target_manager.cpp): each present/hide/pause/
-// delay is one step and a step naming another drill is expanded in place, up to 4 drills deep.
-// This mirrors that on database.json, so step N of a full drill maps back to the stage (the
-// drill named at the top level) it belongs to.
-let statusDrills = null; // drills array from database.json, once loaded
 const maxDrillNesting = 4; // MAX_NESTING_DEPTH in target_manager.cpp
 
-const findStatusDrill = (name) => statusDrills?.find((drill) => drill?.drillName === name);
-
-const countDrillSteps = (name, depth) => {
-    const drill = findStatusDrill(name);
-    if (!drill || depth > maxDrillNesting) return 0;
-    return (Array.isArray(drill.sequence) ? drill.sequence : []).reduce((count, step) => (
-        count + (basicDrillActions.has(step?.action) ? 1 : countDrillSteps(step?.action, depth + 1))
-    ), 0);
-};
-
-// Returns {stage, between} for step (1-based) of drillName, or null for a single-stage drill.
-// between = the step sits between stages (e.g. the pause before the next one); stage is then
-// the stage that comes next.
+// Keep the existing stage description shape, using controller status (AI-assisted with Codex).
 const describeDrillStage = (drillName, step) => {
-    const drill = findStatusDrill(drillName);
-    if (!drill || !step) return null;
-    const stages = [];
-    let nextStep = 1;
-    (Array.isArray(drill.sequence) ? drill.sequence : []).forEach((entry) => {
-        if (basicDrillActions.has(entry?.action)) {
-            nextStep += 1;
-            return;
-        }
-        const count = countDrillSteps(entry?.action, 2);
-        stages.push({ name: entry.action, first: nextStep, last: nextStep + count - 1 });
-        nextStep += count;
-    });
-    if (!stages.length) return null;
-    const current = stages.find((stage) => step >= stage.first && step <= stage.last);
-    if (current) return { stage: current.name, between: false };
-    const upcoming = stages.find((stage) => stage.first > step);
-    return upcoming ? { stage: upcoming.name, between: true } : null;
+    const status = controllerStatus;
+    if (!status?.stageName || status.drillName !== drillName || status.step !== step) return null;
+    return { stage: status.stageName, between: status.betweenStages };
 };
 
 // AI-modified (Claude): draws the status bar (every page) and, on the Targets page, the drill
@@ -289,14 +278,15 @@ const updateDrillStatus = () => {
         setStatusBarStyle('active');
         setDrillStatusText('Stopped: targets frozen. Press Reset to hide them');
     } else if (state === 'paused') {
-        // AI-modified (Claude): name the stage (full drills) instead of a step number
+        // Use the running drill's stage name, including after refresh (AI-assisted with Codex).
         const stageInfo = describeDrillStage(status.drillName, status.step);
         setStatusBarStyle('active');
-        setDrillStatusText(!stageInfo
-            ? `${drillName} paused. Press Resume`
-            : stageInfo.between
-                ? `${drillName} paused before ${stageInfo.stage}. Press Resume`
-                : `${drillName}: ${stageInfo.stage} paused. Press Resume`);
+        const stage = stageInfo ? `${drillName}: ${stageInfo.stage}` : drillName;
+        let message = `${stage} paused. Press Resume`;
+        if (status.stageResetPending) message = `${stage} resetting. Hiding targets`;
+        else if (status.stageRestartReady) message = `${stage} reset. Press Resume to replay`;
+        else if (stageInfo?.between) message = `${stage} complete. Resume continues; Reset stage replays it`;
+        setDrillStatusText(message);
     } else if (state === 'running') {
         const stageInfo = describeDrillStage(status.drillName, status.step);
         setStatusBarStyle('active');
@@ -318,6 +308,7 @@ const updateDrillStatus = () => {
     const pauseDrillButton = document.getElementById('pauseDrillButton');
     const stopDrillButton = document.getElementById('stopDrillButton');
     const resetTargetsButton = document.getElementById('resetTargetsButton');
+    const resetStageButton = document.getElementById('resetStageButton');
     const drillSelect = document.getElementById('drillSelect');
 
     // AI-generated (Claude): manual mode button, and target taps unlocked only in manual mode.
@@ -341,29 +332,41 @@ const updateDrillStatus = () => {
     // Start doubles as Resume while the controller is paused (operator pause or a "pause" step).
     if (startDrillLabel) startDrillLabel.textContent = state === 'paused' ? 'Resume drill' : 'Start drill';
     const countingDown = Boolean(cancelStartCountdown);
+    // Lock Reset and Resume together without blocking Stop (AI-assisted with Codex).
+    const stageControlsLocked = !status?.hardwareReady || manualMode || stopped || countingDown
+        || stageControlRequestPending || Boolean(status?.stageResetPending);
     if (startDrillButton) {
-        startDrillButton.disabled = !status || manualMode || stopped || countingDown
+        startDrillButton.disabled = stageControlsLocked
             || (state === 'paused' ? false : drillActive || !drillSelect?.value);
     }
-    if (pauseDrillButton) pauseDrillButton.disabled = state !== 'running' || countingDown;
+    // Keep Pause available for a running drill and make available controls distinct (AI-assisted with Codex).
+    if (pauseDrillButton) {
+        pauseDrillButton.disabled = state !== 'running' || stopped;
+        pauseDrillButton.classList.toggle('btn-primary', !pauseDrillButton.disabled);
+        pauseDrillButton.classList.toggle('btn-outline-secondary', pauseDrillButton.disabled);
+    }
     if (stopDrillButton) stopDrillButton.disabled = !(drillActive || countingDown) || stopped;
     if (resetTargetsButton) resetTargetsButton.hidden = !stopped;
+    if (resetStageButton) {
+        resetStageButton.disabled = stageControlsLocked || !status?.canResetStage;
+        resetStageButton.classList.toggle('btn-warning', !resetStageButton.disabled);
+        resetStageButton.classList.toggle('btn-outline-secondary', resetStageButton.disabled);
+    }
+    const resetStageHint = document.getElementById('resetStageHint');
+    if (resetStageHint) {
+        resetStageHint.hidden = !status?.stageName || state !== 'paused' || stopped || !status.hardwareReady;
+        resetStageHint.textContent = status?.stageResetPending
+            ? 'Hiding targets. Wait for Resume to become available.'
+            : status?.stageRestartReady
+                ? 'Stage is ready to replay. Press Resume.'
+                : `Reset ${status?.stageName} (stage ${status?.stageIndex}), hide the drill targets, and wait for Resume.`;
+    }
     if (drillSelect) drillSelect.disabled = manualMode || drillActive || stopped || countingDown;
 };
 
 if (drillStatus) {
     controllerStatusListeners.push(updateDrillStatus);
     pollDrillStatus();
-    // AI-generated (Claude): drill list for stage names in the status bar
-    fetch('database.json', { cache: 'no-store' })
-        .then((response) => response.json())
-        .then((payload) => {
-            statusDrills = Array.isArray(payload?.drills) ? payload.drills : [];
-            updateDrillStatus();
-        })
-        .catch(() => {
-            // not on the controller: the bar just shows the drill name
-        });
     // Captive-portal browsers suspend the page; refresh as soon as it is visible again.
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') pollDrillStatus();
@@ -482,6 +485,25 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             drillLaunchMessage.hidden = false;
         };
 
+        // Send paused drill commands through one request path (AI-assisted with Codex).
+        const sendPausedDrillCommand = async (path, countdownLabel) => {
+            if (stageControlRequestPending || cancelStartCountdown || manualMode
+                || controllerStatus?.state !== 'paused' || controllerStatus.stopped) return;
+            stageControlRequestPending = true;
+            updateDrillStatus();
+            try {
+                if (countdownLabel && !(await startCountdown(countdownLabel))) return;
+                await postToController(path);
+                drillLaunchMessage.hidden = true;
+            } catch (error) {
+                showLaunchMessage(error.message);
+            } finally {
+                await pollDrillStatus();
+                stageControlRequestPending = false;
+                updateDrillStatus();
+            }
+        };
+
         drillSelect.addEventListener('change', () => {
             drillLaunchMessage.hidden = true;
             drillLaunchMessage.textContent = '';
@@ -489,23 +511,10 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         });
 
         startDrillButton.addEventListener('click', async () => {
-            if (manualMode) return;
+            if (manualMode || stageControlRequestPending || controllerStatus?.stageResetPending) return;
             // While the controller is paused (operator pause or a "pause" step) this is Resume.
             if (controllerStatus?.state === 'paused') {
-                // AI-modified (Claude): start delay countdown before resuming (cancellable)
-                startDrillButton.disabled = true;
-                if (!(await startCountdown(`Resuming ${controllerStatus.drillName || 'drill'}`))) {
-                    updateDrillStatus();
-                    return;
-                }
-                try {
-                    await postToController('/api/drill/resume');
-                    drillLaunchMessage.hidden = true;
-                } catch (error) {
-                    showLaunchMessage(error.message);
-                }
-                pollDrillStatus();
-                return;
+                return sendPausedDrillCommand('/api/drill/resume', `Resuming ${controllerStatus.drillName || 'drill'}`);
             }
 
             const drillId = drillSelect.value;
@@ -615,7 +624,8 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             bootstrapModal.getOrCreateInstance(pickerModalElement).show();
         };
 
-        document.getElementById('drillTargetPickerStart')?.addEventListener('click', () => {
+        const pickerStartButton = document.getElementById('drillTargetPickerStart');
+        pickerStartButton?.addEventListener('click', () => {
             const selectedTargets = Array.from(
                 pickerList.querySelectorAll('input[type="checkbox"]:checked'),
                 (box) => Number(box.value)
@@ -625,13 +635,23 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
                 pickerError.hidden = false;
                 return;
             }
-            bootstrapModal.getInstance(pickerModalElement)?.hide();
-            if (pickerDrillId && !manualMode) {
-                runDrillOnTargets(pickerDrillId, selectedTargets);
-            }
+            // Close the picker fully before starting so its backdrop cannot block Pause (AI-assisted with Codex).
+            pickerStartButton.disabled = true;
+            const hidePicker = () => bootstrapModal.getInstance(pickerModalElement)?.hide();
+            pickerModalElement.addEventListener('shown.bs.modal', hidePicker, { once: true });
+            pickerModalElement.addEventListener('hidden.bs.modal', () => {
+                pickerModalElement.removeEventListener('shown.bs.modal', hidePicker);
+                pickerStartButton.disabled = false;
+                if (pickerDrillId && !manualMode) {
+                    runDrillOnTargets(pickerDrillId, selectedTargets);
+                }
+            }, { once: true });
+            hidePicker();
         });
 
         pauseDrillButton.addEventListener('click', async () => {
+            // Cancel a pending Start/Resume before pausing an already running drill (AI-assisted with Codex).
+            cancelStartCountdown?.();
             try {
                 await postToController('/api/drill/pause');
             } catch (error) {
@@ -639,6 +659,10 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             }
             pollDrillStatus();
         });
+
+        // Polling reports when the stage is ready to replay (AI-assisted with Codex).
+        document.getElementById('resetStageButton')?.addEventListener('click', () =>
+            sendPausedDrillCommand('/api/drill/reset-stage'));
 
         // AI-generated (Claude): turns every raised (red) target back to green.
         const hideAllTargets = () => {
@@ -901,7 +925,8 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
                 drillLaunchMessage.textContent = `${status.drillName} complete.`;
                 drillLaunchMessage.hidden = false;
             } else if (status.lastOutcome === 'failed') {
-                drillLaunchMessage.textContent = `${status.drillName} failed; its targets were hidden.`;
+                // A failed run may also have failed to hide its targets (AI-assisted with Codex).
+                drillLaunchMessage.textContent = `${status.drillName} failed. Check target positions before continuing.`;
                 drillLaunchMessage.hidden = false;
             }
         }
@@ -947,7 +972,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
 };
 
 if (targetGrid) {
-    fetch('database.json', { cache: 'no-store' })
+    controllerFetch('database.json', { cache: 'no-store' })
         .then((response) => response.json())
         .then((payload) => {
             const targets = Array.isArray(payload?.targets) ? payload.targets : [];
@@ -1336,7 +1361,7 @@ if (document.getElementById('performanceRows')) {
     // Also fills the Add scores officer list (value = badge number). Officers come from the
     // controller's API (GET /api/officers?today=...), which adds Isaac's 12-month stats; the ESP32
     // has no clock, so this phone supplies today's date.
-    const loadPerformanceData = () => fetch(`/api/officers?today=${localDateString()}`, { cache: 'no-store' })
+    const loadPerformanceData = () => controllerFetch(`/api/officers?today=${localDateString()}`, { cache: 'no-store' })
         .then((response) => {
             if (!response.ok) {
                 throw new Error('Unable to load qualification records.');
@@ -1770,7 +1795,7 @@ if (document.getElementById('drillList')) {
 
     const loadDrills = async () => {
         try {
-            const response = await fetch('/api/drills', { cache: 'no-store' });
+            const response = await controllerFetch('/api/drills', { cache: 'no-store' });
             if (!response.ok) throw new Error('bad response');
             const payload = await response.json();
             drills = (Array.isArray(payload) ? payload : [])
@@ -1914,7 +1939,7 @@ if (defectiveTargetList) {
 
     const loadDefectiveTargets = async () => {
         try {
-            const response = await fetch('/api/targets', { cache: 'no-store' });
+            const response = await controllerFetch('/api/targets', { cache: 'no-store' });
             if (!response.ok) throw new Error('bad response');
             const targets = (await response.json() || [])
                 .filter((target) => Number.isInteger(Number(target?.id)))
@@ -2046,7 +2071,7 @@ if (officerList) {
 
     const loadOfficers = async () => {
         try {
-            const response = await fetch(`/api/officers?today=${localDateString()}`, { cache: 'no-store' });
+            const response = await controllerFetch(`/api/officers?today=${localDateString()}`, { cache: 'no-store' });
             if (!response.ok) throw new Error('bad response');
             const officers = (await response.json() || [])
                 .filter((officer) => Number.isInteger(Number(officer?.BadgeNum)))
