@@ -33,9 +33,12 @@
 //   POST   /api/drill/start      {drillName, targets?}  -> executeDrill
 //   POST   /api/drill/pause                             -> pauseDrill (freezes the drill clock)
 //   POST   /api/drill/resume                            -> resumeDrill (after a pause or pause step)
+//   POST   /api/drill/reset-stage                       -> resetDrillStage (paused full drills; AI-assisted with Codex)
 //   GET    /api/drill/status     -> {state, drillName, step, stepCount, stepAction, targets,
 //                                    lastOutcome, stopped, hardwareReady, facing,
 //                                    delayMs, delayRemainingMs}  (delay step length / time left)
+//   Stage status fields (AI-assisted with Codex): stageName, stageIndex, betweenStages, canResetStage, stageResetPending,
+//   stageRestartReady (see DrillStatus). Reset accepts asynchronously; hardware failure ends the drill.
 //   POST   /api/targets/present  {targets?}             -> setTargets(.., true)  (refused mid-drill/stopped)
 //   POST   /api/targets/hide     {targets?}             -> setTargets(.., false) (refused mid-drill/stopped)
 //   GET    /api/targets/state    -> {facing: [n, ...]}
