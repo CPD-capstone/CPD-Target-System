@@ -1245,6 +1245,8 @@ if (document.getElementById('performanceRows')) {
     const addScoresError = document.getElementById('addScoresError');
     const scoreOfficerSelect = document.getElementById('scoreOfficer');
     const scoreEntries = document.getElementById('scoreEntries');
+    const scoreEntryRemoveButtons = document.getElementById('scoreEntryRemoveButtons');
+    const removeScoreEntryTemplate = document.getElementById('removeScoreEntryTemplate');
     const saveScoresButton = document.getElementById('saveScoresButton');
 
     const getTodayDate = () => {
@@ -1277,17 +1279,22 @@ if (document.getElementById('performanceRows')) {
             const scoreInput = entry.querySelector('.score-entry-value');
             const dateInput = entry.querySelector('.score-entry-date');
             const scoreLabel = entry.querySelector('.score-entry-label');
-            const removeButton = entry.querySelector('.remove-score-entry');
             scoreInput.id = `scoreValue${scoreNumber}`;
             scoreInput.setAttribute('aria-label', `Score ${scoreNumber}`);
             scoreLabel.htmlFor = scoreInput.id;
             scoreLabel.textContent = `Score ${scoreNumber}`;
             dateInput.id = `scoreDate${scoreNumber}`;
             dateInput.setAttribute('aria-label', `Date for score ${scoreNumber}`);
-            removeButton.disabled = entries.length === 1;
-            removeButton.setAttribute('aria-label', `Remove score ${scoreNumber}`);
         });
+        scoreEntryRemoveButtons.replaceChildren(...Array.from(entries, (_, index) => {
+            const removeButton = removeScoreEntryTemplate.content.firstElementChild.cloneNode(true);
+            removeButton.dataset.scoreIndex = String(index);
+            removeButton.disabled = entries.length === 1;
+            removeButton.setAttribute('aria-label', `Remove score ${index + 1}`);
+            return removeButton;
+        }));
     };
+    updateScoreEntryLabels();
 
     document.getElementById('addScoreEntry').addEventListener('click', () => {
         const entry = scoreEntries.querySelector('.score-entry').cloneNode(true);
@@ -1298,11 +1305,12 @@ if (document.getElementById('performanceRows')) {
         entry.querySelector('.score-entry-value').focus();
     });
 
-    // One listener for every row's remove button (rows are cloned)
-    scoreEntries.addEventListener('click', (event) => {
+    scoreEntryRemoveButtons.addEventListener('click', (event) => {
         const removeButton = event.target.closest('.remove-score-entry');
-        if (!removeButton || scoreEntries.querySelectorAll('.score-entry').length <= 1) return;
-        removeButton.closest('.score-entry').remove();
+        const entries = scoreEntries.querySelectorAll('.score-entry');
+        const entry = entries[Number(removeButton?.dataset.scoreIndex)];
+        if (!entry || entries.length <= 1) return;
+        entry.remove();
         updateScoreEntryLabels();
     });
 
