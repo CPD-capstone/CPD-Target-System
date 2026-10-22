@@ -525,7 +525,7 @@
 
 .score-entry {
     display: grid;
-    grid-template-columns: minmax(5rem, 0.3fr) minmax(7rem, 0.7fr) minmax(10rem, 1fr) auto;
+    grid-template-columns: minmax(5rem, 0.3fr) minmax(7rem, 0.7fr) minmax(10rem, 1fr);
     align-items: center;
     gap: 0.65rem;
 }
@@ -538,6 +538,13 @@
 .remove-score-entry {
     min-width: 2.65rem;
     min-height: 2.65rem;
+    flex: 0 0 auto;
+}
+
+.score-entry-remove-buttons {
+    display: flex;
+    gap: 0.4rem;
+    margin-left: auto;
 }
 
 .add-scores-error {
@@ -557,8 +564,9 @@
 
 .add-scores-buttons {
     display: flex;
+    width: 100%;
     flex-wrap: wrap;
-    justify-content: flex-end;
+    align-items: center;
     gap: 0.65rem;
 }
 
@@ -568,7 +576,7 @@
     }
 
     .score-entry {
-        grid-template-columns: minmax(4rem, 0.3fr) minmax(6rem, 0.7fr) minmax(8rem, 1fr) auto;
+        grid-template-columns: minmax(4rem, 0.3fr) minmax(6rem, 0.7fr) minmax(8rem, 1fr);
         gap: 0.4rem;
     }
 
@@ -607,9 +615,8 @@
         grid-row: 2;
     }
 
-    .remove-score-entry {
-        grid-column: 2;
-        grid-row: 2;
+    .score-entry-remove-buttons {
+        margin-left: auto;
     }
 }
 
