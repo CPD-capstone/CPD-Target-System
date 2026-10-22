@@ -380,6 +380,8 @@ const drillTimer = document.getElementById('drillTimer');
 if (drillTimer) {
     const timerLabel = document.getElementById('drillTimerLabel');
     const timerValue = document.getElementById('drillTimerValue');
+    const timerIcon = document.getElementById('drillTimerIcon');
+    const timerValueDisplay = timerValue.parentElement;
     let timerSync = null;   // {remainingMs, at} from the last poll, while a delay step runs
     let timerTicker = null;
 
@@ -390,18 +392,22 @@ if (drillTimer) {
         if (!active) return;
 
         const paused = status.state === 'paused';
+        drillTimer.classList.toggle('is-paused', paused);
+        timerIcon.hidden = !paused;
         const drillTargets = new Set((status.targets || []).map(Number));
         const targetsUp = (status.facing || []).some((number) => drillTargets.has(Number(number)));
         if (timerSync) {
+            timerValueDisplay.hidden = false;
             const left = paused
                 ? timerSync.remainingMs
                 : Math.max(0, timerSync.remainingMs - (performance.now() - timerSync.at));
             timerValue.textContent = (left / 1000).toFixed(2);
-            timerLabel.textContent = `${paused ? 'Paused: ' : ''}Targets ${targetsUp ? 'up' : 'down'}`;
+            timerLabel.textContent = paused ? 'Paused at' : `Targets ${targetsUp ? 'up' : 'down'}`;
         } else {
             timerValue.textContent = '--';
+            timerValueDisplay.hidden = paused;
             timerLabel.textContent = paused
-                ? 'Waiting for Resume'
+                ? 'Paused · waiting for Resume'
                 : status.stepAction === 'present' ? 'Targets turning' : 'Next step';
         }
     };

@@ -510,13 +510,23 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
 .drill-timer {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 1rem;
     margin-top: 0.75rem;
     padding: 0.4rem 1rem;
     border-radius: 0.5rem;
     background: #212529;
     color: #ffffff;
+}
+
+.drill-timer.is-paused {
+    border: 1px solid #ffda6a;
+    background: #ffe69c;
+    color: #664d03;
+}
+
+.drill-timer.is-paused .drill-timer-value {
+    margin-left: auto;
 }
 
 .drill-timer-label {
