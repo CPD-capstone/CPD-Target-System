@@ -30,12 +30,11 @@
     flex: 1 0 auto;
 }
 
-/* AI-modified (Claude): status banner at the top of every page. Static, centered text that
-   wraps onto a second line when long (it used to scroll, which was hard to read). */
+/* AI-modified: use a readable system font for the shared status banner. */
 .drill-status-bar {
     padding: 0.6rem 1rem;
     border-bottom: 4px solid var(--bs-secondary);
-    font-family: 'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', sans-serif;
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
     font-size: clamp(1.35rem, 4.5vw, 2.25rem);
     font-weight: 700;
     line-height: 1.15;
