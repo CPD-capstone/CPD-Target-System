@@ -607,14 +607,15 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
     touch-action: manipulation;
 }
 
+/* AI-modified: use distinct action colors in the drill palette and sequence cards. */
 .seq-palette-block--present,
-.seq-block--present { --seq-color: #198754; --seq-tint: #e8f5ee; }
+.seq-block--present { --seq-color: #146c43; --seq-tint: #e7f1eb; }
 .seq-palette-block--delay,
-.seq-block--delay { --seq-color: #0d6efd; --seq-tint: #e7f1ff; }
+.seq-block--delay { --seq-color: #495057; --seq-tint: #e2e3e5; }
 .seq-palette-block--hide,
-.seq-block--hide { --seq-color: #6f42c1; --seq-tint: #f1ecfa; }
+.seq-block--hide { --seq-color: #dc3545; --seq-tint: #f8e8ea; }
 .seq-palette-block--pause,
-.seq-block--pause { --seq-color: #b35c00; --seq-tint: #fff3e6; }
+.seq-block--pause { --seq-color: #997404; --seq-tint: #fff3cd; }
 .seq-block--drill { --seq-color: #495057; --seq-tint: #f1f3f5; }
 
 .seq-palette-block {
