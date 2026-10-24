@@ -22,7 +22,7 @@
     <link rel="stylesheet" href="vendor/bootstrap-icons.min.css">
     <link rel="stylesheet" href="vendor/barlow-condensed.css">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="performance.css?v=score-remove-toolbar-2">
+    <link rel="stylesheet" href="performance.css?v=score-entry-rows-1">
 </head>
 <body class="performance-page">
     <!-- Match the title banner and menu placement used by the Drills page. -->
@@ -209,6 +209,9 @@
                             <input class="form-control score-entry-value" id="scoreValue1" type="number" min="0" step="1" inputmode="numeric" required>
                             <label class="visually-hidden" for="scoreDate1">Date for score 1</label>
                             <input class="form-control score-entry-date" id="scoreDate1" type="date" required>
+                            <button class="btn btn-outline-secondary remove-score-entry" type="button" aria-label="Remove score 1" disabled>
+                                <i class="bi bi-trash3" aria-hidden="true"></i>
+                            </button>
                         </div>
                     </div>
                     <p class="add-scores-error" id="addScoresError" role="alert" hidden></p>
@@ -219,14 +222,8 @@
                                 Add another score
                             </button>
                             <button class="btn btn-primary" type="submit" id="saveScoresButton" disabled>Save scores</button>
-                            <span class="score-entry-remove-buttons" id="scoreEntryRemoveButtons" role="group" aria-label="Remove score entries"></span>
                         </div>
                     </div>
-                    <template id="removeScoreEntryTemplate">
-                        <button class="btn btn-outline-secondary remove-score-entry" type="button">
-                            <i class="bi bi-trash3" aria-hidden="true"></i>
-                        </button>
-                    </template>
                 </form>
             </dialog>
         </section>
@@ -260,6 +257,6 @@
 
     <!-- Bootstrap provides the shared menu interaction. -->
     <script src="vendor/bootstrap.bundle.min.js"></script>
-    <script src="script.js?v=score-remove-toolbar-2"></script>
+    <script src="script.js?v=score-entry-rows-1"></script>
 </body>
 </html>
