@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- AI-generated (Claude): lets staff add the controller to the Home Screen (Share > Add to
+    <!-- Lets staff add the controller to the Home Screen (Share > Add to
          Home Screen); it then opens full-screen with no browser or captive-portal bars, and
          links between pages stay inside the app (manifest scope "/"). -->
     <link rel="manifest" href="manifest.json">
@@ -14,7 +14,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="theme-color" content="#0057b8">
     <title>Drills</title>
-    <!-- AI-modified (Claude): Bootstrap, Bootstrap Icons and the banner font are served from
+    <!-- Bootstrap, Bootstrap Icons and the banner font are served from
          data/vendor/ (LittleFS) instead of a CDN, because phones on the "CPD Range Control"
          access point have no internet. The .css/.js files are stored gzipped; serveStatic()
          sends the .gz automatically. -->
@@ -24,7 +24,7 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- AI-modified (Claude): drill status bar shared with the Targets page, so an active drill
+    <!-- Drill status bar shared with the Targets page, so an active drill
          stays visible on every page. script.js fills it from the saved drill state. -->
     <div id="drillStatus" class="drill-status-bar text-white bg-primary" style="--bs-primary-rgb: 0, 87, 184;" role="status" aria-live="polite">
         <span class="drill-status-text" id="drillStatusText">No drill in progress</span>
@@ -46,11 +46,11 @@
         </div>
         <div class="offcanvas-body">
             <div class="d-grid gap-2">
-                <!-- AI-modified (Claude): same menu on every page, current page highlighted. -->
+                <!-- Same menu on every page, current page highlighted. -->
                 <a class="btn btn-outline-primary text-start" href="targets.html">Targets</a>
                 <a class="btn btn-outline-primary text-start active" href="drills.html" aria-current="page">Drills</a>
                 <a class="btn btn-outline-primary text-start" href="Performance.html">Performance</a>
-                <!-- AI-generated (Claude): start delay and WiFi password settings. -->
+                <!-- Start delay and WiFi password settings. -->
                 <a class="btn btn-outline-primary text-start" href="settings.html">Settings</a>
             </div>
         </div>
@@ -68,7 +68,7 @@
             </button>
         </div>
 
-        <!-- AI-modified (Claude): filter between full drills, custom drills (made here) and the
+        <!-- Filter between full drills, custom drills (made here) and the
              built-in stages. -->
         <div class="btn-group mb-4" role="group" aria-label="Filter drills">
             <button class="btn btn-outline-primary drill-filter active" type="button" data-drill-filter="all" aria-pressed="true">All</button>
@@ -81,7 +81,7 @@
         <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4" id="drillList" aria-live="polite"></div>
     </main>
 
-    <!-- AI-generated (Claude): drill editor with the drag-and-drop sequence builder, used for both
+    <!-- Drill editor with the drag-and-drop sequence builder, used for both
          Create and Edit. Drills are saved on the controller (/api/drills). script.js drives it. -->
     <div class="modal fade" id="drillEditorModal" tabindex="-1" aria-labelledby="drillEditorTitle" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
@@ -104,6 +104,7 @@
                             <button type="button" class="seq-palette-block seq-palette-block--delay" data-block="delay"><i class="bi bi-stopwatch" aria-hidden="true"></i> Delay</button>
                             <button type="button" class="seq-palette-block seq-palette-block--hide" data-block="hide"><i class="bi bi-eye-slash-fill" aria-hidden="true"></i> Hide</button>
                             <button type="button" class="seq-palette-block seq-palette-block--pause" data-block="pause"><i class="bi bi-pause-circle" aria-hidden="true"></i> Pause</button>
+                            <button type="button" class="seq-palette-block seq-palette-block--drill" data-block="run-drill"><i class="bi bi-collection" aria-hidden="true"></i> Run drill</button>
                         </div>
                         <span class="form-label d-block mt-3 mb-1">Sequence</span>
                         <ol class="sequence-list" id="sequenceList" aria-label="Drill sequence"></ol>
@@ -147,7 +148,7 @@
 
     <!-- Bootstrap JS -->
     <script src="vendor/bootstrap.bundle.min.js"></script>
-    <!-- AI-generated (Claude): SortableJS 1.15.2 (MIT), vendored gzipped, for touch-friendly drag and drop -->
+    <!-- SortableJS 1.15.2 (MIT), vendored gzipped, for touch-friendly drag and drop -->
     <script src="vendor/sortable.min.js"></script>
     <script src="script.js"></script>
 </html>

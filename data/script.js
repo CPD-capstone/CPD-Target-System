@@ -1245,8 +1245,6 @@ if (document.getElementById('performanceRows')) {
     const addScoresError = document.getElementById('addScoresError');
     const scoreOfficerSelect = document.getElementById('scoreOfficer');
     const scoreEntries = document.getElementById('scoreEntries');
-    const scoreEntryRemoveButtons = document.getElementById('scoreEntryRemoveButtons');
-    const removeScoreEntryTemplate = document.getElementById('removeScoreEntryTemplate');
     const saveScoresButton = document.getElementById('saveScoresButton');
 
     const getTodayDate = () => {
@@ -1285,14 +1283,13 @@ if (document.getElementById('performanceRows')) {
             scoreLabel.textContent = `Score ${scoreNumber}`;
             dateInput.id = `scoreDate${scoreNumber}`;
             dateInput.setAttribute('aria-label', `Date for score ${scoreNumber}`);
-        });
-        scoreEntryRemoveButtons.replaceChildren(...Array.from(entries, (_, index) => {
-            const removeButton = removeScoreEntryTemplate.content.firstElementChild.cloneNode(true);
-            removeButton.dataset.scoreIndex = String(index);
+            const dateLabel = entry.querySelector('.visually-hidden');
+            dateLabel.htmlFor = dateInput.id;
+            dateLabel.textContent = `Date for score ${scoreNumber}`;
+            const removeButton = entry.querySelector('.remove-score-entry');
             removeButton.disabled = entries.length === 1;
-            removeButton.setAttribute('aria-label', `Remove score ${index + 1}`);
-            return removeButton;
-        }));
+            removeButton.setAttribute('aria-label', `Remove score ${scoreNumber}`);
+        });
     };
     updateScoreEntryLabels();
 
@@ -1305,10 +1302,10 @@ if (document.getElementById('performanceRows')) {
         entry.querySelector('.score-entry-value').focus();
     });
 
-    scoreEntryRemoveButtons.addEventListener('click', (event) => {
+    scoreEntries.addEventListener('click', (event) => {
         const removeButton = event.target.closest('.remove-score-entry');
+        const entry = removeButton?.closest('.score-entry');
         const entries = scoreEntries.querySelectorAll('.score-entry');
-        const entry = entries[Number(removeButton?.dataset.scoreIndex)];
         if (!entry || entries.length <= 1) return;
         entry.remove();
         updateScoreEntryLabels();
@@ -1413,12 +1410,12 @@ if (document.getElementById('performanceRows')) {
     loadPerformanceData();
 }
 
-// AI-modified (Claude): Drills page, rewritten. Drills live on the controller (database.json in
+// Drills live on the controller (database.json in
 // flash, so they survive a power cycle) and are read and changed through /api/drills. New and
 // edited drills are built with the drag-and-drop sequence builder: Present / Delay / Hide /
-// Pause blocks. A Present or Hide step moves "All targets" (every target chosen when the drill is
+// Pause / Run drill blocks. A Present or Hide step moves "All targets" (every target chosen when the drill is
 // started) or a custom list; a Delay is in seconds (decimals allowed, stored as whole ms).
-// Stages inside a full drill show as fixed "Run drill" steps, so editing a full drill keeps them.
+// Run drill blocks reference saved drills by name, including repeated uses of the same drill.
 if (document.getElementById('drillList')) {
     const drillList = document.getElementById('drillList');
     const drillListMessage = document.getElementById('drillListMessage');
@@ -1502,7 +1499,7 @@ if (document.getElementById('drillList')) {
         const body = block.querySelector('.seq-block-body');
 
         if (action === 'present' || action === 'hide') {
-            // AI-modified (Claude): Present also offers Random: that many targets, picked by the
+            // Present also offers Random: that many targets, picked by the
             // controller each time the step runs ("random": n)
             const chosen = new Set((Array.isArray(step.targets) ? step.targets : []).map(Number));
             const randomCount = action === 'present' && Number(step.random) > 0 ? Number(step.random) : 0;
@@ -1545,13 +1542,63 @@ if (document.getElementById('drillList')) {
         } else if (action === 'pause') {
             body.innerHTML = '<p class="seq-block-note">Waits until the operator presses Resume.</p>';
         } else {
-            body.innerHTML = '<p class="seq-block-note">Runs the drill <strong></strong>. Edit it on its own card.</p>';
-            body.querySelector('strong').textContent = action;
+            body.innerHTML = `
+                <label class="form-label small mb-1" for="${uid}-drill">Saved drill</label>
+                <select class="form-select form-select-sm seq-drill-select" id="${uid}-drill"></select>
+                <p class="seq-block-note mt-2">Runs the saved drill each time this step is reached. Changes to that drill also apply here.</p>`;
+            const select = body.querySelector('.seq-drill-select');
+            const choices = drills.filter((drill) => drill.drillName !== editingName);
+            select.append(new Option(choices.length ? 'Select a saved drill' : 'No other saved drills', ''));
+            choices.forEach((drill) => select.append(new Option(drill.drillName, drill.drillName)));
+            // Preserve a broken reference so Save reports it rather than silently replacing it.
+            if (action && !choices.some((drill) => drill.drillName === action)) {
+                const unavailable = new Option(`Unavailable drill: ${action}`, action);
+                unavailable.disabled = true;
+                select.append(unavailable);
+            }
+            select.value = action;
+            select.addEventListener('change', () => { block.dataset.action = select.value; });
         }
         return block;
     };
 
-    const defaultStep = (type) => (type === 'delay' ? { action: 'delay', timeMs: 3000 } : { action: type });
+    const defaultStep = (type) => type === 'run-drill'
+        ? { action: '' }
+        : type === 'delay' ? { action: 'delay', timeMs: 3000 } : { action: type };
+
+    // Check references using the pending sequence, including saved parents that reuse this drill.
+    const validateRunDrills = (name, steps) => {
+        const savedName = editingName ?? name;
+        const sequences = new Map(drills.map((drill) => [drill.drillName, drill.sequence]));
+        sequences.set(savedName, steps);
+        const affected = new Set([savedName]);
+        for (const child of affected) {
+            for (const [parent, sequence] of sequences) {
+                if (sequence?.some((step) => step.action === child)) affected.add(parent);
+            }
+        }
+        const check = (drillName, path = []) => {
+            if (path.includes(drillName)) {
+                return `Run drill blocks cannot create a loop: ${[...path, drillName].join(' → ')}.`;
+            }
+            if (path.length >= maxDrillNesting) {
+                return `Including "${drillName}" would exceed the ${maxDrillNesting}-level drill nesting limit.`;
+            }
+            const sequence = sequences.get(drillName);
+            if (!sequence?.length) return `Saved drill "${drillName}" is missing or empty.`;
+            for (const step of sequence) {
+                if (basicDrillActions.has(step.action)) continue;
+                const error = check(step.action, [...path, drillName]);
+                if (error) return error;
+            }
+            return '';
+        };
+        for (const drillName of affected) {
+            const error = check(drillName);
+            if (error) return error;
+        }
+        return '';
+    };
 
     // Step numbers, move-button state, and the summary line under the sequence.
     const refreshSequence = () => {
@@ -1587,13 +1634,13 @@ if (document.getElementById('drillList')) {
         if (!blocks.length) return { error: 'Add at least one block to the sequence.' };
         const steps = [];
         for (const [index, block] of blocks.entries()) {
-            const action = block.dataset.action;
+            const action = block.querySelector('.seq-drill-select')?.value ?? block.dataset.action;
             const label = `Step ${index + 1} (${block.querySelector('.seq-block-title').textContent})`;
             const step = { step: index + 1, action };
             if (action === 'present' || action === 'hide') {
                 const mode = block.querySelector('input[type="radio"]:checked')?.value;
                 if (mode === 'random') {
-                    // AI-generated (Claude): whole number from 1 to the number of targets
+                    // Whole number from 1 to the number of targets
                     const count = Number(block.querySelector('.seq-random-input').value);
                     if (!Number.isInteger(count) || count < 1 || count > targetCount) {
                         return { error: `${label}: enter how many random targets, from 1 to ${targetCount}.`, block };
@@ -1616,6 +1663,10 @@ if (document.getElementById('drillList')) {
                     return { error: `${label}: enter a time between 0.01 and 3600 seconds.`, block };
                 }
                 step.timeMs = timeMs;
+            } else if (!basicDrillActions.has(action)) {
+                if (!action || !drills.some((drill) => drill.drillName === action)) {
+                    return { error: `${label}: select an existing saved drill.`, block };
+                }
             }
             steps.push(step);
         }
@@ -1669,6 +1720,10 @@ if (document.getElementById('drillList')) {
             group: { name: 'drill-steps', pull: 'clone', put: false },
             sort: false,
             animation: 150,
+            // Keep palette copies draggable in embedded browsers and on touchscreens.
+            forceFallback: true,
+            fallbackOnBody: true,
+            fallbackTolerance: 4,
             delay: 150,
             delayOnTouchOnly: true,
             draggable: '[data-block]'
@@ -1724,6 +1779,13 @@ if (document.getElementById('drillList')) {
             showEditorError(error);
             block?.classList.add('is-invalid');
             block?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            return;
+        }
+
+        const nestingError = validateRunDrills(name, steps);
+        if (nestingError) {
+            showEditorError(nestingError);
+            editorError.scrollIntoView({ block: 'nearest' });
             return;
         }
 
@@ -2140,4 +2202,42 @@ if (officerList) {
     });
 
     loadOfficers();
+}
+
+// Shared, offline help for the four controller pages.
+if (drillStatus && typeof bootstrap !== 'undefined') {
+    const help = document.createElement('div');
+    help.innerHTML = `
+        <button type="button" class="btn btn-light border rounded-circle shadow-sm help-button"
+            data-bs-toggle="modal" data-bs-target="#helpModal" aria-controls="helpModal"
+            aria-haspopup="dialog" aria-label="Help and Q&A" title="Help and Q&A">
+            <span aria-hidden="true">?</span>
+        </button>
+        <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalTitle" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 class="modal-title fs-5" id="helpModalTitle">Help &amp; Q&amp;A</h2>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close help"></button>
+                    </div>
+                    <div class="modal-body">
+                        <h3 class="h6">How do I start a drill?</h3>
+                        <p>On Targets, exit manual mode, select a drill, and press Start drill. Choose the targets if asked, then wait for the start countdown.</p>
+                        <h3 class="h6">How do Pause and Reset stage work?</h3>
+                        <p>Pause holds the drill until Resume. In a full drill, Pause then Reset stage hides the drill targets and rewinds the current stage. Press Resume to replay it. Reset stage is unavailable for standalone drills.</p>
+                        <h3 class="h6">How do I build a sequence?</h3>
+                        <p>On Drills, choose Create Drill or Edit. Drag blocks into the sequence, or tap to add them at the end. Use Run drill to include a saved drill as many times as needed. Use the grip or arrow buttons to reorder steps, then Save drill.</p>
+                        <h3 class="h6">How do I mark a defective target?</h3>
+                        <p>Open Settings and mark the target defective. It becomes unavailable for drills and manual target selection.</p>
+                        <h3 class="h6">Why are the controls unavailable?</h3>
+                        <p class="mb-0">Check the status banner and your connection to the range WiFi. Exit manual mode before starting a drill. After Stop, use Reset to hide the targets and unlock the controls.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    document.body.append(help);
+    document.body.classList.add('has-help');
 }

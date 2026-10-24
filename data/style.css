@@ -30,6 +30,36 @@
     flex: 1 0 auto;
 }
 
+/* Small shared help control, below menus and modal backdrops. */
+.has-help {
+    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+}
+
+.help-button {
+    position: fixed;
+    right: calc(1rem + env(safe-area-inset-right, 0px));
+    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    z-index: 1030;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    color: #6c757d;
+    font: 600 1.25rem/1 system-ui, sans-serif;
+}
+
+@media print {
+    .has-help {
+        padding-bottom: 0;
+    }
+
+    .help-button,
+    #helpModal {
+        display: none !important;
+    }
+}
+
 /* AI-modified: use a readable system font for the shared status banner. */
 .drill-status-bar {
     padding: 0.6rem 1rem;
@@ -595,10 +625,10 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
     margin-left: 1.5rem;
 }
 
-/* AI-generated (Claude): drill sequence builder (Drills page editor). */
+/* Drill sequence builder (Drills page editor). */
 .block-palette {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0.5rem;
 }
 
@@ -613,10 +643,11 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
     border-radius: 0.5rem;
     font-weight: 600;
     cursor: grab;
-    touch-action: manipulation;
+    /* Let a held block drag instead of starting a page scroll. */
+    touch-action: none;
 }
 
-/* AI-modified: use distinct action colors in the drill palette and sequence cards. */
+/* Use distinct action colors in the drill palette and sequence cards. */
 .seq-palette-block--present,
 .seq-block--present { --seq-color: #146c43; --seq-tint: #e7f1eb; }
 .seq-palette-block--delay,
@@ -625,6 +656,7 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
 .seq-block--hide { --seq-color: #dc3545; --seq-tint: #f8e8ea; }
 .seq-palette-block--pause,
 .seq-block--pause { --seq-color: #997404; --seq-tint: #fff3cd; }
+.seq-palette-block--drill,
 .seq-block--drill { --seq-color: #495057; --seq-tint: #f1f3f5; }
 
 .seq-palette-block {
@@ -746,7 +778,7 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
     max-width: 12rem;
 }
 
-/* AI-generated (Claude): Present block, Random option */
+/* Present block, Random option */
 .seq-random {
     margin-top: 0.5rem;
 }
