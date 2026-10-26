@@ -258,6 +258,9 @@ const describeDrillStage = (drillName, step) => {
 // AI-modified (Claude): draws the status bar (every page) and, on the Targets page, the drill
 // buttons, from the controller's last status reply instead of the old frontend-only demo
 // state. Card colors are set by the Targets page's own status listener (initializeTargetPage).
+const manualTargetsAvailable = () => manualMode && controllerStatus?.hardwareReady
+    && controllerStatus.state === 'idle' && !controllerStatus.stopped && !cancelStartCountdown;
+
 const updateDrillStatus = () => {
     if (!drillStatus) return;
 
@@ -317,17 +320,27 @@ const updateDrillStatus = () => {
         manualModeButton.classList.toggle('btn-warning', manualMode);
         manualModeButton.classList.toggle('btn-outline-dark', !manualMode);
         manualModeButton.setAttribute('aria-pressed', String(manualMode));
+        manualModeButton.disabled = !status?.hardwareReady || stopped || Boolean(cancelStartCountdown);
         document.getElementById('manualModeLabel').textContent = manualMode ? 'Exit manual mode' : 'Turn on manual mode';
     }
     const manualModeHintText = document.getElementById('manualModeHintText');
     if (manualModeHintText) {
-        manualModeHintText.textContent = manualMode
-            ? 'Unlocked: tap a target or use the toggle buttons.'
-            : 'Locked: turn on manual mode to toggle targets.';
-        document.getElementById('manualModeHintIcon').className = manualMode ? 'bi bi-unlock-fill' : 'bi bi-lock-fill';
+        manualModeHintText.textContent = !status
+            ? 'Connection lost. Manual target controls are locked.'
+            : stopped
+                ? 'Stopped: press Reset before using manual target controls.'
+                : !status.hardwareReady
+                    ? 'Target hardware is not ready. Manual target controls are locked.'
+                    : manualTargetsAvailable()
+                        ? 'Unlocked: tap a target or use the toggle buttons.'
+                        : 'Locked: turn on manual mode to toggle targets.';
+        document.getElementById('manualModeHintIcon').className = manualTargetsAvailable() ? 'bi bi-unlock-fill' : 'bi bi-lock-fill';
     }
-    document.body.classList.toggle('is-manual-mode', manualMode);
-    document.querySelectorAll('.target-toggle').forEach((button) => { button.disabled = !manualMode; });
+    document.body.classList.toggle('is-manual-mode', Boolean(manualTargetsAvailable()));
+    document.querySelectorAll('.target-toggle').forEach((button) => { button.disabled = !manualTargetsAvailable(); });
+    document.querySelectorAll('.target-card').forEach((button) => {
+        button.disabled = !manualTargetsAvailable() || button.classList.contains('is-defective');
+    });
 
     // Start doubles as Resume while the controller is paused (operator pause or a "pause" step).
     if (startDrillLabel) startDrillLabel.textContent = state === 'paused' ? 'Resume drill' : 'Start drill';
@@ -345,7 +358,9 @@ const updateDrillStatus = () => {
         pauseDrillButton.classList.toggle('btn-primary', !pauseDrillButton.disabled);
         pauseDrillButton.classList.toggle('btn-outline-secondary', pauseDrillButton.disabled);
     }
-    if (stopDrillButton) stopDrillButton.disabled = !(drillActive || countingDown) || stopped;
+    // Keep Stop reachable in manual mode and when a status poll loses the connection.
+    if (stopDrillButton) stopDrillButton.disabled = stopped
+        || (Boolean(status) && !drillActive && !countingDown && !manualMode);
     if (resetTargetsButton) resetTargetsButton.hidden = !stopped;
     if (resetStageButton) {
         resetStageButton.disabled = stageControlsLocked || !status?.canResetStage;
@@ -431,7 +446,7 @@ const renderTargets = (targetIds) => {
 
     targetGrid.innerHTML = targetIds.map((targetNumber) => `
         <div class="col d-flex justify-content-center" data-target-number="${targetNumber}">
-            <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target ${targetNumber} red">
+            <button class="target-card" type="button" aria-pressed="false" aria-label="Raise target ${targetNumber}" disabled>
                 <span class="target-number" aria-hidden="true">${targetNumber}</span>
                 <!-- AI-modified (Claude): one image per state; style.css shows the one that matches
                      the card (green = hidden, red = raised, grey = defective). -->
@@ -812,20 +827,107 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         targetCard.setAttribute('aria-label', isDefective
             ? `Target ${targetNumber} is defective`
             : isRed
-                ? `Return target ${targetNumber} to green`
-                : `Mark target ${targetNumber} red`);
+                ? `Hide target ${targetNumber}`
+                : `Raise target ${targetNumber}`);
     });
 
-    // AI-modified (Claude): the All/Odd/Even filter was removed; the only view filter left is
-    // the "Hide defective" switch.
+    // Number and availability filters affect visibility only, never target commands or assignments.
     const hideDefectiveSwitch = document.getElementById('hideDefectiveTargets');
-    const applyDefectiveFilter = () => {
+    const numberFilterButton = document.getElementById('targetNumberFilterButton');
+    const numberFilterModal = document.getElementById('targetNumberFilterModal');
+    const numberFilterInput = document.getElementById('targetNumbersInput');
+    const numberFilterError = document.getElementById('targetNumbersError');
+    const numberFilterStatus = document.getElementById('targetNumberFilterStatus');
+    const numberFilterSummary = document.getElementById('targetNumberFilterSummary');
+    const configuredNumbers = new Set(targetColumns.map((column) => Number(column.dataset.targetNumber)));
+    let filteredNumbers = null;
+    let numberFilterText = '';
+
+    const applyTargetFilters = () => {
         const hideDefective = Boolean(hideDefectiveSwitch?.checked);
+        let visibleCount = 0;
         targetColumns.forEach((column) => {
-            column.classList.toggle('d-none', hideDefective && unavailableTargets.has(Number(column.dataset.targetNumber)));
+            const number = Number(column.dataset.targetNumber);
+            const hidden = (hideDefective && unavailableTargets.has(number))
+                || (filteredNumbers !== null && !filteredNumbers.has(number));
+            column.classList.toggle('d-none', hidden);
+            if (!hidden) visibleCount++;
         });
+        numberFilterButton?.classList.toggle('btn-primary', filteredNumbers !== null);
+        numberFilterButton?.classList.toggle('btn-outline-dark', filteredNumbers === null);
+        numberFilterButton?.setAttribute('aria-pressed', String(filteredNumbers !== null));
+        if (numberFilterStatus) numberFilterStatus.hidden = filteredNumbers === null;
+        if (numberFilterSummary) {
+            numberFilterSummary.textContent = `Showing ${visibleCount} of ${targetColumns.length} targets. Numbers: ${numberFilterText}. View only: All, Odd, Even, and Random also control targets hidden by this filter.`;
+        }
+        const emptyMessage = document.getElementById('targetFilterEmpty');
+        if (emptyMessage) emptyMessage.hidden = visibleCount !== 0;
     };
-    hideDefectiveSwitch?.addEventListener('change', applyDefectiveFilter);
+    hideDefectiveSwitch?.addEventListener('change', applyTargetFilters);
+
+    const clearNumberFilterError = () => {
+        numberFilterInput.classList.remove('is-invalid');
+        numberFilterInput.removeAttribute('aria-invalid');
+        numberFilterError.textContent = '';
+    };
+    numberFilterModal?.addEventListener('show.bs.modal', () => {
+        numberFilterInput.value = numberFilterText;
+        clearNumberFilterError();
+    });
+    numberFilterModal?.addEventListener('shown.bs.modal', () => {
+        numberFilterInput.focus();
+        numberFilterInput.select();
+    });
+    numberFilterInput?.addEventListener('input', clearNumberFilterError);
+    document.getElementById('targetNumberFilterForm')?.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const text = numberFilterInput.value.trim();
+        const selected = new Set();
+        const parts = text.replace(/\s*[-–—]\s*/g, '-').split(/[,\s]+/).filter(Boolean);
+        let error = text && !parts.length ? 'Enter a target number or range, such as 1, 3, 5-8.' : '';
+        const minimum = Math.min(...configuredNumbers);
+        const maximum = Math.max(...configuredNumbers);
+        for (const part of parts) {
+            const match = /^(\d+)(?:-(\d+))?$/.exec(part);
+            if (!match) {
+                error = 'Enter numbers or ranges, such as 1, 3, 5-8.';
+                break;
+            }
+            const first = Number(match[1]);
+            const last = Number(match[2] ?? match[1]);
+            if (!Number.isInteger(first) || !Number.isInteger(last) || first < minimum || last > maximum || first > last) {
+                error = `Use target numbers from ${minimum} to ${maximum}, with ranges in ascending order.`;
+                break;
+            }
+            for (let number = first; number <= last; number++) {
+                if (!configuredNumbers.has(number)) {
+                    error = `Target ${number} is not configured.`;
+                    break;
+                }
+                selected.add(number);
+            }
+            if (error) break;
+        }
+        if (error) {
+            numberFilterError.textContent = error;
+            numberFilterInput.classList.add('is-invalid');
+            numberFilterInput.setAttribute('aria-invalid', 'true');
+            numberFilterInput.focus();
+            return;
+        }
+        filteredNumbers = text ? selected : null;
+        numberFilterText = text;
+        clearNumberFilterError();
+        applyTargetFilters();
+        bootstrapModal?.getInstance(numberFilterModal)?.hide();
+    });
+    document.getElementById('clearTargetNumberFilter')?.addEventListener('click', () => {
+        filteredNumbers = null;
+        numberFilterText = '';
+        applyTargetFilters();
+    });
+    if (numberFilterButton) numberFilterButton.disabled = false;
+    applyTargetFilters();
 
     // AI-assisted target display preference; include this change in the PR's AI-use disclosure.
     const applyTargetView = (view) => {
@@ -853,7 +955,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         if (!event.target.closest('.target-card') && !targetGrid.classList.contains('is-list-view')) return;
         if (targetCard.classList.contains('is-defective') || unavailableTargets.has(Number(targetColumn.dataset.targetNumber))) return;
         // AI-generated (Claude): tapping a target only flips it in manual mode.
-        if (!manualMode) {
+        if (!manualTargetsAvailable()) {
             drillLaunchMessage.textContent = 'Targets are locked. Turn on Manual mode to raise or hide a target by tapping it.';
             drillLaunchMessage.hidden = false;
             return;
@@ -871,8 +973,8 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         targetCard.classList.toggle('is-red', isRed);
         targetCard.setAttribute('aria-pressed', String(isRed));
         targetCard.setAttribute('aria-label', isRed
-            ? `Return target ${targetNumber} to green`
-            : `Mark target ${targetNumber} red`);
+            ? `Hide target ${targetNumber}`
+            : `Raise target ${targetNumber}`);
         saveTargetCardStatus(targetCard);
     };
 
@@ -888,6 +990,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
     // Hides go first so Random never has more targets up than it asked for. Returns false (and
     // shows why) if the controller refused, leaving the cards showing what really happened.
     const applyManualTargets = async (changes) => {
+        if (!manualTargetsAvailable()) return false;
         const pending = changes.filter(([column, raise]) => (
             column.querySelector('.target-card').classList.contains('is-red') !== raise
         ));
@@ -946,7 +1049,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
     const randomTargetCount = 3;
     document.querySelectorAll('.target-toggle').forEach((button) => {
         button.addEventListener('click', () => {
-            if (!manualMode) return;
+            if (!manualTargetsAvailable()) return;
             const set = button.dataset.toggleSet;
             const usableColumns = targetColumns.filter((column) => (
                 !column.querySelector('.target-card').classList.contains('is-defective')
@@ -1003,7 +1106,8 @@ if (targetGrid) {
 
 // Performance dashboard reads qualification histories from the device database.
 if (document.getElementById('performanceRows')) {
-    const qualificationFilters = document.querySelectorAll('input[name="qualification"]');
+    let qualificationFilters = [];
+    const qualificationFilterGroup = document.getElementById('performanceQualificationFilters');
     const performanceSearch = document.getElementById('performanceSearch');
     const performanceRows = document.getElementById('performanceRows');
     const performanceMessage = document.getElementById('performanceMessage');
@@ -1025,20 +1129,57 @@ if (document.getElementById('performanceRows')) {
     };
 
     // Normalize stored score/date pairs and discard malformed records.
-    const qualificationNames = {
-        pistolQualScores: 'Pistol',
-        rifleQualScores: 'Rifle',
-        swatQualScores: 'SWAT'
+    let performanceQualifications = [];
+    const legacyQualifications = new Map([
+        ['pistol', { key: 'pistolQualScores', stats: 'pistolStats' }],
+        ['rifle', { key: 'rifleQualScores', stats: 'rifleStats' }],
+        ['swat', { key: 'swatQualScores', stats: 'swatStats' }]
+    ]);
+    const qualificationHistory = (officer, qualification) => qualification.legacy
+        ? officer[qualification.key]
+        : Object.hasOwn(officer.qualificationScores || {}, qualification.name)
+            ? officer.qualificationScores[qualification.name] : [];
+
+    // Both pages use the controller's catalog; legacy histories keep their original fields.
+    const renderPerformanceQualifications = (names) => {
+        if (!Array.isArray(names) || !names.length || names.some((name) => typeof name !== 'string' || !name.trim())) {
+            throw new Error('Could not read qualifications.');
+        }
+        const selected = new Set(qualificationFilters.filter((input) => input.checked).map((input) => input.value));
+        const includeAll = selected.size === qualificationFilters.length;
+        performanceQualifications = names.map((name, index) => {
+            const legacy = legacyQualifications.get(name.toLowerCase());
+            return { name, id: legacy ? name.toLowerCase() : name,
+                key: legacy?.key || `custom-${index}`, stats: legacy?.stats, legacy: Boolean(legacy) };
+        });
+        qualificationFilterGroup.querySelectorAll('label, #qualificationsLoading').forEach((element) => element.remove());
+        performanceQualifications.forEach((qualification, index) => {
+            const label = document.createElement('label');
+            label.className = 'text-break';
+            const input = document.createElement('input');
+            Object.assign(input, { type: 'checkbox', name: 'qualification', value: qualification.key,
+                checked: includeAll || selected.has(qualification.key), id: `performanceQualification${index}` });
+            label.append(input, document.createTextNode(` ${qualification.name}`));
+            qualificationFilterGroup.append(label);
+        });
+        qualificationFilters = Array.from(qualificationFilterGroup.querySelectorAll('input'));
+        const scoreQualification = document.getElementById('scoreQualification');
+        const previous = scoreQualification.value;
+        scoreQualification.replaceChildren(...performanceQualifications.map(({ name, id }) => new Option(name, id)));
+        if (performanceQualifications.some(({ id }) => id === previous)) scoreQualification.value = previous;
+        scoreQualification.disabled = false;
     };
 
     // Flatten officer histories so every control acts on one consistent result set.
     const getQualificationRecords = () => performanceOfficers.flatMap((officer) => (
-        Object.entries(qualificationNames).flatMap(([key, name]) => {
+        performanceQualifications.flatMap((qualification) => {
+            const { key, name } = qualification;
             if (!Array.from(qualificationFilters).some((filter) => filter.checked && filter.value === key)) {
                 return [];
             }
 
-            const history = Array.isArray(officer?.[key]) ? officer[key] : [];
+            const storedHistory = qualificationHistory(officer, qualification);
+            const history = Array.isArray(storedHistory) ? storedHistory : [];
             return history
                 .filter((entry) => Array.isArray(entry) && Number.isFinite(Number(entry[0])) && parseScoreDate(entry[1]) !== null)
                 .map(([score, date]) => ({
@@ -1081,7 +1222,7 @@ if (document.getElementById('performanceRows')) {
             ? records.reduce((total, record) => total + record.score, 0) / records.length
             : null;
         const topRecord = records.reduce((best, record) => !best || record.score > best.score ? record : best, null);
-        const officerCount = new Set(records.map((record) => record.name)).size;
+        const officerCount = new Set(records.map((record) => record.badge)).size;
 
         document.getElementById('averageScore').textContent = averageScore === null ? '--' : averageScore.toFixed(1);
         document.getElementById('averageNote').textContent = records.length
@@ -1148,6 +1289,14 @@ if (document.getElementById('performanceRows')) {
     // phone shows the same figures; only the name/badge search narrows the list.
     const renderOfficerStanding = () => {
         const standingRows = document.getElementById('standingRows');
+        const selected = performanceQualifications.filter(({ key }) => qualificationFilters.some((input) => input.value === key && input.checked));
+        const header = document.getElementById('standingHeader');
+        header.replaceChildren(...['Officer', 'Badge', ...selected.map(({ name }) => name)].map((name) => {
+            const cell = document.createElement('th');
+            cell.scope = 'col';
+            cell.textContent = name;
+            return cell;
+        }));
         const query = performanceSearch.value.trim().toLocaleLowerCase();
         const officers = performanceOfficers.filter((officer) => (
             !query || `${officer?.Name || ''} ${officer?.BadgeNum ?? ''}`.toLocaleLowerCase().includes(query)
@@ -1157,7 +1306,7 @@ if (document.getElementById('performanceRows')) {
         if (!officers.length) {
             const row = document.createElement('tr');
             const cell = document.createElement('td');
-            cell.colSpan = 5;
+            cell.colSpan = 2 + selected.length;
             cell.className = 'table-empty';
             cell.textContent = 'No officers match.';
             row.append(cell);
@@ -1171,8 +1320,10 @@ if (document.getElementById('performanceRows')) {
                 cell.textContent = value;
                 row.append(cell);
             });
-            ['pistolStats', 'rifleStats', 'swatStats'].forEach((key) => {
-                const stats = officer[key];
+            selected.forEach((qualification) => {
+                const stats = qualification.legacy ? officer[qualification.stats]
+                    : Object.hasOwn(officer.qualificationStats || {}, qualification.name)
+                        ? officer.qualificationStats[qualification.name] : null;
                 const cell = document.createElement('td');
                 cell.className = 'standing-cell';
                 if (!stats || !stats.attempts) {
@@ -1213,7 +1364,7 @@ if (document.getElementById('performanceRows')) {
 
     // Search updates immediately; filter fields update when changed or edited.
     performanceSearch.addEventListener('input', renderPerformance);
-    qualificationFilters.forEach((filter) => filter.addEventListener('change', renderPerformance));
+    qualificationFilterGroup.addEventListener('change', renderPerformance);
     ['minimumScore', 'maximumScore', 'startDate', 'endDate'].forEach((id) => {
         document.getElementById(id).addEventListener('input', renderPerformance);
         document.getElementById(id).addEventListener('change', renderPerformance);
@@ -1329,6 +1480,10 @@ if (document.getElementById('performanceRows')) {
             return;
         }
         const qualType = document.getElementById('scoreQualification').value;
+        if (!performanceQualifications.some(({ id }) => id === qualType)) {
+            showAddScoresError('Select a qualification.');
+            return;
+        }
         const scores = Array.from(scoreEntries.querySelectorAll('.score-entry'), (entry) => ({
             score: entry.querySelector('.score-entry-value').value.trim(),
             date: entry.querySelector('.score-entry-date').value
@@ -1372,12 +1527,17 @@ if (document.getElementById('performanceRows')) {
     // Also fills the Add scores officer list (value = badge number). Officers come from the
     // controller's API (GET /api/officers?today=...), which adds Isaac's 12-month stats; the ESP32
     // has no clock, so this phone supplies today's date.
-    const loadPerformanceData = () => controllerFetch(`/api/officers?today=${localDateString()}`, { cache: 'no-store' })
-        .then((response) => {
-            if (!response.ok) {
+    const loadPerformanceData = () => Promise.all([
+        controllerFetch(`/api/officers?today=${localDateString()}`, { cache: 'no-store' }),
+        controllerFetch('/api/qualifications', { cache: 'no-store' })
+    ])
+        .then(async ([officerResponse, qualificationResponse]) => {
+            if (!officerResponse.ok || !qualificationResponse.ok) {
                 throw new Error('Unable to load qualification records.');
             }
-            return response.json();
+            const [officers, names] = await Promise.all([officerResponse.json(), qualificationResponse.json()]);
+            renderPerformanceQualifications(names);
+            return officers;
         })
         .then((payload) => {
             performanceOfficers = Array.isArray(payload) ? payload : [];
@@ -1428,6 +1588,7 @@ if (document.getElementById('drillList')) {
     const palette = document.getElementById('blockPalette');
     const sequenceList = document.getElementById('sequenceList');
     const sequenceSummary = document.getElementById('sequenceSummary');
+    const clearSequenceButton = document.getElementById('clearDrillSequence');
     const saveButton = document.getElementById('drillEditorSave');
     const deleteModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('deleteDrillModal'));
     const deleteDrillName = document.getElementById('deleteDrillName');
@@ -1436,6 +1597,57 @@ if (document.getElementById('drillList')) {
     let editingName = null;       // name of the drill being edited; null while creating one
     let pendingDeleteName = null;
     let activeDrillFilter = 'all';
+    let qualificationFilters = Array.from(document.querySelectorAll('.drill-qualification-filter'));
+    const allQualifications = document.getElementById('allDrillQualifications');
+    const qualificationContainer = document.getElementById('drillQualificationFilters');
+    const qualificationModalElement = document.getElementById('addQualificationModal');
+    const qualificationModal = bootstrap.Modal.getOrCreateInstance(qualificationModalElement);
+    const qualificationName = document.getElementById('qualificationName');
+    const qualificationError = document.getElementById('qualificationNameError');
+    let qualificationNames = ['Pistol', 'Rifle', 'SWAT'];
+
+    // Labels use textContent so user-provided qualification names remain plain text.
+    const qualificationCheckbox = (name, id, checked, className = '') => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'form-check mw-100 text-break';
+        const input = document.createElement('input');
+        Object.assign(input, { type: 'checkbox', id, value: name.toLowerCase(), checked,
+            className: `form-check-input ${className}` });
+        const label = document.createElement('label');
+        label.className = 'form-check-label';
+        label.htmlFor = id;
+        label.textContent = name;
+        wrapper.append(input, label);
+        return wrapper;
+    };
+
+    const updateQualificationState = () => {
+        const count = qualificationFilters.filter((item) => item.checked).length;
+        allQualifications.checked = count === qualificationFilters.length;
+        allQualifications.indeterminate = count > 0 && count < qualificationFilters.length;
+    };
+
+    const renderQualificationChoices = () => {
+        const selected = new Set(qualificationFilters.filter((item) => item.checked).map((item) => item.value));
+        const includeAll = allQualifications.checked;
+        qualificationContainer.querySelectorAll('.drill-qualification-filter').forEach((input) => input.parentElement.remove());
+        qualificationNames.forEach((name, index) => qualificationContainer.append(qualificationCheckbox(
+            name, `drillQualification${index}`, includeAll || selected.has(name.toLowerCase()), 'drill-qualification-filter'
+        )));
+        qualificationFilters = Array.from(qualificationContainer.querySelectorAll('.drill-qualification-filter'));
+        updateQualificationState();
+    };
+
+    const loadQualifications = async () => {
+        const response = await controllerFetch('/api/qualifications', { cache: 'no-store' });
+        if (!response.ok) throw new Error('Could not load qualifications. Check the controller connection.');
+        const names = await response.json();
+        if (!Array.isArray(names) || !names.length || names.some((name) => typeof name !== 'string' || !name.trim())) {
+            throw new Error('Could not read qualification names.');
+        }
+        qualificationNames = names;
+        renderQualificationChoices();
+    };
     let blockCounter = 0;         // makes each block's input ids unique
 
     const blockInfo = {
@@ -1545,7 +1757,7 @@ if (document.getElementById('drillList')) {
             body.innerHTML = `
                 <label class="form-label small mb-1" for="${uid}-drill">Saved drill</label>
                 <select class="form-select form-select-sm seq-drill-select" id="${uid}-drill"></select>
-                <p class="seq-block-note mt-2">Runs the saved drill each time this step is reached. Changes to that drill also apply here.</p>`;
+                <p class="seq-block-note mt-2">Runs the saved drill. Changes to it apply the next time this full drill starts.</p>`;
             const select = body.querySelector('.seq-drill-select');
             const choices = drills.filter((drill) => drill.drillName !== editingName);
             select.append(new Option(choices.length ? 'Select a saved drill' : 'No other saved drills', ''));
@@ -1603,6 +1815,7 @@ if (document.getElementById('drillList')) {
     // Step numbers, move-button state, and the summary line under the sequence.
     const refreshSequence = () => {
         const blocks = Array.from(sequenceList.querySelectorAll(':scope > .seq-block'));
+        clearSequenceButton.disabled = blocks.length === 0;
         let delaySeconds = 0;
         blocks.forEach((block, index) => {
             const title = block.querySelector('.seq-block-title').textContent;
@@ -1674,6 +1887,15 @@ if (document.getElementById('drillList')) {
     };
 
     // ------------------------------------------------------------------ editor wiring
+    // Clear the draft sequence; saved stages and referenced drills change only on Save.
+    clearSequenceButton.addEventListener('click', () => {
+        sequenceList.replaceChildren();
+        showEditorError('');
+        refreshSequence();
+        sequenceSummary.textContent = 'Sequence cleared. Add blocks to start over.';
+        palette.querySelector('[data-block]')?.focus({ preventScroll: true });
+    });
+
     palette.addEventListener('click', (event) => {
         const paletteBlock = event.target.closest('[data-block]');
         if (paletteBlock) addBlock(paletteBlock.dataset.block);
@@ -1747,6 +1969,10 @@ if (document.getElementById('drillList')) {
         editingName = drill ? drill.drillName : null;
         editorTitle.textContent = drill ? `Edit ${drill.drillName}` : 'New drill';
         nameInput.value = drill ? drill.drillName : '';
+        const assigned = drill ? getOwnDrillQualifications(drill) : new Set();
+        document.getElementById('drillEditorQualifications').replaceChildren(...qualificationNames.map((name, index) => (
+            qualificationCheckbox(name, `editorQualification${index}`, assigned.has(name.toLowerCase()))
+        )));
         sequenceList.replaceChildren(...(Array.isArray(drill?.sequence) ? drill.sequence : []).map(createBlock));
         showEditorError('');
         refreshSequence();
@@ -1791,11 +2017,12 @@ if (document.getElementById('drillList')) {
 
         saveButton.disabled = true;
         try {
+            const qualifications = Array.from(document.querySelectorAll('#drillEditorQualifications input:checked'), (input) => input.value);
             if (editingName === null) {
-                await postToController('/api/drills', { drillName: name, sequence: steps });
+                await postToController('/api/drills', { drillName: name, sequence: steps, qualifications });
             } else {
                 // Isaac's rename: a new drillName also updates full drills that include this one
-                await postToController(`/api/drills?name=${encodeURIComponent(editingName)}`, { drillName: name, sequence: steps }, 'PUT');
+                await postToController(`/api/drills?name=${encodeURIComponent(editingName)}`, { drillName: name, sequence: steps, qualifications }, 'PUT');
             }
             editorModal.hide();
             showListMessage(`${name} saved.`, 'success');
@@ -1816,15 +2043,45 @@ if (document.getElementById('drillList')) {
         return { steps: sequence.length, stages, delaySeconds: Number((delayMs / 1000).toFixed(2)) };
     };
 
+    // Save only direct assignments; inherited qualifications must follow later stage edits.
+    const getOwnDrillQualifications = (drill) => {
+        const matches = new Set();
+        if (Array.isArray(drill.qualifications)) {
+            drill.qualifications.forEach((name) => matches.add(String(name).toLowerCase()));
+        } else {
+            qualificationFilters.forEach((filter) => {
+                const prefix = `${filter.value} qual`;
+                const name = drill.drillName.toLowerCase();
+                if (name === prefix || name.startsWith(`${prefix} `)) matches.add(filter.value);
+            });
+        }
+        return matches;
+    };
+
+    const getDrillQualifications = (drill, visited = new Set()) => {
+        if (visited.has(drill.drillName)) return new Set();
+        visited.add(drill.drillName);
+        const matches = getOwnDrillQualifications(drill);
+        (Array.isArray(drill.sequence) ? drill.sequence : []).forEach((step) => {
+            if (basicDrillActions.has(step?.action)) return;
+            const referenced = drills.find((other) => other.drillName === step?.action);
+            if (referenced) getDrillQualifications(referenced, visited).forEach((value) => matches.add(value));
+        });
+        return matches;
+    };
+
     const renderDrills = () => {
+        const selected = qualificationFilters.filter((filter) => filter.checked).map((filter) => filter.value);
         const visible = drills.filter((drill) => (
-            activeDrillFilter === 'all' || getDrillCategory(null, drill) === activeDrillFilter
+            (activeDrillFilter === 'all' || getDrillCategory(null, drill) === activeDrillFilter)
+            && (selected.length === qualificationFilters.length
+                || selected.some((value) => getDrillQualifications(drill).has(value)))
         ));
         if (!visible.length) {
             const column = document.createElement('div');
             column.className = 'col-12';
             column.innerHTML = '<div class="alert alert-info mb-0"></div>';
-            column.firstChild.textContent = drills.length ? 'No drills match this filter.' : 'No drills yet. Tap Create Drill to build one.';
+            column.firstChild.textContent = drills.length ? 'No drills match these filters.' : 'No drills yet. Tap Create Drill to build one.';
             drillList.replaceChildren(column);
             return;
         }
@@ -1910,7 +2167,53 @@ if (document.getElementById('drillList')) {
         });
     });
 
-    loadDrills();
+    qualificationContainer.addEventListener('change', (event) => {
+        if (!event.target.matches('.drill-qualification-filter')) return;
+        updateQualificationState();
+        renderDrills();
+    });
+    allQualifications.addEventListener('change', () => {
+        qualificationFilters.forEach((filter) => { filter.checked = allQualifications.checked; });
+        allQualifications.indeterminate = false;
+        renderDrills();
+    });
+
+    document.getElementById('addQualificationButton').addEventListener('click', () => {
+        document.getElementById('addQualificationForm').reset();
+        qualificationName.classList.remove('is-invalid');
+        qualificationName.removeAttribute('aria-invalid');
+        qualificationModal.show();
+    });
+    qualificationModalElement.addEventListener('shown.bs.modal', () => qualificationName.focus());
+    document.getElementById('addQualificationForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const name = qualificationName.value.trim().replace(/\s+/g, ' ');
+        const button = document.getElementById('saveQualificationButton');
+        try {
+            if (!name) throw new Error('Enter a qualification name.');
+            if (new TextEncoder().encode(name).length > 32) throw new Error('This name is too long. Use a shorter qualification name.');
+            if (qualificationNames.some((existing) => existing.toLowerCase() === name.toLowerCase())) {
+                throw new Error('A qualification with this name already exists.');
+            }
+            button.disabled = true;
+            await postToController('/api/qualifications', { name });
+            await loadQualifications();
+            renderDrills();
+            qualificationModal.hide();
+            showListMessage(`${name} qualification added. Edit a drill to assign it.`, 'success');
+        } catch (error) {
+            qualificationError.textContent = error.message;
+            qualificationName.classList.add('is-invalid');
+            qualificationName.setAttribute('aria-invalid', 'true');
+            qualificationName.focus();
+        } finally {
+            button.disabled = false;
+        }
+    });
+
+    loadQualifications().then(() => {
+        document.getElementById('addQualificationButton').disabled = false;
+    }).catch((error) => showListMessage(error.message, 'warning')).finally(loadDrills);
 }
 
 // AI-generated (Claude): Settings page (settings.html).

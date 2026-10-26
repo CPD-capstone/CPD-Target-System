@@ -30,6 +30,26 @@
     flex: 1 0 auto;
 }
 
+/* Fixed bars and even spacing keep the menu icon uniform across pages. */
+.menu-toggle {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 44px;
+    height: 44px;
+    padding: 8px;
+}
+
+.menu-toggle > span {
+    display: block;
+    flex: none;
+    width: 24px;
+    height: 2px;
+    background-color: currentColor;
+}
+
 /* Small shared help control, below menus and modal backdrops. */
 .has-help {
     padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
@@ -111,6 +131,16 @@
     align-items: center;
     justify-content: space-between;
     margin-bottom: 0.85rem;
+}
+
+/* Long saved names must wrap instead of widening phone layouts and dialogs. */
+.drill-ticket-name,
+#drillEditorTitle,
+#deleteDrillName,
+#manualModeDrillName,
+#endDrillName {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .drill-ticket-label {
@@ -282,6 +312,40 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+    gap: 0.5rem;
+}
+
+/* Keep all five target controls joined and readable on narrow screens. */
+@media (max-width: 575.98px) {
+    .target-filter-group {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        width: 100%;
+    }
+
+    .target-filter-group > .btn {
+        min-width: 0;
+        min-height: 44px;
+        padding-inline: 0.2rem;
+        font-size: 0.75rem;
+        white-space: nowrap;
+    }
+
+    .target-filter-group .bi {
+        display: none;
+    }
+}
+
+.target-number-filter-status {
+    color: #6c757d;
+    font-size: 0.85rem;
+    overflow-wrap: anywhere;
+}
+
+.target-number-filter-status:not([hidden]) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
     gap: 0.5rem;
 }
 
@@ -626,6 +690,27 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
 }
 
 /* Drill sequence builder (Drills page editor). */
+/* Keep the plus visually small while giving fingers a full-size touch target. */
+.qualification-add-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 8px;
+    flex: none;
+    text-decoration: none;
+}
+
+.qualification-add-button .bi {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    font-size: 0.875rem;
+}
+
 .block-palette {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));

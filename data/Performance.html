@@ -33,10 +33,10 @@
     </div>
 
     <div class="m-3">
-        <button class="btn btn-outline-primary d-flex flex-column gap-1 p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#menuPanel" aria-controls="menuPanel" aria-label="Open menu">
-            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
-            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
-            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
+        <button class="btn btn-outline-primary menu-toggle" type="button" data-bs-toggle="offcanvas" data-bs-target="#menuPanel" aria-controls="menuPanel" aria-label="Open menu">
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
         </button>
     </div>
 
@@ -82,11 +82,9 @@
                             <strong>Filter results</strong>
                             <button class="btn btn-link btn-sm" type="button" id="clearFiltersButton">Clear</button>
                         </div>
-                        <fieldset class="filter-group">
+                        <fieldset class="filter-group" id="performanceQualificationFilters">
                             <legend>Qualification</legend>
-                            <label><input type="checkbox" name="qualification" value="pistolQualScores" checked> Pistol</label>
-                            <label><input type="checkbox" name="qualification" value="rifleQualScores" checked> Rifle</label>
-                            <label><input type="checkbox" name="qualification" value="swatQualScores" checked> SWAT</label>
+                            <span class="small text-secondary" id="qualificationsLoading">Loading qualifications...</span>
                         </fieldset>
                         <fieldset class="filter-group filter-range-group">
                             <legend>Score range</legend>
@@ -156,12 +154,9 @@
             <div class="table-responsive">
                 <table class="table performance-table align-middle mb-0">
                     <thead>
-                        <tr>
+                        <tr id="standingHeader">
                             <th scope="col">Officer</th>
                             <th scope="col">Badge</th>
-                            <th scope="col">Pistol</th>
-                            <th scope="col">Rifle</th>
-                            <th scope="col">SWAT</th>
                         </tr>
                     </thead>
                     <tbody id="standingRows">
@@ -196,10 +191,8 @@
                         </label>
                         <label for="scoreQualification">
                             Qualification
-                            <select class="form-select" id="scoreQualification" required>
-                                <option value="pistol">Pistol</option>
-                                <option value="rifle">Rifle</option>
-                                <option value="swat">SWAT</option>
+                            <select class="form-select" id="scoreQualification" required disabled>
+                                <option value="">Loading qualifications...</option>
                             </select>
                         </label>
                     </div>
@@ -257,6 +250,6 @@
 
     <!-- Bootstrap provides the shared menu interaction. -->
     <script src="vendor/bootstrap.bundle.min.js"></script>
-    <script src="script.js?v=score-entry-rows-1"></script>
+    <script src="script.js?v=shared-performance-qualifications-1"></script>
 </body>
 </html>

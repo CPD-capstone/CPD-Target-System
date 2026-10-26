@@ -32,10 +32,10 @@
 
         <!-- Menu Button -->
     <div class="m-3">
-        <button class="btn btn-outline-primary d-flex flex-column gap-1 p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#menuPanel" aria-controls="menuPanel" aria-label="Open menu">
-            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
-            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
-            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
+        <button class="btn btn-outline-primary menu-toggle" type="button" data-bs-toggle="offcanvas" data-bs-target="#menuPanel" aria-controls="menuPanel" aria-label="Open menu">
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
         </button>
     </div>
 
@@ -57,12 +57,12 @@
     </div>
 
     <main class="container-fluid px-3 px-md-4 py-3">
-        <div class="d-flex align-items-center justify-content-between mb-4">
+        <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-3 mb-4">
             <div>
                 <h1 class="h3 mb-1">Available Drills</h1>
                 <p class="text-secondary mb-0">Saved on the controller. Tap Edit to change a drill's sequence.</p>
             </div>
-            <button class="btn btn-primary" type="button" id="createDrillButton">
+            <button class="btn btn-primary flex-shrink-0 text-nowrap" type="button" id="createDrillButton">
                 <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>
                 Create Drill
             </button>
@@ -77,9 +77,60 @@
             <button class="btn btn-outline-primary drill-filter" type="button" data-drill-filter="stages" aria-pressed="false">Stages</button>
         </div>
 
+        <fieldset class="mb-4" aria-describedby="drillQualificationHint">
+            <legend class="fs-6 fw-semibold mb-2 d-flex align-items-center gap-2">
+                Qualifications
+                <button class="btn btn-link qualification-add-button" type="button" id="addQualificationButton" aria-label="Add qualification" title="Add qualification" disabled>
+                    <i class="bi bi-plus-lg border border-primary rounded-circle" aria-hidden="true"></i>
+                </button>
+            </legend>
+            <div class="d-flex flex-wrap gap-3" id="drillQualificationFilters">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="allDrillQualifications" checked>
+                    <label class="form-check-label" for="allDrillQualifications">All qualifications</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input drill-qualification-filter" type="checkbox" id="drillQualificationPistol" value="pistol" checked>
+                    <label class="form-check-label" for="drillQualificationPistol">Pistol</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input drill-qualification-filter" type="checkbox" id="drillQualificationRifle" value="rifle" checked>
+                    <label class="form-check-label" for="drillQualificationRifle">Rifle</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input drill-qualification-filter" type="checkbox" id="drillQualificationSwat" value="swat" checked>
+                    <label class="form-check-label" for="drillQualificationSwat">SWAT</label>
+                </div>
+            </div>
+            <p class="form-text mb-0" id="drillQualificationHint">Show drills matching any selected qualification. All qualifications also includes custom drills without a qualification.</p>
+        </fieldset>
+
         <div class="alert mb-4" id="drillListMessage" role="status" aria-live="polite" hidden></div>
         <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4" id="drillList" aria-live="polite"></div>
     </main>
+
+    <div class="modal fade" id="addQualificationModal" tabindex="-1" aria-labelledby="addQualificationTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addQualificationTitle">Add qualification</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addQualificationForm" novalidate>
+                        <label class="form-label" for="qualificationName">Qualification name</label>
+                        <input class="form-control" id="qualificationName" maxlength="32" autocomplete="off" aria-describedby="qualificationNameHint qualificationNameError">
+                        <div class="invalid-feedback" id="qualificationNameError" role="alert"></div>
+                        <p class="form-text mb-0" id="qualificationNameHint">After adding a qualification, use Edit on a drill to assign it.</p>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary" type="submit" form="addQualificationForm" id="saveQualificationButton">Add qualification</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Drill editor with the drag-and-drop sequence builder, used for both
          Create and Edit. Drills are saved on the controller (/api/drills). script.js drives it. -->
@@ -97,6 +148,11 @@
                             <label for="drillEditorName" class="form-label">Name</label>
                             <input type="text" class="form-control" id="drillEditorName" maxlength="47" autocomplete="off" placeholder="e.g. Pistol Qual Stage 6" required>
                         </div>
+                        <fieldset class="mb-3">
+                            <legend class="form-label fs-6 mb-1">Qualifications</legend>
+                            <div class="d-flex flex-wrap gap-3" id="drillEditorQualifications"></div>
+                            <p class="form-text mb-0">Run drill blocks also inherit qualifications from their saved drills.</p>
+                        </fieldset>
                         <span class="form-label d-block mb-1">Blocks</span>
                         <p class="small text-secondary mb-2">Drag a block into the sequence, or tap it to add it to the end.</p>
                         <div class="block-palette" id="blockPalette" aria-label="Blocks">
@@ -106,7 +162,10 @@
                             <button type="button" class="seq-palette-block seq-palette-block--pause" data-block="pause"><i class="bi bi-pause-circle" aria-hidden="true"></i> Pause</button>
                             <button type="button" class="seq-palette-block seq-palette-block--drill" data-block="run-drill"><i class="bi bi-collection" aria-hidden="true"></i> Run drill</button>
                         </div>
-                        <span class="form-label d-block mt-3 mb-1">Sequence</span>
+                        <div class="d-flex align-items-center justify-content-between gap-2 mt-3 mb-1">
+                            <span class="form-label mb-0">Sequence</span>
+                            <button class="btn btn-warning fw-semibold" type="button" id="clearDrillSequence" aria-controls="sequenceList" disabled><i class="bi bi-eraser me-1" aria-hidden="true"></i>Clear all</button>
+                        </div>
                         <ol class="sequence-list" id="sequenceList" aria-label="Drill sequence"></ol>
                         <p class="small text-secondary mt-2 mb-0" id="sequenceSummary" aria-live="polite"></p>
                     </form>
@@ -150,5 +209,5 @@
     <script src="vendor/bootstrap.bundle.min.js"></script>
     <!-- SortableJS 1.15.2 (MIT), vendored gzipped, for touch-friendly drag and drop -->
     <script src="vendor/sortable.min.js"></script>
-    <script src="script.js"></script>
+    <script src="script.js?v=drill-clear-all-1"></script>
 </html>
