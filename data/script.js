@@ -288,7 +288,7 @@ const updateDrillStatus = () => {
         let message = `${stage} paused. Press Resume`;
         if (status.stageResetPending) message = `${stage} resetting. Hiding targets`;
         else if (status.stageRestartReady) message = `${stage} reset. Press Resume to replay`;
-        else if (stageInfo?.between) message = `${stage} complete. Resume continues; Reset stage replays it`;
+        else if (stageInfo?.between) message = `${stage} complete. Resume continues; Redo stage replays it`;
         setDrillStatusText(message);
     } else if (state === 'running') {
         const stageInfo = describeDrillStage(status.drillName, status.step);
@@ -337,7 +337,9 @@ const updateDrillStatus = () => {
         document.getElementById('manualModeHintIcon').className = manualTargetsAvailable() ? 'bi bi-unlock-fill' : 'bi bi-lock-fill';
     }
     document.body.classList.toggle('is-manual-mode', Boolean(manualTargetsAvailable()));
-    document.querySelectorAll('.target-toggle').forEach((button) => { button.disabled = !manualTargetsAvailable(); });
+    document.querySelectorAll('.target-toggle, #targetNumberFilterButton').forEach((button) => {
+        button.disabled = !manualTargetsAvailable();
+    });
     document.querySelectorAll('.target-card').forEach((button) => {
         button.disabled = !manualTargetsAvailable() || button.classList.contains('is-defective');
     });
@@ -374,7 +376,7 @@ const updateDrillStatus = () => {
             ? 'Hiding targets. Wait for Resume to become available.'
             : status?.stageRestartReady
                 ? 'Stage is ready to replay. Press Resume.'
-                : `Reset ${status?.stageName} (stage ${status?.stageIndex}), hide the drill targets, and wait for Resume.`;
+                : `Redo ${status?.stageName} (stage ${status?.stageIndex}): hide the drill targets and wait for Resume.`;
     }
     if (drillSelect) drillSelect.disabled = manualMode || drillActive || stopped || countingDown;
 };
@@ -870,7 +872,11 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         numberFilterInput.removeAttribute('aria-invalid');
         numberFilterError.textContent = '';
     };
-    numberFilterModal?.addEventListener('show.bs.modal', () => {
+    numberFilterModal?.addEventListener('show.bs.modal', (event) => {
+        if (!manualTargetsAvailable()) {
+            event.preventDefault();
+            return;
+        }
         numberFilterInput.value = numberFilterText;
         clearNumberFilterError();
     });
@@ -881,6 +887,10 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
     numberFilterInput?.addEventListener('input', clearNumberFilterError);
     document.getElementById('targetNumberFilterForm')?.addEventListener('submit', (event) => {
         event.preventDefault();
+        if (!manualTargetsAvailable()) {
+            bootstrapModal?.getInstance(numberFilterModal)?.hide();
+            return;
+        }
         const text = numberFilterInput.value.trim();
         const selected = new Set();
         const parts = text.replace(/\s*[-–—]\s*/g, '-').split(/[,\s]+/).filter(Boolean);
@@ -926,7 +936,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         numberFilterText = '';
         applyTargetFilters();
     });
-    if (numberFilterButton) numberFilterButton.disabled = false;
+    if (numberFilterButton) numberFilterButton.disabled = !manualTargetsAvailable();
     applyTargetFilters();
 
     // AI-assisted target display preference; include this change in the PR's AI-use disclosure.
@@ -2526,8 +2536,8 @@ if (drillStatus && typeof bootstrap !== 'undefined') {
                     <div class="modal-body">
                         <h3 class="h6">How do I start a drill?</h3>
                         <p>On Targets, exit manual mode, select a drill, and press Start drill. Choose the targets if asked, then wait for the start countdown.</p>
-                        <h3 class="h6">How do Pause and Reset stage work?</h3>
-                        <p>Pause holds the drill until Resume. In a full drill, Pause then Reset stage hides the drill targets and rewinds the current stage. Press Resume to replay it. Reset stage is unavailable for standalone drills.</p>
+                        <h3 class="h6">How do Pause and Redo stage work?</h3>
+                        <p>Pause holds the drill until Resume. In a full drill, Pause then Redo stage hides the drill targets and rewinds the current stage. Press Resume to replay it. Redo stage is unavailable for standalone drills.</p>
                         <h3 class="h6">How do I build a sequence?</h3>
                         <p>On Drills, choose Create Drill or Edit. Drag blocks into the sequence, or tap to add them at the end. Use Run drill to include a saved drill as many times as needed. Use the grip or arrow buttons to reorder steps, then Save drill.</p>
                         <h3 class="h6">How do I mark a defective target?</h3>
