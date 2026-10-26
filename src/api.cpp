@@ -322,9 +322,9 @@ static void handleResumeDrill(AsyncWebServerRequest* request) {
 static void handleResetStage(AsyncWebServerRequest* request) {
     switch (resetDrillStage()) {
         case StageResetResult::Accepted:    return sendOk(request);
-        case StageResetResult::NotPaused:   return sendError(request, 409, "Pause the full drill before resetting a stage");
-        case StageResetResult::NoStage:     return sendError(request, 409, "No full-drill stage is available to reset");
-        case StageResetResult::Busy:        return sendError(request, 409, "A stage reset or Resume is already pending");
+        case StageResetResult::NotPaused:   return sendError(request, 409, "Pause the full drill before redoing a stage");
+        case StageResetResult::NoStage:     return sendError(request, 409, "No full-drill stage is available to redo");
+        case StageResetResult::Busy:        return sendError(request, 409, "A stage redo or Resume is already pending");
         case StageResetResult::Stopped:     return sendError(request, 409, "Targets are stopped; press Reset first");
         case StageResetResult::HalNotReady: return sendError(request, 503, "Target hardware is not ready");
     }
@@ -352,7 +352,8 @@ static void handleReset(AsyncWebServerRequest* request) {
 
 // GET /api/drill/status
 //   -> {state, drillName, step, stepCount, stepAction, targets: [n, ...], lastOutcome, stopped,
-//       hardwareReady, facing: [n, ...]}
+//       hardwareReady, facing: [n, ...], delayMs, delayRemainingMs, stageName, stageIndex,
+//       betweenStages, canResetStage, stageResetPending, stageRestartReady, finalStageComplete}
 // While idle, drillName/stepCount/targets describe the last drill run (step is 0).
 // stopped = emergency stop is latched; only /api/reset moves targets until it is cleared.
 static void handleDrillStatus(AsyncWebServerRequest* request) {
@@ -379,6 +380,7 @@ static void handleDrillStatus(AsyncWebServerRequest* request) {
     doc["canResetStage"] = status.canResetStage && hal_isReady();
     doc["stageResetPending"] = status.stageResetPending;
     doc["stageRestartReady"] = status.stageRestartReady;
+    doc["finalStageComplete"] = status.finalStageComplete;
     sendJson(request, 200, doc);
 }
 
