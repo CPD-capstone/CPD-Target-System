@@ -324,6 +324,15 @@
     outline-offset: 2px;
 }
 
+/* Filter fields and checkboxes share the blue focus treatment used by score entry. */
+.performance-page .performance-filter-menu input:focus,
+.performance-page #filterButton:focus-visible,
+.performance-page #clearFiltersButton:focus-visible {
+    outline: none;
+    border-color: var(--performance-blue);
+    box-shadow: 0 0 0 0.2rem rgba(0, 87, 184, 0.2);
+}
+
 .export-button {
     display: inline-flex;
     min-height: 2.65rem;
@@ -539,6 +548,13 @@
 .score-entry > .form-control {
     min-width: 0;
     min-height: 2.65rem;
+}
+
+/* Score and date fields use one blue focus indicator for mouse and keyboard input. */
+.performance-page .score-entry > .form-control:focus {
+    outline: none;
+    border-color: var(--performance-blue);
+    box-shadow: 0 0 0 0.2rem rgba(0, 87, 184, 0.2);
 }
 
 .score-entry-label {
