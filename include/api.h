@@ -39,6 +39,8 @@
 //                                    delayMs, delayRemainingMs}  (delay step length / time left)
 //   Stage status fields (AI-assisted with Codex): stageName, stageIndex, betweenStages, canResetStage, stageResetPending,
 //   stageRestartReady (see DrillStatus). Reset accepts asynchronously; hardware failure ends the drill.
+//   AI-generated (Claude): finalStageComplete = a full drill's last stage finished and the drill is
+//   paused (targets hidden) so it can be redone; reset-stage replays it, resume ends the drill.
 //   POST   /api/targets/present  {targets?}             -> setTargets(.., true)  (refused mid-drill/stopped)
 //   POST   /api/targets/hide     {targets?}             -> setTargets(.., false) (refused mid-drill/stopped)
 //   GET    /api/targets/state    -> {facing: [n, ...]}
