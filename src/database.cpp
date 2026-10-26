@@ -1,6 +1,8 @@
 #include "database.h"
 #include "hal.h"
 
+static JsonArray qualificationNames(JsonDocument& doc);
+
 /*
  * AI-assisted (Claude): the CRUD functions below were migrated from an older object-keyed
  * schema to the one in data/database.json, which is authoritative. It uses top-level ARRAYS:
@@ -341,6 +343,10 @@ static void addStats(JsonObject officer, const char* cutoff, const char* today) 
     writeStats(officer["pistolStats"].to<JsonObject>(), officer["pistolQualScores"], cutoff, today);
     writeStats(officer["rifleStats"].to<JsonObject>(), officer["rifleQualScores"], cutoff, today);
     writeStats(officer["swatStats"].to<JsonObject>(), officer["swatQualScores"], cutoff, today);
+    JsonObject customStats = officer["qualificationStats"].to<JsonObject>();
+    for (JsonPair history : officer["qualificationScores"].as<JsonObject>()) {
+        writeStats(customStats[history.key().c_str()].to<JsonObject>(), history.value().as<JsonArrayConst>(), cutoff, today);
+    }
 }
 
 //Validates today and writes the date one year earlier ("YYYY-MM-DD") into cutoff[11].
@@ -429,10 +435,7 @@ bool editOfficer(int badgeNum, const char* name) {
 // AI-modified (Claude): replaces editUserPerformance. Scores are stored newest-first, and
 // ArduinoJson has no insert-at-index, so the old list is copied aside and re-added after the new entry.
 bool addQualScore(int badgeNum, const char* qualType, int score, const char* date) {
-    if (strcmp(qualType, "pistol") != 0 && strcmp(qualType, "rifle") != 0 && strcmp(qualType, "swat") != 0) {
-        Serial.printf("Unknown qualification type: %s\r\n", qualType);
-        return false;
-    }
+    if (!qualType || !*qualType) return false;
     //Expect "YYYY-MM-DD"
     if (!isDateString(date)) {
         Serial.printf("Date must be YYYY-MM-DD: %s\r\n", date ? date : "(null)");
@@ -442,6 +445,12 @@ bool addQualScore(int badgeNum, const char* qualType, int score, const char* dat
     JsonDocument doc;
     if (!loadDatabase(doc)) return false;
 
+    String registeredName;
+    for (const char* name : qualificationNames(doc)) {
+        if (String(name).equalsIgnoreCase(qualType)) registeredName = name;
+    }
+    if (registeredName.isEmpty()) return false;
+
     JsonArray officers = doc["Officers"];
     int i = findIndex(officers, "BadgeNum", badgeNum);
     if (i < 0) {
@@ -449,14 +458,23 @@ bool addQualScore(int badgeNum, const char* qualType, int score, const char* dat
         return false;
     }
 
-    char key[24];
-    snprintf(key, sizeof(key), "%sQualScores", qualType);
-
+    // Preserve existing built-in fields. Custom histories use the catalog's exact saved names.
+    String normalized = registeredName;
+    normalized.toLowerCase();
+    const bool legacy = normalized == "pistol" || normalized == "rifle" || normalized == "swat";
+    JsonObject histories = officers[i].as<JsonObject>();
+    String key = normalized + "QualScores";
+    if (!legacy) {
+        histories = officers[i]["qualificationScores"].is<JsonObject>()
+            ? officers[i]["qualificationScores"].as<JsonObject>()
+            : officers[i]["qualificationScores"].to<JsonObject>();
+        key = registeredName;
+    }
     JsonDocument oldScores;
-    oldScores.set(officers[i][key]);
+    oldScores.set(histories[key]);
 
     //to<JsonArray>() empties the field, then the new entry goes in first
-    JsonArray scores = officers[i][key].to<JsonArray>();
+    JsonArray scores = histories[key].to<JsonArray>();
     JsonArray entry = scores.add<JsonArray>();
     entry.add(score);
     entry.add(date);
@@ -485,6 +503,49 @@ bool deleteOfficer(int badgeNum) {
 
 // ---- Drills --------------------------------------------------------------------------------
 
+// Older databases receive the same built-in qualification names without a migration upload.
+static JsonArray qualificationNames(JsonDocument& doc) {
+    if (!doc["qualifications"].is<JsonArray>()) {
+        JsonArray names = doc["qualifications"].to<JsonArray>();
+        names.add("Pistol");
+        names.add("Rifle");
+        names.add("SWAT");
+    }
+    return doc["qualifications"].as<JsonArray>();
+}
+
+bool getQualifications(JsonDocument& out) {
+    JsonDocument doc;
+    if (!loadDatabase(doc)) return false;
+    return copyInto(out, qualificationNames(doc));
+}
+
+bool addQualification(const char* name) {
+    String trimmed = name ? name : "";
+    trimmed.trim();
+    if (trimmed.isEmpty() || trimmed.length() > 32) return false;
+    for (char c : trimmed) if (static_cast<unsigned char>(c) < 32) return false;
+    JsonDocument doc;
+    if (!loadDatabase(doc)) return false;
+    JsonArray names = qualificationNames(doc);
+    for (const char* existing : names) if (trimmed.equalsIgnoreCase(existing)) return false;
+    names.add(trimmed);
+    return saveDatabase(doc);
+}
+
+static bool validQualifications(JsonDocument& doc, JsonArrayConst selected) {
+    if (selected.isNull()) return true;
+    JsonArray names = qualificationNames(doc);
+    if (selected.size() > names.size()) return false;
+    for (JsonVariantConst value : selected) {
+        if (!value.is<const char*>()) return false;
+        bool found = false;
+        for (const char* name : names) if (String(name).equalsIgnoreCase(value.as<const char*>())) found = true;
+        if (!found) return false;
+    }
+    return true;
+}
+
 // Getter for drills (all of them)
 bool getDrills(JsonDocument& out) {
     JsonDocument doc;
@@ -504,7 +565,7 @@ bool getDrill(const char* drillName, JsonDocument& out) {
 }
 
 // AI-modified (Claude): drills are just "drillName" + a validated "sequence"
-bool addDrill(const char* drillName, JsonArrayConst sequence) {
+bool addDrill(const char* drillName, JsonArrayConst sequence, JsonArrayConst qualifications) {
     JsonDocument doc;
     if (!loadDatabase(doc)) return false;
 
@@ -515,17 +576,19 @@ bool addDrill(const char* drillName, JsonArrayConst sequence) {
 
     if (!isValidDrillName(drills, drillName)) return false;
     if (!validateSequence(drills, drillName, sequence)) return false;
+    if (!validQualifications(doc, qualifications)) return false;
 
     JsonObject drill = drills.add<JsonObject>();
     drill["drillName"] = drillName;
     drill["sequence"] = sequence;
+    if (!qualifications.isNull()) drill["qualifications"] = qualifications;
 
     return saveDatabase(doc);
 }
 
 // AI-modified (Claude): replaces the sequence only (see renameDrill for the name), so Full Drills
 // that reference this drill by name stay valid
-bool editDrill(const char* drillName, JsonArrayConst newSequence) {
+bool editDrill(const char* drillName, JsonArrayConst newSequence, JsonArrayConst qualifications) {
     JsonDocument doc;
     if (!loadDatabase(doc)) return false;
 
@@ -536,8 +599,10 @@ bool editDrill(const char* drillName, JsonArrayConst newSequence) {
         return false;
     }
     if (!validateSequence(drills, drillName, newSequence)) return false;
+    if (!validQualifications(doc, qualifications)) return false;
 
     drills[i]["sequence"] = newSequence;
+    if (!qualifications.isNull()) drills[i]["qualifications"] = qualifications;
     return saveDatabase(doc);
 }
 

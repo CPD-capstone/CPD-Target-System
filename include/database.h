@@ -86,7 +86,7 @@ bool editOfficer(int badgeNum, const char* name);
 
 /// @brief Records a qualification score as the newest entry of that officer's score list.
 /// @param badgeNum badge number of the officer
-/// @param qualType "pistol", "rifle" or "swat"
+/// @param qualType registered qualification name; legacy pistol/rifle/swat aliases remain valid
 /// @param score the score
 /// @param date date shot, "YYYY-MM-DD"
 /// @return true if the inputs are valid, the officer exists, and the change was saved
@@ -112,14 +112,26 @@ bool getDrill(const char* drillName, JsonDocument& out);
 ///        positive timeMs) or the name of another existing drill, without forming a loop.
 /// @param drillName unique, non-empty drill name other than present/hide/pause/delay
 /// @param sequence array of { "step", "action", "timeMs"? } objects
+/// @param qualifications optional registered qualification names; omitted preserves legacy behavior
 /// @return true if the drill is valid and was saved
-bool addDrill(const char* drillName, JsonArrayConst sequence);
+bool addDrill(const char* drillName, JsonArrayConst sequence, JsonArrayConst qualifications = JsonArrayConst());
 
 /// @brief Replaces a drill's sequence, validated the same way as addDrill().
 /// @param drillName name of the drill to edit
 /// @param newSequence replacement sequence
+/// @param qualifications optional registered qualification names; omitted preserves existing assignments
 /// @return true if the drill exists, the sequence is valid, and the change was saved
-bool editDrill(const char* drillName, JsonArrayConst newSequence);
+bool editDrill(const char* drillName, JsonArrayConst newSequence, JsonArrayConst qualifications = JsonArrayConst());
+
+/// @brief Reads qualification names, including defaults for older databases.
+/// @param out document to fill with the names array
+/// @return true if the database could be read
+bool getQualifications(JsonDocument& out);
+
+/// @brief Saves a unique qualification name on the controller.
+/// @param name non-empty name of at most 32 bytes
+/// @return true if the name is valid, unique, and saved
+bool addQualification(const char* name);
 
 /// @brief Checks whether a name is reserved for a step action (present/hide/pause/delay) and so
 ///        can't be used as a drill name.

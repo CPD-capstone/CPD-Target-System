@@ -32,10 +32,10 @@
 
     <!-- Menu Button -->
     <div class="m-3">
-        <button class="btn btn-outline-primary d-flex flex-column gap-1 p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#menuPanel" aria-controls="menuPanel" aria-label="Open menu">
-            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
-            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
-            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
+        <button class="btn btn-outline-primary menu-toggle" type="button" data-bs-toggle="offcanvas" data-bs-target="#menuPanel" aria-controls="menuPanel" aria-label="Open menu">
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
         </button>
     </div>
 
@@ -101,11 +101,14 @@
                     <i class="bi bi-hand-index-thumb" aria-hidden="true"></i>
                     <span id="manualModeLabel">Turn on manual mode</span>
                 </button>
-                <div class="btn-group" role="group" aria-label="Toggle targets" aria-describedby="manualModeHint">
+                <div class="btn-group target-filter-group" role="group" aria-label="Target groups and number filter" aria-describedby="manualModeHint">
                     <button class="btn btn-outline-dark target-toggle" type="button" data-toggle-set="all" disabled>All</button>
                     <button class="btn btn-outline-dark target-toggle" type="button" data-toggle-set="odd" disabled>Odd</button>
                     <button class="btn btn-outline-dark target-toggle" type="button" data-toggle-set="even" disabled>Even</button>
                     <button class="btn btn-outline-dark target-toggle" type="button" data-toggle-set="random" disabled>Random</button>
+                    <button class="btn btn-outline-dark" id="targetNumberFilterButton" type="button" data-bs-toggle="modal" data-bs-target="#targetNumberFilterModal" aria-controls="targetNumberFilterModal" aria-pressed="false" aria-label="Filter by number" title="Filter by number" disabled>
+                        <i class="bi bi-funnel me-1" aria-hidden="true"></i>Number
+                    </button>
                 </div>
             </div>
             <!-- AI-generated (Claude): says whether target toggling is locked; script.js updates it. -->
@@ -113,6 +116,10 @@
                 <i class="bi bi-lock-fill" id="manualModeHintIcon" aria-hidden="true"></i>
                 <span id="manualModeHintText">Locked: turn on manual mode to toggle targets.</span>
             </p>
+            <div class="target-number-filter-status mt-2" id="targetNumberFilterStatus" hidden>
+                <span id="targetNumberFilterSummary" role="status" aria-live="polite"></span>
+                <button class="btn btn-link btn-sm p-0" id="clearTargetNumberFilter" type="button">Clear filter</button>
+            </div>
         </section>
 
         <section class="control-section" aria-labelledby="viewPanelTitle">
@@ -156,7 +163,32 @@
     </div>
 
     <div class="container-fluid mt-3">
-        <div class="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-2 row-gap-5" id="targetGrid"></div>
+        <!-- Keep two targets per row on phones, including landscape screens. -->
+        <div class="row row-cols-2 row-cols-lg-3 row-cols-xl-4 g-2 row-gap-5" id="targetGrid"></div>
+        <p class="text-secondary text-center m-3" id="targetFilterEmpty" role="status" hidden>No targets match the current filters.</p>
+    </div>
+
+    <div class="modal fade" id="targetNumberFilterModal" tabindex="-1" aria-labelledby="targetNumberFilterTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="targetNumberFilterTitle">Filter targets by number</h5>
+                    <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close number filter"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="targetNumberFilterForm" novalidate>
+                        <label class="form-label" for="targetNumbersInput">Target numbers</label>
+                        <input class="form-control" id="targetNumbersInput" type="text" placeholder="e.g. 1, 3, 5-8" maxlength="120" autocomplete="off" spellcheck="false" aria-describedby="targetNumbersHint targetNumbersError">
+                        <div class="invalid-feedback" id="targetNumbersError" role="alert"></div>
+                        <p class="form-text mb-0" id="targetNumbersHint">Enter numbers separated by commas, or ranges such as 5-8. Leave blank to show all targets. This filters the view only; manual group buttons and drill assignments are unchanged.</p>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary" type="submit" form="targetNumberFilterForm">Apply filter</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- AI-generated (Claude): asks which targets to run when the selected drill has none assigned. -->
@@ -240,8 +272,8 @@
 
     <!-- Bootstrap JS -->
     <script src="vendor/bootstrap.bundle.min.js"></script>
-    <!-- Fetch the updated drill controls when this page reloads (AI-assisted with Codex). -->
-    <script src="script.js?v=stage-controls-2"></script>
+    <!-- Fetch the updated target controls when this page reloads. -->
+    <script src="script.js?v=target-number-filter-1"></script>
 
 </body>
 </html>

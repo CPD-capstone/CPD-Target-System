@@ -81,7 +81,10 @@ static void handleAddDrill(AsyncWebServerRequest* request, JsonVariant& json) {
     if (!*name || sequence.isNull()) {
         return sendError(request, 400, "drillName and sequence are required");
     }
-    if (!addDrill(name, sequence)) {
+    if (!json["qualifications"].isNull() && !json["qualifications"].is<JsonArray>()) {
+        return sendError(request, 400, "qualifications must be an array");
+    }
+    if (!addDrill(name, sequence, json["qualifications"].as<JsonArrayConst>())) {
         return sendError(request, 400, "Drill rejected: name taken or invalid sequence");
     }
     sendOk(request);
@@ -95,6 +98,12 @@ static void handleEditDrill(AsyncWebServerRequest* request, JsonVariant& json) {
 
     JsonArrayConst sequence = json["sequence"].as<JsonArrayConst>();
     JsonVariantConst newNameField = json["drillName"];
+    if (!json["qualifications"].isNull() && !json["qualifications"].is<JsonArray>()) {
+        return sendError(request, 400, "qualifications must be an array");
+    }
+    if (!json["qualifications"].isNull() && sequence.isNull()) {
+        return sendError(request, 400, "sequence is required when assigning qualifications");
+    }
     if (sequence.isNull() && newNameField.isNull()) {
         return sendError(request, 400, "sequence or drillName is required");
     }
@@ -120,7 +129,7 @@ static void handleEditDrill(AsyncWebServerRequest* request, JsonVariant& json) {
 
     // The sequence is saved under the old name, then the rename updates it and every Full Drill
     // that includes it
-    if (!sequence.isNull() && !editDrill(name.c_str(), sequence)) {
+    if (!sequence.isNull() && !editDrill(name.c_str(), sequence, json["qualifications"].as<JsonArrayConst>())) {
         return sendError(request, 400, "Edit rejected: invalid sequence");
     }
     if (renaming && !renameDrill(name.c_str(), newName.c_str())) {
@@ -442,6 +451,17 @@ void registerApiRoutes(AsyncWebServer& server) {
     server.on("/api/targets/state", HTTP_GET, handleTargetState);
 
     // Drills
+    server.on("/api/qualifications", HTTP_GET, [](AsyncWebServerRequest* request) {
+        JsonDocument out;
+        if (!getQualifications(out)) return sendError(request, 500, "Could not read qualifications");
+        sendJson(request, 200, out);
+    });
+    onJsonBody(server, "/api/qualifications", HTTP_POST, [](AsyncWebServerRequest* request, JsonVariant& json) {
+        if (!addQualification(json["name"] | "")) {
+            return sendError(request, 400, "Enter a unique, short qualification name");
+        }
+        sendOk(request);
+    });
     server.on("/api/drills", HTTP_GET, handleGetDrills);
     onJsonBody(server, "/api/drills", HTTP_POST, handleAddDrill);
     onJsonBody(server, "/api/drills", HTTP_PUT, handleEditDrill);

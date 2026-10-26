@@ -23,6 +23,21 @@ export async function createControllerTest() {
         status: code, headers: { 'Content-Type': 'application/json' }
     });
     const refuse = (message) => { throw new Error(message); };
+    const officersWithStats = (today) => {
+        const cutoff = `${Number(today.slice(0, 4)) - 1}${today.slice(4)}`;
+        const stats = (history = []) => {
+            const scores = history.filter((entry) => Array.isArray(entry) && Number.isInteger(entry[0])
+                && entry[1] >= cutoff && entry[1] <= today).map((entry) => entry[0]);
+            return { attempts: scores.length, top: scores.length ? Math.max(...scores) : null,
+                average: scores.length ? Math.round(scores.reduce((sum, value) => sum + value, 0) / scores.length * 10) / 10 : null };
+        };
+        return database.Officers.map((officer) => {
+            const result = structuredClone(officer);
+            for (const type of ['pistol', 'rifle', 'swat']) result[`${type}Stats`] = stats(officer[`${type}QualScores`]);
+            result.qualificationStats = Object.fromEntries(Object.entries(officer.qualificationScores || {}).map(([name, history]) => [name, stats(history)]));
+            return result;
+        });
+    };
     const workingTargets = (requested) => database.targets
         .filter((target) => target.working !== false && (!requested?.length || requested.includes(target.id)))
         .map((target) => target.id);
@@ -136,8 +151,9 @@ export async function createControllerTest() {
                 if (route === '/database.json') return json(database);
                 if (route === '/api/targets') return json(database.targets);
                 if (route === '/api/drills') return json(database.drills);
+                if (route === '/api/qualifications') return json(database.qualifications || ['Pistol', 'Rifle', 'SWAT']);
                 if (route === '/api/targets/state') return json({ facing: status.facing });
-                if (route === '/api/officers') return json(database.Officers);
+                if (route === '/api/officers') return json(officersWithStats(url.searchParams.get('today') || new Date().toISOString().slice(0, 10)));
                 if (route === '/api/drill/status') {
                     const active = status.state !== 'idle';
                     const current = active ? stage() : null;
@@ -191,6 +207,27 @@ export async function createControllerTest() {
                 const target = database.targets.find((item) => item.id === Number(url.searchParams.get('id')));
                 if (!target) refuse('Target not found.');
                 target.working = body.working;
+            } else if (route === '/api/officers/scores' && method === 'POST') {
+                const officer = database.Officers.find((item) => item.BadgeNum === body.BadgeNum);
+                const name = (database.qualifications || ['Pistol', 'Rifle', 'SWAT']).find((item) => (
+                    typeof body.qualType === 'string' && item.toLowerCase() === body.qualType.toLowerCase()
+                ));
+                if (!officer || !name || !Number.isInteger(body.score) || body.score < 0 || body.score > 2147483647
+                    || !/^\d{4}-\d{2}-\d{2}$/.test(body.date || '')) refuse('Score rejected: unknown officer, qualification, or invalid score/date.');
+                const type = name.toLowerCase();
+                const entry = [body.score, body.date];
+                if (['pistol', 'rifle', 'swat'].includes(type)) {
+                    officer[`${type}QualScores`] = [entry, ...(officer[`${type}QualScores`] || [])];
+                } else {
+                    const histories = officer.qualificationScores || {};
+                    officer.qualificationScores = { ...histories, [name]: [entry, ...(Object.hasOwn(histories, name) ? histories[name] : [])] };
+                }
+            } else if (route === '/api/qualifications' && method === 'POST') {
+                const name = typeof body.name === 'string' ? body.name.trim() : '';
+                const names = database.qualifications || ['Pistol', 'Rifle', 'SWAT'];
+                if (!name || new TextEncoder().encode(name).length > 32 || /[\u0000-\u001f]/.test(name)
+                    || names.some((item) => item.toLowerCase() === name.toLowerCase())) refuse('Enter a unique, short qualification name.');
+                database.qualifications = [...names, name];
             } else if (route === '/api/drills') {
                 const name = url.searchParams.get('name');
                 const index = database.drills.findIndex((item) => item.drillName === name);
@@ -198,6 +235,11 @@ export async function createControllerTest() {
                     if (index < 0 || database.drills.some((item) => item.sequence.some((step) => step.action === name))) refuse('Drill not found or used by another drill.');
                     database.drills.splice(index, 1);
                 } else {
+                    if (body.qualifications !== undefined && (!Array.isArray(body.qualifications)
+                        || body.qualifications.some((name) => typeof name !== 'string'
+                            || !(database.qualifications || ['Pistol', 'Rifle', 'SWAT']).some((item) => item.toLowerCase() === name.toLowerCase())))) {
+                        refuse('Unknown qualification.');
+                    }
                     if (database.drills.some((item, other) => item.drillName === body.drillName && other !== index)) refuse('Drill name already exists.');
                     if (method === 'PUT' && index < 0) refuse('Drill not found.');
                     if (index < 0) database.drills.push(body);
