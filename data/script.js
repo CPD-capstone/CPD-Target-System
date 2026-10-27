@@ -1124,6 +1124,7 @@ if (document.getElementById('performanceRows')) {
     const sortSelect = document.getElementById('sortSelect');
     let sortMode = sortSelect.value || 'newest';
     let performanceOfficers = [];
+    let exportSnapshot = null;
 
     // Preserve YYYY-MM-DD calendar dates instead of shifting them through UTC.
     const parseScoreDate = (value) => {
@@ -1181,10 +1182,10 @@ if (document.getElementById('performanceRows')) {
     };
 
     // Flatten officer histories so every control acts on one consistent result set.
-    const getQualificationRecords = () => performanceOfficers.flatMap((officer) => (
+    const getQualificationRecords = (selected = new Set(qualificationFilters.filter((filter) => filter.checked).map((filter) => filter.value))) => performanceOfficers.flatMap((officer) => (
         performanceQualifications.flatMap((qualification) => {
             const { key, name } = qualification;
-            if (!Array.from(qualificationFilters).some((filter) => filter.checked && filter.value === key)) {
+            if (!selected.has(key)) {
                 return [];
             }
 
@@ -1354,6 +1355,7 @@ if (document.getElementById('performanceRows')) {
     };
 
     const renderPerformance = () => {
+        exportSnapshot = null;
         const visibleRecords = getVisibleRecords();
         renderPerformanceSummary(visibleRecords);
         renderPerformanceTable(visibleRecords);
@@ -1394,8 +1396,132 @@ if (document.getElementById('performanceRows')) {
         renderPerformance();
     });
 
-    // Browser print supports Save as PDF without a separate PDF-generation dependency.
-    document.getElementById('exportPdfButton').addEventListener('click', () => window.print());
+    // Build a dedicated report from records, rather than printing the dashboard and its controls.
+    const exportModalElement = document.getElementById('performanceExportModal');
+    const exportModal = bootstrap.Modal.getOrCreateInstance(exportModalElement);
+    const exportForm = document.getElementById('performanceExportForm');
+    const exportOfficer = document.getElementById('exportOfficer');
+    const exportQualifications = document.getElementById('exportQualifications');
+    const exportFromDate = document.getElementById('exportFromDate');
+    const exportToDate = document.getElementById('exportToDate');
+    const exportError = document.getElementById('exportResultsError');
+    const exportReport = document.getElementById('performanceExportReport');
+    let exportPrepared = false;
+
+    const exportSelection = () => {
+        const selected = new Set(Array.from(exportQualifications.querySelectorAll('input:checked'), (input) => input.value));
+        const from = exportFromDate.value;
+        const to = exportToDate.value;
+        const error = !selected.size ? 'Select at least one qualification.'
+            : !exportFromDate.validity.valid || !exportToDate.validity.valid ? 'Enter valid dates.'
+                : from && to && from > to ? 'From must be on or before To.' : '';
+        const records = error ? [] : getQualificationRecords(selected).filter((record) => (
+            (!exportOfficer.value || record.badge === exportOfficer.value)
+            && (!from || localDateString(record.date) >= from)
+            && (!to || localDateString(record.date) <= to)
+        ));
+        return { selected, from, to, records, error };
+    };
+
+    const updateExportCount = () => {
+        const { records, error } = exportSelection();
+        exportError.hidden = !error;
+        exportError.textContent = error;
+        document.getElementById('exportResultCount').textContent = error ? ''
+            : `${records.length} ${records.length === 1 ? 'result' : 'results'} to export${records.length ? '.' : '. Choose different filters.'}`;
+        document.getElementById('printResultsButton').disabled = Boolean(error) || !records.length;
+    };
+    exportForm.addEventListener('input', updateExportCount);
+    exportForm.addEventListener('change', updateExportCount);
+    document.getElementById('exportTodayResults').addEventListener('click', () => {
+        exportFromDate.value = localDateString();
+        exportToDate.value = exportFromDate.value;
+        updateExportCount();
+    });
+
+    document.getElementById('exportPdfButton').addEventListener('click', () => {
+        const query = performanceSearch.value.trim().toLocaleLowerCase();
+        const matching = performanceOfficers.filter((officer) => query
+            && `${officer.Name} ${officer.BadgeNum}`.toLocaleLowerCase().includes(query));
+        exportOfficer.replaceChildren(new Option('All officers', ''), ...performanceOfficers.map((officer) => (
+            new Option(`${officer.Name} | Badge ${officer.BadgeNum}`, String(officer.BadgeNum))
+        )));
+        if (matching.length === 1) exportOfficer.value = String(matching[0].BadgeNum);
+        exportQualifications.replaceChildren(...performanceQualifications.map(({ name, key }, index) => {
+            const label = document.createElement('label');
+            label.className = 'form-check d-flex align-items-center gap-2 text-break mb-0';
+            const input = document.createElement('input');
+            Object.assign(input, { type: 'checkbox', className: 'form-check-input mt-0', value: key,
+                id: `exportQualification${index}`, checked: qualificationFilters.some((filter) => filter.value === key && filter.checked) });
+            label.append(input, document.createTextNode(name));
+            return label;
+        }));
+        exportFromDate.value = document.getElementById('startDate').value;
+        exportToDate.value = document.getElementById('endDate').value || localDateString();
+        updateExportCount();
+        exportModal.show();
+    });
+
+    const buildExportReport = (records, scope) => {
+        const element = (tag, text) => {
+            const node = document.createElement(tag);
+            node.textContent = text;
+            return node;
+        };
+        const average = records.length ? (records.reduce((total, record) => total + record.score, 0) / records.length).toFixed(1) : '—';
+        const heading = element('h1', 'Qualification results');
+        const generated = element('p', `Cookeville Police Department · Generated ${new Date().toLocaleString()}`);
+        const filters = element('p', scope);
+        const summary = element('p', `${records.length} results · Average score: ${average}`);
+        const table = document.createElement('table');
+        const header = table.createTHead().insertRow();
+        ['Officer', 'Badge', 'Qualification', 'Date', 'Score'].forEach((title) => {
+            const cell = element('th', title);
+            cell.scope = 'col';
+            header.append(cell);
+        });
+        const body = table.createTBody();
+        [...records].sort((a, b) => b.date - a.date || a.badge.localeCompare(b.badge) || a.qualification.localeCompare(b.qualification))
+            .forEach((record) => {
+                const row = body.insertRow();
+                [record.name, record.badge, record.qualification, formatScoreDate(record.date), String(record.score)]
+                    .forEach((text) => row.append(element('td', text)));
+            });
+        exportReport.replaceChildren(heading, generated, filters, summary, table);
+    };
+
+    exportForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        if (exportPrepared) return;
+        const { selected, from, to, records, error } = exportSelection();
+        updateExportCount();
+        if (error || !records.length) return;
+        const names = performanceQualifications.filter(({ key }) => selected.has(key)).map(({ name }) => name).join(', ');
+        const dates = from && from === to ? from : `${from || 'earliest'} to ${to || 'latest'}`;
+        exportSnapshot = {
+            records,
+            scope: `${exportOfficer.selectedOptions[0].text} · Qualifications: ${names} · Dates: ${from || to ? dates : 'All dates'}`
+        };
+        buildExportReport(exportSnapshot.records, exportSnapshot.scope);
+        exportPrepared = true;
+        exportModalElement.addEventListener('hidden.bs.modal', () => {
+            try {
+                window.print();
+            } catch {
+                exportPrepared = false;
+                performanceMessage.hidden = false;
+                performanceMessage.classList.add('is-error');
+                performanceMessage.textContent = 'Could not open the print dialog. Try exporting again in your browser.';
+            }
+        }, { once: true });
+        exportModal.hide();
+    });
+    window.addEventListener('beforeprint', () => {
+        // Print preview can fire more than once; retain the chosen export instead of using dashboard filters.
+        if (exportSnapshot) buildExportReport(exportSnapshot.records, exportSnapshot.scope);
+        else buildExportReport(getVisibleRecords(), 'Current Performance search and filters');
+    });
+    window.addEventListener('afterprint', () => { exportPrepared = false; });
 
     // Add scores dialog: ported from Oviya's oviyaTest branch. AI-modified (Claude): scores are
     // saved on the controller (POST /api/officers/scores, one per score) instead of localStorage,
@@ -1568,6 +1694,7 @@ if (document.getElementById('performanceRows')) {
             );
             scoreOfficerSelect.value = selectedBadge;
             saveScoresButton.disabled = !performanceOfficers.length;
+            document.getElementById('exportPdfButton').disabled = !performanceOfficers.length;
             renderPerformance();
         })
         .catch(() => {

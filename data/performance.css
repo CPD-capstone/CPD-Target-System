@@ -326,6 +326,8 @@
 
 /* Filter fields and checkboxes share the blue focus treatment used by score entry. */
 .performance-page .performance-filter-menu input:focus,
+.performance-page #performanceExportForm input:focus,
+.performance-page #performanceExportForm button:focus-visible,
 .performance-page #filterButton:focus-visible,
 .performance-page #clearFiltersButton:focus-visible {
     outline: none;
@@ -424,6 +426,48 @@
 }
 
 @media print {
+    @page {
+        size: letter;
+        margin: 15mm;
+    }
+
+    .performance-page > * {
+        display: none !important;
+    }
+
+    .performance-page > #performanceExportReport {
+        display: block !important;
+        font: 11pt/1.4 Arial, sans-serif;
+        color: #000;
+        overflow-wrap: anywhere;
+    }
+
+    #performanceExportReport h1 {
+        font-size: 20pt;
+        margin-bottom: 0.5rem;
+    }
+
+    #performanceExportReport table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    #performanceExportReport th,
+    #performanceExportReport td {
+        padding: 0.45rem;
+        border: 1px solid #999;
+        text-align: left;
+        vertical-align: top;
+    }
+
+    #performanceExportReport tr {
+        break-inside: avoid;
+    }
+
+    #performanceExportReport thead {
+        display: table-header-group;
+    }
+
     .performance-page {
         background: #fff;
         color: #000;
@@ -455,6 +499,10 @@
     .performance-table {
         font-size: 9pt;
     }
+}
+
+#performanceExportForm .form-control {
+    min-width: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
