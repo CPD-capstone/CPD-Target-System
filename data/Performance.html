@@ -22,7 +22,7 @@
     <link rel="stylesheet" href="vendor/bootstrap-icons.min.css">
     <link rel="stylesheet" href="vendor/barlow-condensed.css">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="performance.css?v=performance-focus-3">
+    <link rel="stylesheet" href="performance.css?v=results-export-1">
 </head>
 <body class="performance-page">
     <!-- Match the title banner and menu placement used by the Drills page. -->
@@ -111,7 +111,7 @@
                         <option value="score-low">Lowest score</option>
                     </select>
                 </label>
-                <button class="btn btn-primary export-button" type="button" id="exportPdfButton">
+                <button class="btn btn-primary export-button" type="button" id="exportPdfButton" disabled>
                     <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
                     <span>Export PDF</span>
                 </button>
@@ -248,8 +248,49 @@
         </section>
     </main>
 
+    <div class="modal fade" id="performanceExportModal" tabindex="-1" aria-labelledby="performanceExportTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5" id="performanceExportTitle">Export qualification results</h2>
+                    <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close export"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="performanceExportForm" novalidate>
+                        <label class="form-label" for="exportOfficer">Officer</label>
+                        <select class="form-select mb-3" id="exportOfficer"></select>
+                        <fieldset class="mb-3">
+                            <legend class="fs-6">Qualifications</legend>
+                            <div class="d-flex flex-wrap gap-3" id="exportQualifications"></div>
+                        </fieldset>
+                        <button class="btn btn-sm btn-outline-primary mb-2" type="button" id="exportTodayResults">Today's results</button>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="form-label" for="exportFromDate">From</label>
+                                <input class="form-control" type="date" id="exportFromDate" aria-describedby="exportDateHint">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label" for="exportToDate">To</label>
+                                <input class="form-control" type="date" id="exportToDate" aria-describedby="exportDateHint">
+                            </div>
+                        </div>
+                        <p class="form-text" id="exportDateHint">The To date starts at today. Leave From blank to include all results through that date, or leave both dates blank for your full history. To export a single day, choose the same date for From and To.</p>
+                        <p class="small mb-0" id="exportResultCount" role="status" aria-live="polite"></p>
+                        <p class="form-text mb-0">In the print dialog, choose Save as PDF.</p>
+                        <p class="text-danger small mt-2 mb-0" id="exportResultsError" role="alert" hidden></p>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary" type="submit" form="performanceExportForm" id="printResultsButton">Continue to PDF</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <section id="performanceExportReport" hidden aria-label="Qualification results report"></section>
+
     <!-- Bootstrap provides the shared menu interaction. -->
     <script src="vendor/bootstrap.bundle.min.js"></script>
-    <script src="script.js?v=shared-performance-qualifications-1"></script>
+    <script src="script.js?v=results-export-date-fix-2"></script>
 </body>
 </html>
