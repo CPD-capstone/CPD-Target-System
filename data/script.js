@@ -1407,6 +1407,8 @@ if (document.getElementById('performanceRows')) {
     const exportError = document.getElementById('exportResultsError');
     const exportReport = document.getElementById('performanceExportReport');
     let exportPrepared = false;
+    let exportAttempt = 0;
+    let pendingPdfWindow = null;
 
     const exportSelection = () => {
         const selected = new Set(Array.from(exportQualifications.querySelectorAll('input:checked'), (input) => input.value));
@@ -1429,7 +1431,7 @@ if (document.getElementById('performanceRows')) {
         exportError.textContent = error;
         document.getElementById('exportResultCount').textContent = error ? ''
             : `${records.length} ${records.length === 1 ? 'result' : 'results'} to export${records.length ? '.' : '. Choose different filters.'}`;
-        document.getElementById('printResultsButton').disabled = Boolean(error) || !records.length;
+        document.getElementById('printResultsButton').disabled = exportPrepared || Boolean(error) || !records.length;
     };
     exportForm.addEventListener('input', updateExportCount);
     exportForm.addEventListener('change', updateExportCount);
@@ -1440,6 +1442,7 @@ if (document.getElementById('performanceRows')) {
     });
 
     document.getElementById('exportPdfButton').addEventListener('click', () => {
+        document.getElementById('openExportPdf').hidden = true;
         const query = performanceSearch.value.trim().toLocaleLowerCase();
         const matching = performanceOfficers.filter((officer) => query
             && `${officer.Name} ${officer.BadgeNum}`.toLocaleLowerCase().includes(query));
@@ -1490,7 +1493,18 @@ if (document.getElementById('performanceRows')) {
         exportReport.replaceChildren(heading, generated, filters, summary, table);
     };
 
-    exportForm.addEventListener('submit', (event) => {
+    exportModalElement.addEventListener('hide.bs.modal', () => {
+        if (!exportPrepared) return;
+        exportAttempt += 1;
+        exportPrepared = false;
+        pendingPdfWindow?.close();
+        pendingPdfWindow = null;
+        exportForm.querySelectorAll('input, select, button').forEach((control) => { control.disabled = false; });
+        document.getElementById('printResultsButton').textContent = 'Continue to PDF';
+        updateExportCount();
+    });
+
+    exportForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         if (exportPrepared) return;
         const { selected, from, to, records, error } = exportSelection();
@@ -1504,24 +1518,58 @@ if (document.getElementById('performanceRows')) {
         };
         buildExportReport(exportSnapshot.records, exportSnapshot.scope);
         exportPrepared = true;
-        exportModalElement.addEventListener('hidden.bs.modal', () => {
-            try {
-                window.print();
-            } catch {
+        const attempt = ++exportAttempt;
+        const button = document.getElementById('printResultsButton');
+        button.disabled = true;
+        button.textContent = 'Preparing PDF…';
+        exportForm.querySelectorAll('input, select, button').forEach((control) => { control.disabled = true; });
+        document.getElementById('openExportPdf').hidden = true;
+        // Open within the click gesture, before loading assets, so browsers permit the new tab.
+        let pdfWindow = null;
+        try { pdfWindow = window.open('', '_blank'); } catch { /* Use the Open PDF link if pop-ups are unavailable. */ }
+        pendingPdfWindow = pdfWindow;
+        if (pdfWindow) {
+            pdfWindow.opener = null;
+            pdfWindow.document.title = 'Qualification results';
+            pdfWindow.document.body.textContent = 'Preparing PDF…';
+        }
+        try {
+            const { createQualificationPdf } = await import('./results-pdf.js?v=1');
+            const pdf = await createQualificationPdf(exportSnapshot);
+            if (attempt !== exportAttempt) return;
+            const url = URL.createObjectURL(pdf);
+            const link = document.getElementById('openExportPdf');
+            link.href = url;
+            link.hidden = false;
+            if (pdfWindow && !pdfWindow.closed) {
+                pdfWindow.location.replace(url);
                 exportPrepared = false;
-                performanceMessage.hidden = false;
-                performanceMessage.classList.add('is-error');
-                performanceMessage.textContent = 'Could not open the print dialog. Try exporting again in your browser.';
+                exportModal.hide();
+            } else {
+                document.getElementById('exportResultCount').textContent = 'Your PDF is ready. Select Open PDF to view it.';
             }
-        }, { once: true });
-        exportModal.hide();
+        } catch {
+            if (attempt !== exportAttempt) return;
+            pdfWindow?.close();
+            exportError.hidden = false;
+            exportError.textContent = 'Could not create the PDF. Check the controller connection and try again.';
+        } finally {
+            if (attempt === exportAttempt) {
+                exportPrepared = false;
+                pendingPdfWindow = null;
+                exportForm.querySelectorAll('input, select, button').forEach((control) => { control.disabled = false; });
+                button.textContent = 'Continue to PDF';
+                // Keep a successful or failed export message visible until the filters change.
+                const selection = exportSelection();
+                button.disabled = Boolean(selection.error) || !selection.records.length;
+            }
+        }
     });
     window.addEventListener('beforeprint', () => {
         // Print preview can fire more than once; retain the chosen export instead of using dashboard filters.
         if (exportSnapshot) buildExportReport(exportSnapshot.records, exportSnapshot.scope);
         else buildExportReport(getVisibleRecords(), 'Current Performance search and filters');
     });
-    window.addEventListener('afterprint', () => { exportPrepared = false; });
 
     // Add scores dialog: ported from Oviya's oviyaTest branch. AI-modified (Claude): scores are
     // saved on the controller (POST /api/officers/scores, one per score) instead of localStorage,

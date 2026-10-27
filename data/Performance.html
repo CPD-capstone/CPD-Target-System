@@ -267,20 +267,20 @@
                         <div class="row g-2">
                             <div class="col-6">
                                 <label class="form-label" for="exportFromDate">From</label>
-                                <input class="form-control" type="date" id="exportFromDate" aria-describedby="exportDateHint">
+                                <input class="form-control" type="date" id="exportFromDate">
                             </div>
                             <div class="col-6">
                                 <label class="form-label" for="exportToDate">To</label>
-                                <input class="form-control" type="date" id="exportToDate" aria-describedby="exportDateHint">
+                                <input class="form-control" type="date" id="exportToDate">
                             </div>
                         </div>
-                        <p class="form-text" id="exportDateHint">The To date starts at today. Leave From blank to include all results through that date, or leave both dates blank for your full history. To export a single day, choose the same date for From and To.</p>
                         <p class="small mb-0" id="exportResultCount" role="status" aria-live="polite"></p>
-                        <p class="form-text mb-0">In the print dialog, choose Save as PDF.</p>
+                        <p class="form-text mb-0">Your PDF will open in a new tab.</p>
                         <p class="text-danger small mt-2 mb-0" id="exportResultsError" role="alert" hidden></p>
                     </form>
                 </div>
                 <div class="modal-footer">
+                    <a class="btn btn-outline-primary" id="openExportPdf" target="_blank" rel="noopener" hidden>Open PDF</a>
                     <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
                     <button class="btn btn-primary" type="submit" form="performanceExportForm" id="printResultsButton">Continue to PDF</button>
                 </div>
@@ -291,6 +291,6 @@
 
     <!-- Bootstrap provides the shared menu interaction. -->
     <script src="vendor/bootstrap.bundle.min.js"></script>
-    <script src="script.js?v=results-export-date-fix-2"></script>
+    <script src="script.js?v=direct-pdf-1"></script>
 </body>
 </html>
