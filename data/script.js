@@ -1267,6 +1267,11 @@ if (document.getElementById('performanceRows')) {
         entry.querySelector('.score-entry-value').focus();
     });
 
+    document.getElementById('addOfficerButton').addEventListener('click', () => {
+        addScoresDialog.close();
+        window.location.href = 'settings.html';
+    });
+
     // One listener for every row's remove button (rows are cloned)
     scoreEntries.addEventListener('click', (event) => {
         const removeButton = event.target.closest('.remove-score-entry');
