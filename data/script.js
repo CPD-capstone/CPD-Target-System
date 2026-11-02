@@ -1,3 +1,191 @@
+// AI-generated (Claude): shared Q&A help button and modal, available from every page.
+const faqGroups = [
+    {
+        title: 'Getting started',
+        questions: [
+            {
+                question: 'How do I access the system?',
+                answer: 'Open the system through its designated web interface on a supported device connected to the system’s network. Follow your administrator’s instructions for access.'
+            },
+            {
+                question: 'Do I need special training to use it?',
+                answer: 'Users should receive an introduction to the system’s controls, target operations, and safety procedures before operating it independently.'
+            },
+            {
+                question: 'Where can I find the main features?',
+                answer: 'Use the menu button to move between Targets, Drills, Performance, and Settings.'
+            }
+        ]
+    },
+    {
+        title: 'Target control and drills',
+        questions: [
+            {
+                question: 'How do I start a training drill?',
+                answer: 'On Targets, choose a drill from the Run a drill selector, check the range and selected targets, then press Start drill when the instructor confirms the range is ready. Follow all range safety procedures.'
+            },
+            {
+                question: 'Can I pause or stop a drill?',
+                answer: 'Use Pause to pause a running drill and Resume to continue. Stop ends the drill and freezes targets where they are. After a stop, use Reset only when it is safe to hide all targets.'
+            },
+            {
+                question: 'How do I create a drill?',
+                answer: 'Open Drills and select Create Drill. Enter a name, then tap or drag Present, Delay, Hide, or Pause blocks into the sequence. Configure each block, arrange the steps, and select Save drill.'
+            },
+            {
+                question: 'How do I change the order or remove a drill step?',
+                answer: 'In the drill editor, drag steps to reorder them or use the up and down arrow controls. Use the X control on a step to remove it, then save the drill.'
+            },
+            {
+                question: 'Can I customize a drill?',
+                answer: 'Yes. In the drill editor, Present and Hide steps can use all targets or a custom target selection; Present also supports choosing a random number of targets. Delay sets the wait time, and Pause waits for the operator to resume.'
+            },
+            {
+                question: 'How do I edit or delete a drill?',
+                answer: 'Open Drills and use the controls on the drill’s card to edit or delete it. Built-in stages used by a full drill are protected; make a custom drill if you need a variation.'
+            },
+            {
+                question: 'How do I control targets manually?',
+                answer: 'On Targets, turn on Manual mode, then use the target controls. Manual controls are locked while manual mode is off. Follow range procedures before moving targets.'
+            },
+            {
+                question: 'Can I disable a malfunctioning target?',
+                answer: 'Authorized personnel can open Settings, find Defective targets, and check the target that is unavailable. It will be excluded from drills and manual commands and shown as unavailable on Targets. Clear the mark only after it has been checked and approved for use.'
+            },
+            {
+                question: 'Can I see which targets are available?',
+                answer: 'The Targets page shows target status. Unavailable targets are marked visually; use Hide defective in the View controls to hide them from the grid without changing their status.'
+            },
+            {
+                question: 'How do I switch between grid and list view?',
+                answer: 'On Targets, use the Grid view and List view buttons in the View section. Your display choice is saved on that device.'
+            },
+            {
+                question: 'How do I change the delay before a drill starts?',
+                answer: 'Open Settings and choose Instant, Set time, or Random under Drill start delay. A fixed delay can be set from 1 to 30 seconds; the setting is saved on that phone.'
+            }
+        ]
+    },
+    {
+        title: 'Performance and reports',
+        questions: [
+            {
+                question: 'Does the system track officer performance?',
+                answer: 'Qualification scores are associated with an officer and qualification type so authorized instructors can review recorded performance over time.'
+            },
+            {
+                question: 'Can I view previous training sessions?',
+                answer: 'The Performance page lists recorded qualification attempts. It does not provide a separate log of every drill session.'
+            },
+            {
+                question: 'Can I search for a specific officer or session?',
+                answer: 'On Performance, search by officer name or badge number. Use Filter to narrow qualification, score, or date, and Sort by to order results.'
+            },
+            {
+                question: 'Can I export reports?',
+                answer: 'On Performance, select Export PDF and use the browser’s print dialog to print or save the displayed report as a PDF.'
+            },
+            {
+                question: 'How do I add an officer?',
+                answer: 'Open Settings and find Officers. Enter the officer’s name and badge number, then select Add officer. The officer is saved on the controller and becomes available for score entry.'
+            },
+            {
+                question: 'How do I record qualification scores?',
+                answer: 'Open Performance and select Add scores. Choose the officer and qualification, enter a score and date for each row, and select Save scores. Use Add another score to enter multiple attempts in one batch.'
+            }
+        ]
+    },
+    {
+        title: 'Troubleshooting and safety',
+        questions: [
+            {
+                question: 'What should I do if a target does not respond?',
+                answer: 'Stop the drill if necessary, check the target’s displayed status, and notify the designated technical or range personnel. Do not attempt electrical or pneumatic repairs unless authorized.'
+            },
+            {
+                question: 'What if the website loses connection?',
+                answer: 'Do not assume that commands have been received. Stop the operation according to range procedures and have authorized personnel check the system connection before continuing.'
+            },
+            {
+                question: 'What does a target unavailable status mean?',
+                answer: 'It means a target was marked unavailable in Settings. It should not be selected or used until authorized personnel have addressed the issue and cleared its status.'
+            },
+            {
+                question: 'Does the system replace range safety procedures?',
+                answer: 'No. The system is an operational aid and does not replace instructor supervision, established range safety rules, or required safety checks.'
+            },
+            {
+                question: 'Who should I contact if I need help?',
+                answer: 'Contact the designated range administrator or authorized technical support personnel for assistance with system operation, hardware issues, or access.'
+            }
+        ]
+    }
+];
+
+const faqButton = document.createElement('button');
+faqButton.type = 'button';
+faqButton.className = 'btn btn-primary faq-help-button';
+faqButton.setAttribute('aria-label', 'Open questions and answers');
+faqButton.setAttribute('aria-haspopup', 'dialog');
+faqButton.setAttribute('aria-controls', 'faqModal');
+faqButton.textContent = '?';
+
+const faqModal = document.createElement('div');
+faqModal.className = 'modal fade';
+faqModal.id = 'faqModal';
+faqModal.tabIndex = -1;
+faqModal.setAttribute('aria-labelledby', 'faqModalTitle');
+faqModal.setAttribute('aria-hidden', 'true');
+
+const faqDialog = document.createElement('div');
+faqDialog.className = 'modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg';
+const faqContent = document.createElement('div');
+faqContent.className = 'modal-content faq-modal-content';
+const faqHeader = document.createElement('div');
+faqHeader.className = 'modal-header';
+const faqTitle = document.createElement('h2');
+faqTitle.className = 'modal-title h5';
+faqTitle.id = 'faqModalTitle';
+faqTitle.textContent = 'Questions & answers';
+const faqClose = document.createElement('button');
+faqClose.type = 'button';
+faqClose.className = 'btn-close';
+faqClose.dataset.bsDismiss = 'modal';
+faqClose.setAttribute('aria-label', 'Close');
+faqHeader.append(faqTitle, faqClose);
+
+const faqBody = document.createElement('div');
+faqBody.className = 'modal-body';
+faqGroups.forEach(({ title, questions }) => {
+    const group = document.createElement('section');
+    group.className = 'faq-group';
+    const heading = document.createElement('h3');
+    heading.className = 'h6 faq-group-title';
+    heading.textContent = title;
+    group.append(heading);
+
+    questions.forEach(({ question, answer }) => {
+        const item = document.createElement('details');
+        item.className = 'faq-item';
+        const summary = document.createElement('summary');
+        summary.textContent = question;
+        const response = document.createElement('p');
+        response.textContent = answer;
+        item.append(summary, response);
+        group.append(item);
+    });
+
+    faqBody.append(group);
+});
+
+faqContent.append(faqHeader, faqBody);
+faqDialog.append(faqContent);
+faqModal.append(faqDialog);
+document.body.append(faqButton, faqModal);
+faqButton.addEventListener('click', () => {
+    bootstrap.Modal.getOrCreateInstance(faqModal).show();
+});
+
 const drillStatus = document.getElementById('drillStatus');
 // AI-generated (Claude): the text inside the status bar.
 const drillStatusText = document.getElementById('drillStatusText') || drillStatus;

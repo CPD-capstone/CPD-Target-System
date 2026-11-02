@@ -179,6 +179,64 @@
     color: #842029;
 }
 
+/* AI-generated (Claude): shared Q&A help control and readable FAQ dialog. */
+.faq-help-button {
+    position: fixed;
+    right: 1rem;
+    bottom: calc(1rem + env(safe-area-inset-bottom));
+    z-index: 1040;
+    display: inline-grid;
+    width: 3.25rem;
+    height: 3.25rem;
+    align-items: center;
+    justify-items: center;
+    padding: 0;
+    border-radius: 50%;
+    box-shadow: 0 0.25rem 0.75rem rgba(33, 37, 41, 0.2);
+    font-size: 1.65rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.faq-modal-content {
+    border: 0;
+    border-radius: 0.75rem;
+}
+
+.faq-group + .faq-group {
+    margin-top: 1.25rem;
+}
+
+.faq-group-title {
+    margin-bottom: 0.35rem;
+    color: #0057b8;
+    font-weight: 750;
+}
+
+.faq-item {
+    padding: 0.65rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.faq-item summary {
+    color: #14232d;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+.faq-item p {
+    margin: 0.5rem 1.5rem 0 0;
+    color: #495057;
+    line-height: 1.5;
+}
+
+@media print {
+    .faq-help-button,
+    #faqModal {
+        display: none !important;
+    }
+}
+
 .target-card {
     position: relative;
     display: block;
