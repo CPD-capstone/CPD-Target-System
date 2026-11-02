@@ -81,7 +81,10 @@ static void handleAddDrill(AsyncWebServerRequest* request, JsonVariant& json) {
     if (!*name || sequence.isNull()) {
         return sendError(request, 400, "drillName and sequence are required");
     }
-    if (!addDrill(name, sequence)) {
+    if (!json["qualifications"].isNull() && !json["qualifications"].is<JsonArray>()) {
+        return sendError(request, 400, "qualifications must be an array");
+    }
+    if (!addDrill(name, sequence, json["qualifications"].as<JsonArrayConst>())) {
         return sendError(request, 400, "Drill rejected: name taken or invalid sequence");
     }
     sendOk(request);
@@ -95,6 +98,12 @@ static void handleEditDrill(AsyncWebServerRequest* request, JsonVariant& json) {
 
     JsonArrayConst sequence = json["sequence"].as<JsonArrayConst>();
     JsonVariantConst newNameField = json["drillName"];
+    if (!json["qualifications"].isNull() && !json["qualifications"].is<JsonArray>()) {
+        return sendError(request, 400, "qualifications must be an array");
+    }
+    if (!json["qualifications"].isNull() && sequence.isNull()) {
+        return sendError(request, 400, "sequence is required when assigning qualifications");
+    }
     if (sequence.isNull() && newNameField.isNull()) {
         return sendError(request, 400, "sequence or drillName is required");
     }
@@ -120,7 +129,7 @@ static void handleEditDrill(AsyncWebServerRequest* request, JsonVariant& json) {
 
     // The sequence is saved under the old name, then the rename updates it and every Full Drill
     // that includes it
-    if (!sequence.isNull() && !editDrill(name.c_str(), sequence)) {
+    if (!sequence.isNull() && !editDrill(name.c_str(), sequence, json["qualifications"].as<JsonArrayConst>())) {
         return sendError(request, 400, "Edit rejected: invalid sequence");
     }
     if (renaming && !renameDrill(name.c_str(), newName.c_str())) {
@@ -303,8 +312,23 @@ static void handlePauseDrill(AsyncWebServerRequest* request) {
 
 // POST /api/drill/resume
 static void handleResumeDrill(AsyncWebServerRequest* request) {
-    if (!resumeDrill()) return sendError(request, 409, "No drill is paused");
+    // Resume is unavailable until the stage reset finishes (AI-assisted with Codex).
+    if (!resumeDrill()) return sendError(request, 409, "No paused drill is ready to resume");
     sendOk(request);
+}
+
+// POST /api/drill/reset-stage: rewind the stage and wait for Resume (AI-assisted with Codex).
+// Acceptance is asynchronous; status reports stageResetPending until the hide/rewind completes.
+static void handleResetStage(AsyncWebServerRequest* request) {
+    switch (resetDrillStage()) {
+        case StageResetResult::Accepted:    return sendOk(request);
+        case StageResetResult::NotPaused:   return sendError(request, 409, "Pause the full drill before resetting a stage");
+        case StageResetResult::NoStage:     return sendError(request, 409, "No full-drill stage is available to reset");
+        case StageResetResult::Busy:        return sendError(request, 409, "A stage reset or Resume is already pending");
+        case StageResetResult::Stopped:     return sendError(request, 409, "Targets are stopped; press Reset first");
+        case StageResetResult::HalNotReady: return sendError(request, 503, "Target hardware is not ready");
+    }
+    sendError(request, 500, "Unknown error");
 }
 
 // POST /api/stop   EMERGENCY STOP: freeze every target where it is. Always allowed, with or
@@ -348,6 +372,13 @@ static void handleDrillStatus(AsyncWebServerRequest* request) {
     // AI-generated (Claude): the delay step being run (both 0 if it isn't a delay)
     doc["delayMs"] = status.delayMs;
     doc["delayRemainingMs"] = status.delayRemainingMs;
+    // Use the running drill's stage and replay state (AI-assisted with Codex).
+    doc["stageName"] = status.stageName;
+    doc["stageIndex"] = status.stageIndex;
+    doc["betweenStages"] = status.betweenStages;
+    doc["canResetStage"] = status.canResetStage && hal_isReady();
+    doc["stageResetPending"] = status.stageResetPending;
+    doc["stageRestartReady"] = status.stageRestartReady;
     sendJson(request, 200, doc);
 }
 
@@ -409,6 +440,7 @@ void registerApiRoutes(AsyncWebServer& server) {
     onJsonBody(server, "/api/drill/start", HTTP_POST, handleStartDrill);
     server.on("/api/drill/pause", HTTP_POST, handlePauseDrill);
     server.on("/api/drill/resume", HTTP_POST, handleResumeDrill);
+    server.on("/api/drill/reset-stage", HTTP_POST, handleResetStage);
     server.on("/api/drill/status", HTTP_GET, handleDrillStatus);
 
     // Manual target control (before /api/targets)
@@ -419,6 +451,17 @@ void registerApiRoutes(AsyncWebServer& server) {
     server.on("/api/targets/state", HTTP_GET, handleTargetState);
 
     // Drills
+    server.on("/api/qualifications", HTTP_GET, [](AsyncWebServerRequest* request) {
+        JsonDocument out;
+        if (!getQualifications(out)) return sendError(request, 500, "Could not read qualifications");
+        sendJson(request, 200, out);
+    });
+    onJsonBody(server, "/api/qualifications", HTTP_POST, [](AsyncWebServerRequest* request, JsonVariant& json) {
+        if (!addQualification(json["name"] | "")) {
+            return sendError(request, 400, "Enter a unique, short qualification name");
+        }
+        sendOk(request);
+    });
     server.on("/api/drills", HTTP_GET, handleGetDrills);
     onJsonBody(server, "/api/drills", HTTP_POST, handleAddDrill);
     onJsonBody(server, "/api/drills", HTTP_PUT, handleEditDrill);
