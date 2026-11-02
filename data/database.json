@@ -21,7 +21,7 @@
     },
     { 
       "Name": "Example2",
-      "BadgeNum": 888,
+      "BadgeNum": 889,
       "pistolQualScores": [
         [99, "2026-09-18"], 
         [98, "2026-03-15"], 
@@ -41,7 +41,7 @@
   ],
 
   "drills": [
-    {"drillName": "Pistol Qual Stage 1", 
+    {"drillName": "Pistol Qual Stage 1", "builtIn": true, 
       "sequence": [
         {
           "step": 1,
@@ -75,7 +75,7 @@
         }
       ] 
     },  
-    { "drillName": "Pistol Qual Stage 2",
+    { "drillName": "Pistol Qual Stage 2", "builtIn": true,
       "sequence": [
         {
           "step": 1,
@@ -126,7 +126,7 @@
         }
       ]
     },
-    { "drillName": "Pistol Qual Stage 3",
+    { "drillName": "Pistol Qual Stage 3", "builtIn": true,
       "sequence": [
         {
           "step": 1,
@@ -177,7 +177,7 @@
         }
       ]
     },
-    { "drillName": "Pistol Qual Stage 4",
+    { "drillName": "Pistol Qual Stage 4", "builtIn": true,
       "sequence":[
         {
           "step": 1,
@@ -211,7 +211,7 @@
         }
       ]
     },
-    {"drillName": "Pistol Qual Stage 5",
+    {"drillName": "Pistol Qual Stage 5", "builtIn": true,
       "sequence":[
         {
           "step": 1,
@@ -228,7 +228,7 @@
         }
       ]
     },
-    { "drillName": "Pistol Qual Full Drill",
+    { "drillName": "Pistol Qual Full Drill", "builtIn": true,
       "sequence":[
         {
           "step": 1,
@@ -269,7 +269,7 @@
       ]
     },
 
-    { "drillName": "Rifle Qual Stage 1",
+    { "drillName": "Rifle Qual Stage 1", "builtIn": true,
       "sequence":[
         {
           "step": 1,
@@ -286,7 +286,7 @@
         }
       ]
     },
-    { "drillName": "Rifle Qual Stage 2",
+    { "drillName": "Rifle Qual Stage 2", "builtIn": true,
       "sequence":[
         {
           "step": 1,
@@ -303,7 +303,7 @@
         }
       ]
     },
-    { "drillName": "Rifle Qual Stage 3",
+    { "drillName": "Rifle Qual Stage 3", "builtIn": true,
       "sequence": [
         {
           "step": 1,
@@ -320,7 +320,7 @@
         }
       ]
     },
-    { "drillName": "Rifle Qual Stage 4",
+    { "drillName": "Rifle Qual Stage 4", "builtIn": true,
       "sequence":[
         {
           "step": 1,
@@ -354,7 +354,7 @@
         }
       ]
     },
-    { "drillName": "Rifle Qual Stage 5",
+    { "drillName": "Rifle Qual Stage 5", "builtIn": true,
       "sequence":[
         {
           "step": 1,
@@ -371,7 +371,7 @@
         }
       ]
     },
-    { "drillName": "Rifle Qual Full Drill",
+    { "drillName": "Rifle Qual Full Drill", "builtIn": true,
       "sequence":[
         {
           "step": 1,
@@ -412,7 +412,7 @@
       ]
     },
 
-    { "drillName": "SWAT Qual Stage 1",
+    { "drillName": "SWAT Qual Stage 1", "builtIn": true,
       "sequence": [
         {
           "step": 1,
@@ -429,7 +429,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 2",
+    { "drillName": "SWAT Qual Stage 2", "builtIn": true,
       "sequence": [
         {
           "step": 1,
@@ -446,7 +446,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 3",
+    { "drillName": "SWAT Qual Stage 3", "builtIn": true,
       "sequence": [
         {
           "step": 1,
@@ -463,7 +463,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 4",
+    { "drillName": "SWAT Qual Stage 4", "builtIn": true,
       "sequence": [
         {
           "step": 1,
@@ -480,7 +480,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 5",
+    { "drillName": "SWAT Qual Stage 5", "builtIn": true,
       "sequence": [
         {
           "step": 1,
@@ -497,7 +497,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 6",
+    { "drillName": "SWAT Qual Stage 6", "builtIn": true,
       "sequence": [
         {
           "step": 1,
@@ -514,7 +514,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 7",
+    { "drillName": "SWAT Qual Stage 7", "builtIn": true,
       "sequence": [
         {
           "step": 1,
@@ -531,7 +531,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 8",
+    { "drillName": "SWAT Qual Stage 8", "builtIn": true,
       "sequence":[
         {
           "step": 1,
@@ -548,7 +548,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 9",
+    { "drillName": "SWAT Qual Stage 9", "builtIn": true,
       "sequence":[
         {
           "step": 1,
@@ -565,7 +565,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 10",
+    { "drillName": "SWAT Qual Stage 10", "builtIn": true,
       "sequence":[
         {
           "step": 1,
@@ -582,7 +582,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 11",
+    { "drillName": "SWAT Qual Stage 11", "builtIn": true,
       "sequence":[
         {
           "step": 1,
@@ -599,7 +599,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 12",
+    { "drillName": "SWAT Qual Stage 12", "builtIn": true,
       "sequence":[
         {
           "step": 1,
@@ -616,7 +616,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 13",
+    { "drillName": "SWAT Qual Stage 13", "builtIn": true,
       "sequence":[
         {
           "step": 1,
@@ -633,7 +633,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 14",
+    { "drillName": "SWAT Qual Stage 14", "builtIn": true,
       "sequence":[
         {
           "step": 1,
@@ -650,7 +650,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 15",
+    { "drillName": "SWAT Qual Stage 15", "builtIn": true,
       "sequence":[
         {
           "step": 1,
@@ -667,7 +667,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 16",
+    { "drillName": "SWAT Qual Stage 16", "builtIn": true,
       "sequence":[
         {
           "step": 1,
@@ -684,7 +684,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 17",
+    { "drillName": "SWAT Qual Stage 17", "builtIn": true,
       "sequence":[
             {
               "step": 1,
@@ -702,7 +702,7 @@
           ]
     },
     {
-      "drillName": "SWAT Qual Full Drill",
+      "drillName": "SWAT Qual Full Drill", "builtIn": true,
       "sequence":[
         {
           "step": 1,

@@ -26,9 +26,22 @@ void initWiFi(){
     startAP();
 }
 
+// AI-generated (Claude): WPA2 passphrases are 8-63 printable ASCII characters
+static bool isValidWiFiPassword(const String& password){
+    if(password.length() < 8 || password.length() > 63){
+        return false;
+    }
+    for(size_t i = 0; i < password.length(); i++){
+        if(password[i] < 32 || password[i] > 126){
+            return false;
+        }
+    }
+    return true;
+}
+
 bool updateWiFiPassword(const String& newPassword){
-    // WPA2 requires at least 8 characters
-    if(newPassword.length() < 8){
+    // AI-modified (Claude): was only the 8-character minimum; now the full WPA2 rule
+    if(!isValidWiFiPassword(newPassword)){
         return false;
     }
 
@@ -43,5 +56,39 @@ bool updateWiFiPassword(const String& newPassword){
     WiFi.softAPdisconnect(true);
     startAP();
     
+    return true;
+}
+
+// AI-generated (Claude) ------------------------------------------------------------------------
+
+bool checkWiFiPassword(const String& password){
+    return password == currentPassword;
+}
+
+namespace{
+    volatile bool passwordChangePending = false;
+
+    // Waits so the HTTP reply can go out, then applies the change and ends itself
+    void passwordChangeTask(void* param){
+        String* newPassword = static_cast<String*>(param);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        updateWiFiPassword(*newPassword);
+        delete newPassword;
+        passwordChangePending = false;
+        vTaskDelete(NULL);
+    }
+}
+
+bool scheduleWiFiPasswordChange(const String& newPassword){
+    if(passwordChangePending || !isValidWiFiPassword(newPassword)){
+        return false;
+    }
+    passwordChangePending = true;
+    String* copy = new String(newPassword);
+    if(xTaskCreate(passwordChangeTask, "WiFiPassword", 4096, copy, 1, NULL) != pdPASS){
+        delete copy;
+        passwordChangePending = false;
+        return false;
+    }
     return true;
 }

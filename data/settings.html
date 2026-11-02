@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<!-- AI-generated (Claude): Settings page: drill start delay (saved on this phone), defective
+     targets, officers and the WiFi password (saved on the controller). script.js wires the forms. -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="CPD Range">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#0057b8">
+    <title>Settings</title>
+    <link rel="stylesheet" href="vendor/bootstrap.min.css">
+    <link rel="stylesheet" href="vendor/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="vendor/barlow-condensed.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="settings-page">
+    <div id="drillStatus" class="drill-status-bar text-white bg-primary" style="--bs-primary-rgb: 0, 87, 184;" role="status" aria-live="polite">
+        <span class="drill-status-text" id="drillStatusText">No drill in progress</span>
+    </div>
+
+    <!-- Menu Button -->
+    <div class="m-3">
+        <button class="btn btn-outline-primary d-flex flex-column gap-1 p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#menuPanel" aria-controls="menuPanel" aria-label="Open menu">
+            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
+            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
+            <span style="width: 24px; height: 2px; background-color: currentColor;"></span>
+        </button>
+    </div>
+
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="menuPanel" aria-labelledby="menuPanelLabel">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="menuPanelLabel">Menu</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close menu"></button>
+        </div>
+        <div class="offcanvas-body">
+            <div class="d-grid gap-2">
+                <a class="btn btn-outline-primary text-start" href="targets.html">Targets</a>
+                <a class="btn btn-outline-primary text-start" href="drills.html">Drills</a>
+                <a class="btn btn-outline-primary text-start" href="Performance.html">Performance</a>
+                <a class="btn btn-outline-primary text-start active" href="settings.html" aria-current="page">Settings</a>
+            </div>
+        </div>
+    </div>
+
+    <main class="container-fluid px-3 px-md-4 py-3 settings-main">
+        <h1 class="h3 mb-4">Settings</h1>
+
+        <section class="card mb-4" aria-labelledby="startDelayTitle">
+            <div class="card-body">
+                <h2 class="h5 card-title" id="startDelayTitle">Drill start delay</h2>
+                <p class="text-secondary small">
+                    After you press <strong>Start drill</strong> or <strong>Resume</strong>, a countdown
+                    runs beside the Stop button before the targets move. Press <strong>Stop</strong>
+                    to cancel it. Saved on this phone.
+                </p>
+                <form id="startDelayForm">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="startDelayMode" id="startDelayInstant" value="instant">
+                        <label class="form-check-label" for="startDelayInstant">Instant (no countdown)</label>
+                    </div>
+                    <div class="form-check mb-1">
+                        <input class="form-check-input" type="radio" name="startDelayMode" id="startDelayFixed" value="fixed">
+                        <label class="form-check-label" for="startDelayFixed">Set time</label>
+                    </div>
+                    <div class="input-group start-delay-seconds mb-2">
+                        <input class="form-control" type="number" id="startDelaySeconds" min="1" max="30" step="1" inputmode="numeric" aria-label="Delay in seconds">
+                        <span class="input-group-text">seconds</span>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="startDelayMode" id="startDelayRandom" value="random">
+                        <label class="form-check-label" for="startDelayRandom">Random, 1 to 5 seconds</label>
+                    </div>
+                    <p class="small text-success mt-3 mb-0" id="startDelaySaved" role="status" hidden>
+                        <i class="bi bi-check-circle-fill" aria-hidden="true"></i> Saved
+                    </p>
+                </form>
+            </div>
+        </section>
+
+        <section class="card mb-4" aria-labelledby="defectiveTargetsTitle">
+            <div class="card-body">
+                <h2 class="h5 card-title" id="defectiveTargetsTitle">Defective targets</h2>
+                <p class="text-secondary small">
+                    Check any target that is broken. Drills and manual control skip it, and it shows
+                    grey on the Targets page. Saved on the controller, so it applies to every phone.
+                </p>
+                <div class="target-options" id="defectiveTargetList" role="group" aria-labelledby="defectiveTargetsTitle">
+                    <p class="small text-secondary mb-0">Loading targets...</p>
+                </div>
+                <p class="small mt-3 mb-0" id="defectiveTargetsMessage" role="status" hidden></p>
+            </div>
+        </section>
+
+        <!-- AI-generated (Claude): officer list (saved on the controller). -->
+        <section class="card mb-4" aria-labelledby="officersTitle">
+            <div class="card-body">
+                <h2 class="h5 card-title" id="officersTitle">Officers</h2>
+                <p class="text-secondary small">
+                    Officers who can be given qualification scores. Saved on the controller, so it
+                    applies to every phone.
+                </p>
+                <ul class="officer-list list-unstyled mb-3" id="officerList" aria-live="polite">
+                    <li class="small text-secondary">Loading officers...</li>
+                </ul>
+                <form class="officer-add" id="addOfficerForm" novalidate>
+                    <div class="officer-add-fields">
+                        <div>
+                            <label class="form-label small mb-1" for="newOfficerName">Name</label>
+                            <input class="form-control" type="text" id="newOfficerName" maxlength="60" autocomplete="off" required>
+                        </div>
+                        <div>
+                            <label class="form-label small mb-1" for="newOfficerBadge">Badge number</label>
+                            <input class="form-control" type="number" id="newOfficerBadge" min="1" step="1" inputmode="numeric" required>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" type="submit" id="addOfficerButton">
+                        <i class="bi bi-person-plus" aria-hidden="true"></i> Add officer
+                    </button>
+                </form>
+                <p class="small mt-3 mb-0" id="officersMessage" role="status" hidden></p>
+            </div>
+        </section>
+
+        <!-- AI-generated (Claude): confirms deleting an officer (their scores go too). -->
+        <div class="modal fade" id="deleteOfficerModal" tabindex="-1" aria-labelledby="deleteOfficerModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-sm">
+                <div class="modal-content">
+                    <div class="modal-header border-0 pb-0">
+                        <h5 class="modal-title" id="deleteOfficerModalLabel">
+                            <i class="bi bi-exclamation-triangle-fill text-danger me-2" aria-hidden="true"></i>
+                            Delete officer?
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-0">Delete <strong id="deleteOfficerName"></strong>? All of their qualification scores are deleted too. This cannot be undone.</p>
+                    </div>
+                    <div class="modal-footer border-0 pt-0">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-danger" id="confirmDeleteOfficerButton">Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <section class="card mb-4" aria-labelledby="wifiPasswordTitle">
+            <div class="card-body">
+                <h2 class="h5 card-title" id="wifiPasswordTitle">WiFi password</h2>
+                <p class="text-secondary small">
+                    Changes the password for the <strong>CPD Range Control</strong> network. Every
+                    connected phone, including this one, disconnects and must rejoin with the new password.
+                </p>
+                <form id="wifiPasswordForm" novalidate>
+                    <div class="mb-3">
+                        <label class="form-label" for="wifiCurrentPassword">Current password</label>
+                        <input class="form-control" type="password" id="wifiCurrentPassword" autocomplete="current-password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="wifiNewPassword">New password</label>
+                        <input class="form-control" type="password" id="wifiNewPassword" autocomplete="new-password" minlength="8" maxlength="63" required aria-describedby="wifiNewPasswordHint">
+                        <div class="form-text" id="wifiNewPasswordHint">8 to 63 characters.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="wifiConfirmPassword">Confirm new password</label>
+                        <input class="form-control" type="password" id="wifiConfirmPassword" autocomplete="new-password" maxlength="63" required>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="wifiShowPasswords">
+                        <label class="form-check-label" for="wifiShowPasswords">Show passwords</label>
+                    </div>
+                    <div class="alert py-2" id="wifiPasswordMessage" role="status" hidden></div>
+                    <button class="btn btn-primary" type="submit" id="wifiPasswordSubmit">Change password</button>
+                </form>
+            </div>
+        </section>
+    </main>
+
+    <script src="vendor/bootstrap.bundle.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
