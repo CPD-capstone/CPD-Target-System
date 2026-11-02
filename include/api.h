@@ -19,10 +19,15 @@
 //   GET    /api/officers?today=YYYY-MM-DD[&badge=<n>]            -> Officers array (or one officer)
 //                                          with pistolStats/rifleStats/swatStats {attempts, average,
 //                                          top} over the past 12 months
-//                                          (the client supplies today; the ESP32 has no clock)
+//                                          (the client supplies today; the ESP32 has no clock),
+//                                          plus qualificationStats {name: {attempts, average, top}}
+//                                          for custom qualifications (AI-modified, Claude)
 //   POST   /api/officers                   {BadgeNum, Name}       -> addOfficer
 //   PUT    /api/officers?badge=<n>         {Name}                 -> editOfficer (AI-generated, Claude)
 //   POST   /api/officers/scores            {BadgeNum, qualType, score, date} -> addQualScore
+//                                          (qualType: any name from /api/qualifications; score >= 0)
+//   GET    /api/qualifications             -> ["Pistol", "Rifle", "SWAT", ...custom names]
+//   POST   /api/qualifications             {name}                 -> addQualification (unique, <= 32 bytes)
 //   DELETE /api/officers?badge=<n>                                -> deleteOfficer
 //
 // AI-assisted (Claude): drill and target control (target_manager). "targets" is an array of

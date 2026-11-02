@@ -190,13 +190,42 @@ static void handleGetOfficers(AsyncWebServerRequest* request) {
     sendJson(request, 200, out);
 }
 
+// AI-generated (Claude): officer names may only contain letters, spaces and - ' . ,
+static const size_t MAX_OFFICER_NAME_LEN = 64;
+
+// Trims raw into out and checks it, returning nullptr if the name is valid or an error message
+static const char* checkOfficerName(const char* raw, String& out) {
+    out = raw;
+    out.trim();
+    if (out.isEmpty()) return "Name is required";
+    if (out.length() > MAX_OFFICER_NAME_LEN) return "Name must be 64 characters or fewer";
+
+    bool hasLetter = false;
+    char prev = '\0';
+    for (char c : out) {
+        if (isAlpha(c)) {
+            hasLetter = true;
+        } else if (c == ' ') {
+            if (prev == ' ') return "Name cannot contain double spaces";
+        } else if (c != '-' && c != '\'' && c != '.' && c != ',') {
+            return "Name may only contain letters, spaces, and - ' . ,";
+        }
+        prev = c;
+    }
+    if (!hasLetter) return "Name must contain a letter";
+    return nullptr;
+}
+
+// AI-modified (Claude): validates the name's characters and requires a positive badge number
 // POST /api/officers  {BadgeNum, Name}
 static void handleAddOfficer(AsyncWebServerRequest* request, JsonVariant& json) {
-    const char* name = json["Name"] | "";
-    if (!json["BadgeNum"].is<int>() || !*name) {
-        return sendError(request, 400, "Badge and Name are required");
+    if (!json["BadgeNum"].is<int>()) return sendError(request, 400, "BadgeNum is required");
+    if (json["BadgeNum"].as<int>() <= 0) return sendError(request, 400, "BadgeNum must be positive");
+    String name;
+    if (const char* error = checkOfficerName(json["Name"] | "", name)) {
+        return sendError(request, 400, error);
     }
-    if (!addOfficer(json["BadgeNum"].as<int>(), name)) {
+    if (!addOfficer(json["BadgeNum"].as<int>(), name.c_str())) {
         return sendError(request, 409, "An officer with that badge number already exists");
     }
     sendOk(request);
@@ -209,6 +238,8 @@ static void handleAddQualScore(AsyncWebServerRequest* request, JsonVariant& json
     if (!json["BadgeNum"].is<int>() || !json["score"].is<int>() || !*qualType || !*date) {
         return sendError(request, 400, "BadgeNum, qualType, score and date are required");
     }
+    // AI-generated (Claude): the Performance page only accepts whole, non-negative scores
+    if (json["score"].as<int>() < 0) return sendError(request, 400, "score must not be negative");
     if (!addQualScore(json["BadgeNum"].as<int>(), qualType, json["score"].as<int>(), date)) {
         return sendError(request, 400, "Score rejected: unknown officer, qualType, or bad date");
     }
@@ -219,9 +250,11 @@ static void handleAddQualScore(AsyncWebServerRequest* request, JsonVariant& json
 static void handleEditOfficer(AsyncWebServerRequest* request, JsonVariant& json) {
     int badge;
     if (!getQueryInt(request, "badge", badge)) return sendError(request, 400, "Badge is required");
-    const char* name = json["Name"] | "";
-    if (!*name) return sendError(request, 400, "Name is required");
-    if (!editOfficer(badge, name)) return sendError(request, 404, "Officer not found");
+    String name;
+    if (const char* error = checkOfficerName(json["Name"] | "", name)) { // AI-modified (Claude)
+        return sendError(request, 400, error);
+    }
+    if (!editOfficer(badge, name.c_str())) return sendError(request, 404, "Officer not found");
     sendOk(request);
 }
 
