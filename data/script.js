@@ -1604,6 +1604,10 @@ if (document.getElementById('performanceRows')) {
     });
     document.getElementById('closeScoresDialog').addEventListener('click', () => addScoresDialog.close());
     addScoresDialog.addEventListener('close', () => addScoresToggle.setAttribute('aria-expanded', 'false'));
+    document.getElementById('addOfficerButton').addEventListener('click', () => {
+        addScoresDialog.close();
+        window.location.href = 'settings.html';
+    });
 
     const updateScoreEntryLabels = () => {
         const entries = scoreEntries.querySelectorAll('.score-entry');
