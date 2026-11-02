@@ -22,6 +22,42 @@ const setDrillStatusText = (text) => {
     drillStatusText.textContent = text;
 };
 
+// AI-generated (Claude): shared degraded-connection indicator. Backend integration should call
+// window.setConnectionStatus('poor') or window.setConnectionStatus('none'); call it with null to
+// hide the indicator. QA can trigger the same states with ?connection=poor or ?connection=none.
+const connectionAlert = document.createElement('button');
+connectionAlert.type = 'button';
+connectionAlert.className = 'connection-alert';
+connectionAlert.hidden = true;
+connectionAlert.setAttribute('aria-live', 'polite');
+connectionAlert.addEventListener('click', () => {
+    connectionAlert.hidden = true;
+});
+drillStatus.insertAdjacentElement('afterend', connectionAlert);
+
+const setConnectionStatus = (state) => {
+    const isPoor = state === 'poor';
+    const isNone = state === 'none';
+    const lastBanner = document.getElementById('controllerTestBanner') || drillStatus;
+    lastBanner.insertAdjacentElement('afterend', connectionAlert);
+    connectionAlert.hidden = !isPoor && !isNone;
+    connectionAlert.classList.toggle('connection-alert-poor', isPoor);
+    connectionAlert.classList.toggle('connection-alert-none', isNone);
+    connectionAlert.innerHTML = isPoor
+        ? '<span class="connection-icon connection-icon-poor" aria-hidden="true"><i class="bi bi-wifi"></i><b>!</b></span><span>Poor connection</span>'
+        : '<span class="connection-icon connection-icon-none" aria-hidden="true"><i class="bi bi-wifi-off"></i></span><span>No connection</span>';
+    connectionAlert.setAttribute('aria-label', isPoor
+        ? 'Poor connection. Tap to dismiss.'
+        : 'No connection. Tap to dismiss.');
+    connectionAlert.title = isPoor ? 'Poor connection' : 'No connection';
+};
+
+window.setConnectionStatus = setConnectionStatus;
+const connectionDemoState = new URLSearchParams(location.search).get('connection');
+if (connectionDemoState === 'poor' || connectionDemoState === 'none') {
+    setConnectionStatus(connectionDemoState);
+}
+
 // AI-generated (Claude): All / Odd / Even / Clear buttons above a target checkbox list
 // (Create/Edit Drill forms, and the target picker for drills with no targets). Sets the
 // selection to exactly that group.
@@ -75,8 +111,10 @@ const pollDrillStatus = async () => {
     clearTimeout(drillStatusTimer);
     try {
         const response = await controllerFetch('/api/drill/status', { cache: 'no-store' });
+        setConnectionStatus(connectionDemoState || (response.ok ? null : 'none'));
         controllerStatus = response.ok ? await response.json() : null;
     } catch {
+        setConnectionStatus(connectionDemoState || 'none');
         controllerStatus = null;
     }
     // An active drill takes precedence over a saved manual-mode preference (AI-assisted with Codex).
