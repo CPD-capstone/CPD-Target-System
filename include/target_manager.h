@@ -66,6 +66,9 @@ enum class TargetCommandResult : uint8_t {
     QueueFull         // the HAL didn't accept the command in time
 };
 
+// Results for stage reset requests (AI-assisted with Codex).
+enum class StageResetResult : uint8_t { Accepted, NotPaused, NoStage, Busy, Stopped, HalNotReady };
+
 /// longest drill name kept for status display (longer names are truncated)
 constexpr size_t DRILL_NAME_MAX = 48;
 
@@ -84,6 +87,13 @@ struct DrillStatus {
     // when the current step isn't a delay. While paused, delayRemainingMs stays frozen.
     uint32_t delayMs;          // length of the delay step
     uint32_t delayRemainingMs; // time left in it
+    // Stage and replay state reported by the controller; empty/0 when idle (AI-assisted with Codex).
+    char stageName[DRILL_NAME_MAX];
+    uint16_t stageIndex;       // 1-based occurrence within the full drill, even for repeated names
+    bool betweenStages;       // stageName is the completed stage at a top-level pause
+    bool canResetStage;
+    bool stageResetPending;   // hide/rewind has not finished; Resume is refused
+    bool stageRestartReady;   // rewound and paused at the first step, waiting for Resume
 };
 
 /// @brief This function executes the drill that is passed into its arg by finding it in the json drills list and converting it to the FreeRTOS cmd queue
@@ -102,8 +112,13 @@ bool pauseDrill();
 
 /// @brief continues a paused drill, whether it was paused by a "pause" step or by pauseDrill().
 ///        A delay that was interrupted continues with the time it had left.
-/// @return true if a paused drill was resumed, false if no drill is paused
+/// @return true if Resume was accepted; false if not paused, stopped, or reset/Resume is pending
 bool resumeDrill();
+
+/// @brief Hide targets and rewind the paused full drill's current/completed stage (AI-assisted with Codex).
+///        Remains paused until Resume.
+/// @return Accepted if queued/already rewound; otherwise why reset is unavailable
+StageResetResult resetDrillStage();
 
 /// @brief EMERGENCY STOP. Freezes every target where it is (see hal_hold()), ends any running
 ///        drill WITHOUT hiding its targets, and latches: drills and manual moves are refused until
