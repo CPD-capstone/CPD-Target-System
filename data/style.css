@@ -69,12 +69,68 @@
     font: 600 1.25rem/1 system-ui, sans-serif;
 }
 
+/* AI-generated (Claude): visible only when the controller reports a degraded connection. */
+.connection-alert {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    width: 100%;
+    min-height: 2.5rem;
+    justify-content: center;
+    padding: 0.4rem 1rem;
+    border: 2px solid currentColor;
+    border-width: 0 0 2px;
+    font-weight: 700;
+}
+
+.connection-alert[hidden] {
+    display: none;
+}
+
+.connection-alert-poor {
+    background: #fff3cd;
+    color: #664d03;
+}
+
+.connection-alert-none {
+    background: #f8d7da;
+    color: #842029;
+}
+
+.connection-icon {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.connection-icon-poor {
+    gap: 0.02rem;
+    font-size: 1.3rem;
+}
+
+.connection-icon-poor b {
+    position: absolute;
+    right: -0.14rem;
+    bottom: -0.14rem;
+    display: grid;
+    place-items: center;
+    width: 0.85rem;
+    height: 0.85rem;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    background: #fff3cd;
+    font: 800 0.65rem/1 system-ui, sans-serif;
+}
+
 @media print {
     .has-help {
         padding-bottom: 0;
     }
 
     .help-button,
+    .connection-alert,
     #helpModal {
         display: none !important;
     }
