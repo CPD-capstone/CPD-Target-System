@@ -47,6 +47,16 @@ namespace{
         uint8_t randomCount;
     };
 
+    // Each direct child drill is a separate stage for replay (AI-assisted with Codex).
+    // Nested children stay inside that stage; boundaries are runtime data, not database fields.
+    struct DrillStage {
+        char name[DRILL_NAME_MAX];
+        size_t first;
+        size_t end; // exclusive
+    };
+    enum class WaitResult : uint8_t { Complete, Stopped, ResetStage };
+    enum class PauseControl : uint8_t { Waiting, ResumePending, ResetPending, ReplayReady };
+
     // "Full Drill" -> "Stage N" is depth 2; anything deeper is almost certainly a drill that
     // (directly or indirectly) includes itself, which would otherwise expand forever
     constexpr uint8_t MAX_NESTING_DEPTH = 4;
@@ -57,6 +67,7 @@ namespace{
     constexpr uint32_t NOTIFY_RESUME = 1UL << 1; // resumeDrill(): continue past a pause step
     constexpr uint32_t NOTIFY_STOP   = 1UL << 2; // stopDrill(): abort the drill now
     constexpr uint32_t NOTIFY_PAUSE  = 1UL << 3; // pauseDrill(): freeze the drill clock (AI-added, Claude)
+    constexpr uint32_t NOTIFY_RESET_STAGE = 1UL << 4; // wake to rewind
 
     // The DrillRunner task; created the first time a drill runs, then kept for reuse
     TaskHandle_t drillTaskHandle = NULL;
@@ -74,6 +85,10 @@ namespace{
 
     // handed from executeDrill() to the runner; only written while the runner is idle
     std::vector<DrillStep> activeSteps; // the flattened drill
+    // Replace stage metadata only while idle, when currentStageIndex is -1 (AI-assisted with Codex).
+    std::vector<DrillStage> activeStages;
+    int currentStageIndex = -1;
+    PauseControl pauseControl = PauseControl::Waiting;
     uint32_t activeMask = 0;            // which targets this drill uses (bit 0 = target 1)
 
     // AI-assisted (Claude): progress/outcome reported by getDrillStatus(). Written under
@@ -163,7 +178,9 @@ namespace{
     /// @brief appends a drill's steps to out, inlining nested drills. Steps run in array order.
     /// @param depth how many drills deep we are (1 = the drill executeDrill() was asked for)
     /// @return false if the drill, or any drill it includes, is missing or has an invalid step
-    bool expandDrill(JsonArrayConst drills, const char* drillName, uint8_t depth, std::vector<DrillStep>& out){
+    // Keep stage boundaries when flattening the drill (AI-assisted with Codex).
+    bool expandDrill(JsonArrayConst drills, const char* drillName, uint8_t depth,
+                     std::vector<DrillStep>& out, std::vector<DrillStage>& stages){
         // Stop runaway recursion, e.g. drill A includes drill B which includes drill A
         if(depth > MAX_NESTING_DEPTH){
             Serial.printf("executeDrill: \"%s\" nested too deeply (does a drill include itself?)\r\n", drillName);
@@ -222,10 +239,18 @@ namespace{
                     return false;
                 }
                 out.push_back({StepType::Delay, step["timeMs"].as<uint32_t>(), 0});
-            }else if(!expandDrill(drills, action, depth + 1, out)){
+            }else{
                 // anything else must be the name of another drill: expand it in place, one level
                 // deeper. If it can't be expanded (not found, bad step, too deep), fail the whole drill.
-                return false;
+                size_t first = out.size();
+                if(!expandDrill(drills, action, depth + 1, out, stages)) return false;
+                if(depth == 1 && out.size() > first){
+                    DrillStage stage = {};
+                    strlcpy(stage.name, action, sizeof(stage.name));
+                    stage.first = first;
+                    stage.end = out.size();
+                    stages.push_back(stage);
+                }
             }
         }
         return true;
@@ -252,39 +277,65 @@ namespace{
         return mask;
     }
 
-    /// @brief blocks until resumeDrill() (true) or stopDrill() (false)
-    bool waitForResume(){
+    /// @brief Check whether a paused control is queued or being applied (AI-assisted with Codex).
+    bool hasPendingControl(){
+        return pauseControl == PauseControl::ResumePending || pauseControl == PauseControl::ResetPending;
+    }
+
+    /// @brief Queue paused controls without changing the runner's position (AI-assisted with Codex).
+    StageResetResult requestPausedControl(PauseControl request){
+        if(request == PauseControl::ResetPending && !hal_isReady()) return StageResetResult::HalNotReady;
+        portENTER_CRITICAL(&runnerLock);
+        StageResetResult result = StageResetResult::Accepted;
+        if(stopLatched) result = StageResetResult::Stopped;
+        else if(drillState != DrillState::Paused) result = StageResetResult::NotPaused;
+        else if(request == PauseControl::ResetPending && currentStageIndex < 0) result = StageResetResult::NoStage;
+        else if(hasPendingControl()) result = StageResetResult::Busy;
+        // Reset is idempotent once the stage is ready. Resume always needs a new request.
+        bool notify = result == StageResetResult::Accepted
+                      && (request == PauseControl::ResumePending || pauseControl != PauseControl::ReplayReady);
+        if(notify) pauseControl = request;
+        portEXIT_CRITICAL(&runnerLock);
+        if(notify) xTaskNotify(drillTaskHandle, request == PauseControl::ResumePending
+                              ? NOTIFY_RESUME : NOTIFY_RESET_STAGE, eSetBits);
+        return result;
+    }
+
+    /// @brief Wait for Resume or Reset, giving Stop priority (AI-assisted with Codex).
+    WaitResult waitForResume(){
         for(;;){
-            // Sleep with no timeout (portMAX_DELAY) until any notification arrives
+            // Notifications only wake us; a late notification cannot repeat an old request.
+            portENTER_CRITICAL(&runnerLock);
+            bool stopped = stopLatched;
+            PauseControl request = pauseControl;
+            if(!stopped && request == PauseControl::ResumePending){
+                pauseControl = PauseControl::Waiting;
+                drillState = DrillState::Running;
+            }
+            portEXIT_CRITICAL(&runnerLock);
+            if(stopped) return WaitResult::Stopped;
+            if(request == PauseControl::ResetPending) return WaitResult::ResetStage;
+            if(request == PauseControl::ResumePending) return WaitResult::Complete;
             uint32_t bits = 0;
             xTaskNotifyWait(0, ULONG_MAX, &bits, portMAX_DELAY);
-            // Stop is checked first so that it wins if both arrive together
-            if(bits & NOTIFY_STOP){
-                return false;
-            }
-            if(bits & NOTIFY_RESUME){
-                return true;
-            }
-            // anything else (e.g. a second pause press): keep waiting
         }
     }
 
-    /// @brief AI-assisted (Claude): reports Paused so the web UI can show a Resume button, waits
-    ///        for the operator, then goes back to Running. Used by "pause" steps and pauseDrill().
-    /// @return true if resumed, false if stopped while paused
-    bool pauseUntilResumed(){
+    /// @brief Report Paused while waiting for the operator (AI-assisted with Codex).
+    WaitResult pauseUntilResumed(){
+        portENTER_CRITICAL(&runnerLock);
         drillState = DrillState::Paused;
-        bool resumed = waitForResume();
-        drillState = DrillState::Running;
-        return resumed;
+        portEXIT_CRITICAL(&runnerLock);
+        return waitForResume();
     }
 
-    /// @brief waits ms, returning early with false if the drill is stopped
+    /// @brief waits ms, propagating stop/reset without continuing the interrupted wait
     /// Used instead of vTaskDelay() so that stopDrill() can cut a long delay short.
     /// AI-modified (Claude): pauseDrill() freezes the countdown; after resume, the wait continues
     /// with the time it had left (time spent paused doesn't count).
     /// @param publish true for a drill "delay" step: its timing is reported by getDrillStatus()
-    bool waitMs(uint32_t ms, bool publish = false){
+    // A reset discards the interrupted countdown (AI-assisted with Codex).
+    WaitResult waitMs(uint32_t ms, bool publish = false){
         // FreeRTOS measures time in "ticks" (1 tick = 1 ms on the ESP32 Arduino core)
         TickType_t start = xTaskGetTickCount();
         TickType_t total = pdMS_TO_TICKS(ms);
@@ -311,9 +362,10 @@ namespace{
         // Loop because a notification can wake us early; if it wasn't a stop, go back to
         // sleep for whatever time is left
         for(;;){
+            if(stopLatched) return WaitResult::Stopped;
             TickType_t elapsed = xTaskGetTickCount() - start;
             if(elapsed >= total){
-                return true; // the full delay has passed
+                return WaitResult::Complete; // the full delay has passed
             }
 
             // Sleep until a notification arrives or the remaining time runs out.
@@ -321,9 +373,10 @@ namespace{
             uint32_t bits = 0;
             if(xTaskNotifyWait(0, ULONG_MAX, &bits, total - elapsed) == pdTRUE){
                 if(bits & NOTIFY_STOP){
-                    return false; // stopDrill() was called
+                    return WaitResult::Stopped; // stopDrill() was called
                 }
-                if(bits & NOTIFY_PAUSE){
+                // Ignore an old Pause request while reset waits for targets to hide (AI-assisted with Codex).
+                if((bits & NOTIFY_PAUSE) && drillState == DrillState::Running){
                     // Operator pause: sit here until resumed, then push the start time forward
                     // by however long we were paused, so "elapsed" only counts unpaused time
                     TickType_t pausedAt = xTaskGetTickCount();
@@ -334,9 +387,8 @@ namespace{
                         delayPausedRemainingMs = done < total ? pdTICKS_TO_MS(total - done) : 0;
                         portEXIT_CRITICAL(&runnerLock);
                     }
-                    if(!pauseUntilResumed()){
-                        return false; // stopped while paused
-                    }
+                    WaitResult result = pauseUntilResumed();
+                    if(result != WaitResult::Complete) return result;
                     start += xTaskGetTickCount() - pausedAt;
                     if(publish){
                         portENTER_CRITICAL(&runnerLock);
@@ -353,8 +405,9 @@ namespace{
     ///        next delay is timed from that point. Waits for the HAL to actually fire every target
     ///        (it may hold one back for its MECHANICAL_BUFFER cooldown), then TARGET_FACE_TRAVEL_MS.
     /// @param mask the targets the present step turned (AI-modified (Claude): was always activeMask)
-    /// @return false if the drill is stopped, or the targets never fire (HAL not responding)
-    bool waitUntilFacing(uint32_t mask){
+    /// @return Complete when facing, ResetStage to rewind, or Stopped on stop/hardware failure
+    // Reset must also interrupt a wait for targets to face (AI-assisted with Codex).
+    WaitResult waitUntilFacing(uint32_t mask){
         constexpr uint32_t POLL_MS = 5; // how often to re-check the HAL's target state
         // worst case the HAL holds a target for a full cooldown, plus margin for its 10 ms loop
         constexpr uint32_t TIMEOUT_MS = MECHANICAL_BUFFER + 100;
@@ -367,11 +420,10 @@ namespace{
             if(waited >= TIMEOUT_MS){
                 Serial.println("executeDrill: targets did not fire, aborting drill");
                 drillFailed = true; // AI-modified (Claude): reported as DrillOutcome::Failed
-                return false;
+                return WaitResult::Stopped;
             }
-            if(!waitMs(POLL_MS)){
-                return false; // stopped while waiting
-            }
+            WaitResult result = waitMs(POLL_MS);
+            if(result != WaitResult::Complete) return result;
             waited += POLL_MS;
         }
 
@@ -408,16 +460,53 @@ namespace{
         return picked;
     }
 
+    /// @brief Report the current stage, or the completed stage at a pause (AI-assisted with Codex).
+    void publishStep(size_t index){
+        int stageIndex = -1;
+        for(size_t n = 0; n < activeStages.size(); n++){
+            const DrillStage& stage = activeStages[n];
+            if(stage.first > index) break;
+            if(index < stage.end || activeSteps[index].type == StepType::Pause){
+                stageIndex = n;
+            }
+        }
+        portENTER_CRITICAL(&runnerLock);
+        currentStep = index + 1;
+        currentType = activeSteps[index].type;
+        currentStageIndex = stageIndex;
+        portEXIT_CRITICAL(&runnerLock);
+    }
+
+    /// @brief Hide targets before replay, keeping any emergency hold intact (AI-assisted with Codex).
+    bool rewindStage(size_t& index){
+        if(stopLatched) return false;
+        if(!hal_sendCommand(activeMask, false)){
+            drillFailed = true;
+            return false;
+        }
+        // Let the HAL consume the hide and finish any cooldown before replay can present again.
+        if(waitMs(MECHANICAL_BUFFER + 100) != WaitResult::Complete) return false;
+        if(!hal_isReady() || (hal_getTargetStates() & activeMask)){
+            drillFailed = true;
+            return false;
+        }
+        index = activeStages[currentStageIndex].first;
+        publishStep(index);
+        portENTER_CRITICAL(&runnerLock);
+        pauseControl = PauseControl::ReplayReady;
+        portEXIT_CRITICAL(&runnerLock);
+        // A fresh Resume is required; all previous waits and their timing are gone.
+        return waitForResume() == WaitResult::Complete;
+    }
+
     /// @brief runs activeSteps; returns false if stopped or a command couldn't be queued
     bool runSteps(){
-        for(size_t i = 0; i < activeSteps.size(); i++){
+        // Only this task advances or rewinds the drill (AI-assisted with Codex).
+        for(size_t i = 0; i < activeSteps.size(); ){
+            if(stopLatched) return false;
             const DrillStep& step = activeSteps[i];
-
-            // AI-modified (Claude): publish progress for getDrillStatus()
-            portENTER_CRITICAL(&runnerLock);
-            currentStep = i + 1;
-            currentType = step.type;
-            portEXIT_CRITICAL(&runnerLock);
+            publishStep(i);
+            WaitResult result = WaitResult::Complete;
 
             switch(step.type){
                 case StepType::Present: {
@@ -436,9 +525,7 @@ namespace{
                         return false;
                     }
                     // drill delays are timed from when the targets are fully facing
-                    if(!waitUntilFacing(targets)){
-                        return false;
-                    }
+                    result = waitUntilFacing(targets);
                     break;
                 }
 
@@ -456,18 +543,20 @@ namespace{
 
                 case StepType::Delay:
                     // Hold the current target position for timeMs (stop can cut it short)
-                    if(!waitMs(step.timeMs, true)){ // AI-modified (Claude): reported for the UI
-                        return false;
-                    }
+                    result = waitMs(step.timeMs, true);
                     break;
 
                 case StepType::Pause:
                     // Wait for the operator to press Resume
-                    if(!pauseUntilResumed()){
-                        return false; // stopped while paused
-                    }
+                    result = pauseUntilResumed();
                     break;
             }
+            if(result == WaitResult::ResetStage){
+                if(!rewindStage(i)) return false;
+                continue; // execute the rewound first step, not the old step's successor
+            }
+            if(result == WaitResult::Stopped) return false;
+            i++;
         }
         return true; // every step ran
     }
@@ -516,6 +605,9 @@ namespace{
             portENTER_CRITICAL(&runnerLock);
             drillState = DrillState::Idle;
             currentStep = 0;
+            // Clear replay state before releasing the runner (AI-assisted with Codex).
+            currentStageIndex = -1;
+            pauseControl = PauseControl::Waiting;
             lastOutcome = outcome;
             runnerBusy = false;
             portEXIT_CRITICAL(&runnerLock);
@@ -541,7 +633,9 @@ namespace{
             return DrillStartResult::NotFound;
         }
         std::vector<DrillStep> steps;
-        if(!expandDrill(drills, drillName.c_str(), 1, steps)){
+        // Build stage metadata locally until the whole drill validates (AI-assisted with Codex).
+        std::vector<DrillStage> stages;
+        if(!expandDrill(drills, drillName.c_str(), 1, steps, stages)){
             return DrillStartResult::InvalidDrill;
         }
         if(steps.empty()){
@@ -561,6 +655,7 @@ namespace{
 
         // Step 4: hand the result to the runner. std::move transfers the list without copying it.
         activeSteps = std::move(steps);
+        activeStages = std::move(stages);
         // AI-modified (Claude): publish name/mask/step count for getDrillStatus() under the
         // lock, since it can be called from the web server at any moment
         portENTER_CRITICAL(&runnerLock);
@@ -667,12 +762,13 @@ bool pauseDrill(){
 }
 
 bool resumeDrill(){
-    // Only meaningful while the runner is paused (by a pause step or pauseDrill())
-    if(drillState != DrillState::Paused){
-        return false;
-    }
-    xTaskNotify(drillTaskHandle, NOTIFY_RESUME, eSetBits);
-    return true;
+    // Share the request lock with stage reset (AI-assisted with Codex).
+    return requestPausedControl(PauseControl::ResumePending) == StageResetResult::Accepted;
+}
+
+// Let the runner perform the rewind and target movement (AI-assisted with Codex).
+StageResetResult resetDrillStage(){
+    return requestPausedControl(PauseControl::ResetPending);
 }
 
 // AI-modified (Claude): emergency stop -- freezes targets instead of hiding them
@@ -763,6 +859,15 @@ DrillStatus getDrillStatus(){
     status.targetMask = activeMask;
     status.lastOutcome = lastOutcome;
     status.stopped = stopLatched;
+    // Stage metadata stays fixed during a run; idle skips this lookup (AI-assisted with Codex).
+    const DrillStage* stage = currentStageIndex >= 0 ? &activeStages[currentStageIndex] : nullptr;
+    strlcpy(status.stageName, stage ? stage->name : "", sizeof(status.stageName));
+    status.stageIndex = currentStageIndex + 1;
+    status.betweenStages = stage && currentStep > stage->end;
+    status.canResetStage = drillState == DrillState::Paused && currentStageIndex >= 0
+                           && !stopLatched && !hasPendingControl();
+    status.stageResetPending = pauseControl == PauseControl::ResetPending;
+    status.stageRestartReady = pauseControl == PauseControl::ReplayReady;
     // AI-generated (Claude): delay countdown. The signed difference handles tick wrap-around.
     status.delayMs = delayTotalMs;
     if(delayTotalMs == 0){

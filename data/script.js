@@ -1,3 +1,18 @@
+// ============================================================================
+// TEMPORARY CONTROLLER BYPASS FOR WEBPAGE TESTING (AI-ASSISTED WITH CODEX).
+// ENABLE ON LOCALHOST WITH ?test=1. REMOVE THIS BLOCK AND controller-test.js
+// AFTER TESTING; REPLACE controllerFetch CALLS BELOW WITH fetch.
+// ============================================================================
+const controllerTestMode = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
+    && new URLSearchParams(location.search).get('test') === '1';
+const controllerTest = controllerTestMode
+    ? import('./controller-test.js').then((module) => module.createControllerTest())
+    : null;
+const controllerFetch = async (...args) => controllerTest
+    ? (await controllerTest)(...args)
+    : fetch(...args);
+// END TEMPORARY CONTROLLER BYPASS.
+
 const drillStatus = document.getElementById('drillStatus');
 // AI-generated (Claude): the text inside the status bar.
 const drillStatusText = document.getElementById('drillStatusText') || drillStatus;
@@ -51,16 +66,23 @@ let targetAssignmentDrills = {};
 // controllerStatus = last reply ({state, drillName, step, stepCount, stepAction, targets,
 // lastOutcome, stopped, hardwareReady, facing}), or null if the controller can't be reached.
 let controllerStatus = null;
+// Keep this phone's Reset and Resume requests in order; leave Stop available (AI-assisted with Codex).
+let stageControlRequestPending = false;
 const controllerStatusListeners = [];
 let drillStatusTimer = null;
 
 const pollDrillStatus = async () => {
     clearTimeout(drillStatusTimer);
     try {
-        const response = await fetch('/api/drill/status', { cache: 'no-store' });
+        const response = await controllerFetch('/api/drill/status', { cache: 'no-store' });
         controllerStatus = response.ok ? await response.json() : null;
     } catch {
         controllerStatus = null;
+    }
+    // An active drill takes precedence over a saved manual-mode preference (AI-assisted with Codex).
+    if (manualMode && ['running', 'paused'].includes(controllerStatus?.state)) {
+        manualMode = false;
+        localStorage.removeItem(manualModeStorageKey);
     }
     controllerStatusListeners.forEach((listener) => listener(controllerStatus));
     const drillActive = controllerStatus && controllerStatus.state !== 'idle';
@@ -73,7 +95,7 @@ const pollDrillStatus = async () => {
 const postToController = async (path, body, method = 'POST') => {
     let response;
     try {
-        response = await fetch(path, body === undefined
+        response = await controllerFetch(path, body === undefined
             ? { method }
             : { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     } catch {
@@ -224,51 +246,21 @@ const saveTargetCardStatus = (targetCard) => {
     saveTargetStatus(status);
 };
 
-// AI-generated (Claude): names the stage of a full drill for the status bar. The controller
-// flattens a drill into steps (expandDrill() in target_manager.cpp): each present/hide/pause/
-// delay is one step and a step naming another drill is expanded in place, up to 4 drills deep.
-// This mirrors that on database.json, so step N of a full drill maps back to the stage (the
-// drill named at the top level) it belongs to.
-let statusDrills = null; // drills array from database.json, once loaded
 const maxDrillNesting = 4; // MAX_NESTING_DEPTH in target_manager.cpp
 
-const findStatusDrill = (name) => statusDrills?.find((drill) => drill?.drillName === name);
-
-const countDrillSteps = (name, depth) => {
-    const drill = findStatusDrill(name);
-    if (!drill || depth > maxDrillNesting) return 0;
-    return (Array.isArray(drill.sequence) ? drill.sequence : []).reduce((count, step) => (
-        count + (basicDrillActions.has(step?.action) ? 1 : countDrillSteps(step?.action, depth + 1))
-    ), 0);
-};
-
-// Returns {stage, between} for step (1-based) of drillName, or null for a single-stage drill.
-// between = the step sits between stages (e.g. the pause before the next one); stage is then
-// the stage that comes next.
+// Keep the existing stage description shape, using controller status (AI-assisted with Codex).
 const describeDrillStage = (drillName, step) => {
-    const drill = findStatusDrill(drillName);
-    if (!drill || !step) return null;
-    const stages = [];
-    let nextStep = 1;
-    (Array.isArray(drill.sequence) ? drill.sequence : []).forEach((entry) => {
-        if (basicDrillActions.has(entry?.action)) {
-            nextStep += 1;
-            return;
-        }
-        const count = countDrillSteps(entry?.action, 2);
-        stages.push({ name: entry.action, first: nextStep, last: nextStep + count - 1 });
-        nextStep += count;
-    });
-    if (!stages.length) return null;
-    const current = stages.find((stage) => step >= stage.first && step <= stage.last);
-    if (current) return { stage: current.name, between: false };
-    const upcoming = stages.find((stage) => stage.first > step);
-    return upcoming ? { stage: upcoming.name, between: true } : null;
+    const status = controllerStatus;
+    if (!status?.stageName || status.drillName !== drillName || status.step !== step) return null;
+    return { stage: status.stageName, between: status.betweenStages };
 };
 
 // AI-modified (Claude): draws the status bar (every page) and, on the Targets page, the drill
 // buttons, from the controller's last status reply instead of the old frontend-only demo
 // state. Card colors are set by the Targets page's own status listener (initializeTargetPage).
+const manualTargetsAvailable = () => manualMode && controllerStatus?.hardwareReady
+    && controllerStatus.state === 'idle' && !controllerStatus.stopped && !cancelStartCountdown;
+
 const updateDrillStatus = () => {
     if (!drillStatus) return;
 
@@ -289,14 +281,15 @@ const updateDrillStatus = () => {
         setStatusBarStyle('active');
         setDrillStatusText('Stopped: targets frozen. Press Reset to hide them');
     } else if (state === 'paused') {
-        // AI-modified (Claude): name the stage (full drills) instead of a step number
+        // Use the running drill's stage name, including after refresh (AI-assisted with Codex).
         const stageInfo = describeDrillStage(status.drillName, status.step);
         setStatusBarStyle('active');
-        setDrillStatusText(!stageInfo
-            ? `${drillName} paused. Press Resume`
-            : stageInfo.between
-                ? `${drillName} paused before ${stageInfo.stage}. Press Resume`
-                : `${drillName}: ${stageInfo.stage} paused. Press Resume`);
+        const stage = stageInfo ? `${drillName}: ${stageInfo.stage}` : drillName;
+        let message = `${stage} paused. Press Resume`;
+        if (status.stageResetPending) message = `${stage} resetting. Hiding targets`;
+        else if (status.stageRestartReady) message = `${stage} reset. Press Resume to replay`;
+        else if (stageInfo?.between) message = `${stage} complete. Resume continues; Redo stage replays it`;
+        setDrillStatusText(message);
     } else if (state === 'running') {
         const stageInfo = describeDrillStage(status.drillName, status.step);
         setStatusBarStyle('active');
@@ -318,6 +311,7 @@ const updateDrillStatus = () => {
     const pauseDrillButton = document.getElementById('pauseDrillButton');
     const stopDrillButton = document.getElementById('stopDrillButton');
     const resetTargetsButton = document.getElementById('resetTargetsButton');
+    const resetStageButton = document.getElementById('resetStageButton');
     const drillSelect = document.getElementById('drillSelect');
 
     // AI-generated (Claude): manual mode button, and target taps unlocked only in manual mode.
@@ -326,44 +320,70 @@ const updateDrillStatus = () => {
         manualModeButton.classList.toggle('btn-warning', manualMode);
         manualModeButton.classList.toggle('btn-outline-dark', !manualMode);
         manualModeButton.setAttribute('aria-pressed', String(manualMode));
+        manualModeButton.disabled = !status?.hardwareReady || stopped || Boolean(cancelStartCountdown);
         document.getElementById('manualModeLabel').textContent = manualMode ? 'Exit manual mode' : 'Turn on manual mode';
     }
     const manualModeHintText = document.getElementById('manualModeHintText');
     if (manualModeHintText) {
-        manualModeHintText.textContent = manualMode
-            ? 'Unlocked: tap a target or use the toggle buttons.'
-            : 'Locked: turn on manual mode to toggle targets.';
-        document.getElementById('manualModeHintIcon').className = manualMode ? 'bi bi-unlock-fill' : 'bi bi-lock-fill';
+        manualModeHintText.textContent = !status
+            ? 'Connection lost. Manual target controls are locked.'
+            : stopped
+                ? 'Stopped: press Reset before using manual target controls.'
+                : !status.hardwareReady
+                    ? 'Target hardware is not ready. Manual target controls are locked.'
+                    : manualTargetsAvailable()
+                        ? 'Unlocked: tap a target or use the toggle buttons.'
+                        : 'Locked: turn on manual mode to toggle targets.';
+        document.getElementById('manualModeHintIcon').className = manualTargetsAvailable() ? 'bi bi-unlock-fill' : 'bi bi-lock-fill';
     }
-    document.body.classList.toggle('is-manual-mode', manualMode);
-    document.querySelectorAll('.target-toggle').forEach((button) => { button.disabled = !manualMode; });
+    document.body.classList.toggle('is-manual-mode', Boolean(manualTargetsAvailable()));
+    document.querySelectorAll('.target-toggle, #targetNumberFilterButton').forEach((button) => {
+        button.disabled = !manualTargetsAvailable();
+    });
+    document.querySelectorAll('.target-card').forEach((button) => {
+        button.disabled = !manualTargetsAvailable() || button.classList.contains('is-defective');
+    });
 
     // Start doubles as Resume while the controller is paused (operator pause or a "pause" step).
     if (startDrillLabel) startDrillLabel.textContent = state === 'paused' ? 'Resume drill' : 'Start drill';
     const countingDown = Boolean(cancelStartCountdown);
+    // Lock Reset and Resume together without blocking Stop (AI-assisted with Codex).
+    const stageControlsLocked = !status?.hardwareReady || manualMode || stopped || countingDown
+        || stageControlRequestPending || Boolean(status?.stageResetPending);
     if (startDrillButton) {
-        startDrillButton.disabled = !status || manualMode || stopped || countingDown
+        startDrillButton.disabled = stageControlsLocked
             || (state === 'paused' ? false : drillActive || !drillSelect?.value);
     }
-    if (pauseDrillButton) pauseDrillButton.disabled = state !== 'running' || countingDown;
-    if (stopDrillButton) stopDrillButton.disabled = !(drillActive || countingDown) || stopped;
+    // Keep Pause available for a running drill and make available controls distinct (AI-assisted with Codex).
+    if (pauseDrillButton) {
+        pauseDrillButton.disabled = state !== 'running' || stopped;
+        pauseDrillButton.classList.toggle('btn-primary', !pauseDrillButton.disabled);
+        pauseDrillButton.classList.toggle('btn-outline-secondary', pauseDrillButton.disabled);
+    }
+    // Keep Stop reachable in manual mode and when a status poll loses the connection.
+    if (stopDrillButton) stopDrillButton.disabled = stopped
+        || (Boolean(status) && !drillActive && !countingDown && !manualMode);
     if (resetTargetsButton) resetTargetsButton.hidden = !stopped;
+    if (resetStageButton) {
+        resetStageButton.disabled = stageControlsLocked || !status?.canResetStage;
+        resetStageButton.classList.toggle('btn-warning', !resetStageButton.disabled);
+        resetStageButton.classList.toggle('btn-outline-secondary', resetStageButton.disabled);
+    }
+    const resetStageHint = document.getElementById('resetStageHint');
+    if (resetStageHint) {
+        resetStageHint.hidden = !status?.stageName || state !== 'paused' || stopped || !status.hardwareReady;
+        resetStageHint.textContent = status?.stageResetPending
+            ? 'Hiding targets. Wait for Resume to become available.'
+            : status?.stageRestartReady
+                ? 'Stage is ready to replay. Press Resume.'
+                : `Redo ${status?.stageName} (stage ${status?.stageIndex}): hide the drill targets and wait for Resume.`;
+    }
     if (drillSelect) drillSelect.disabled = manualMode || drillActive || stopped || countingDown;
 };
 
 if (drillStatus) {
     controllerStatusListeners.push(updateDrillStatus);
     pollDrillStatus();
-    // AI-generated (Claude): drill list for stage names in the status bar
-    fetch('database.json', { cache: 'no-store' })
-        .then((response) => response.json())
-        .then((payload) => {
-            statusDrills = Array.isArray(payload?.drills) ? payload.drills : [];
-            updateDrillStatus();
-        })
-        .catch(() => {
-            // not on the controller: the bar just shows the drill name
-        });
     // Captive-portal browsers suspend the page; refresh as soon as it is visible again.
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') pollDrillStatus();
@@ -377,6 +397,8 @@ const drillTimer = document.getElementById('drillTimer');
 if (drillTimer) {
     const timerLabel = document.getElementById('drillTimerLabel');
     const timerValue = document.getElementById('drillTimerValue');
+    const timerIcon = document.getElementById('drillTimerIcon');
+    const timerValueDisplay = timerValue.parentElement;
     let timerSync = null;   // {remainingMs, at} from the last poll, while a delay step runs
     let timerTicker = null;
 
@@ -387,18 +409,22 @@ if (drillTimer) {
         if (!active) return;
 
         const paused = status.state === 'paused';
+        drillTimer.classList.toggle('is-paused', paused);
+        timerIcon.hidden = !paused;
         const drillTargets = new Set((status.targets || []).map(Number));
         const targetsUp = (status.facing || []).some((number) => drillTargets.has(Number(number)));
         if (timerSync) {
+            timerValueDisplay.hidden = false;
             const left = paused
                 ? timerSync.remainingMs
                 : Math.max(0, timerSync.remainingMs - (performance.now() - timerSync.at));
             timerValue.textContent = (left / 1000).toFixed(2);
-            timerLabel.textContent = `${paused ? 'Paused: ' : ''}Targets ${targetsUp ? 'up' : 'down'}`;
+            timerLabel.textContent = paused ? 'Paused at' : `Targets ${targetsUp ? 'up' : 'down'}`;
         } else {
             timerValue.textContent = '--';
+            timerValueDisplay.hidden = paused;
             timerLabel.textContent = paused
-                ? 'Waiting for Resume'
+                ? 'Paused · waiting for Resume'
                 : status.stepAction === 'present' ? 'Targets turning' : 'Next step';
         }
     };
@@ -422,7 +448,7 @@ const renderTargets = (targetIds) => {
 
     targetGrid.innerHTML = targetIds.map((targetNumber) => `
         <div class="col d-flex justify-content-center" data-target-number="${targetNumber}">
-            <button class="target-card" type="button" aria-pressed="false" aria-label="Mark target ${targetNumber} red">
+            <button class="target-card" type="button" aria-pressed="false" aria-label="Raise target ${targetNumber}" disabled>
                 <span class="target-number" aria-hidden="true">${targetNumber}</span>
                 <!-- AI-modified (Claude): one image per state; style.css shows the one that matches
                      the card (green = hidden, red = raised, grey = defective). -->
@@ -482,6 +508,25 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             drillLaunchMessage.hidden = false;
         };
 
+        // Send paused drill commands through one request path (AI-assisted with Codex).
+        const sendPausedDrillCommand = async (path, countdownLabel) => {
+            if (stageControlRequestPending || cancelStartCountdown || manualMode
+                || controllerStatus?.state !== 'paused' || controllerStatus.stopped) return;
+            stageControlRequestPending = true;
+            updateDrillStatus();
+            try {
+                if (countdownLabel && !(await startCountdown(countdownLabel))) return;
+                await postToController(path);
+                drillLaunchMessage.hidden = true;
+            } catch (error) {
+                showLaunchMessage(error.message);
+            } finally {
+                await pollDrillStatus();
+                stageControlRequestPending = false;
+                updateDrillStatus();
+            }
+        };
+
         drillSelect.addEventListener('change', () => {
             drillLaunchMessage.hidden = true;
             drillLaunchMessage.textContent = '';
@@ -489,23 +534,10 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         });
 
         startDrillButton.addEventListener('click', async () => {
-            if (manualMode) return;
+            if (manualMode || stageControlRequestPending || controllerStatus?.stageResetPending) return;
             // While the controller is paused (operator pause or a "pause" step) this is Resume.
             if (controllerStatus?.state === 'paused') {
-                // AI-modified (Claude): start delay countdown before resuming (cancellable)
-                startDrillButton.disabled = true;
-                if (!(await startCountdown(`Resuming ${controllerStatus.drillName || 'drill'}`))) {
-                    updateDrillStatus();
-                    return;
-                }
-                try {
-                    await postToController('/api/drill/resume');
-                    drillLaunchMessage.hidden = true;
-                } catch (error) {
-                    showLaunchMessage(error.message);
-                }
-                pollDrillStatus();
-                return;
+                return sendPausedDrillCommand('/api/drill/resume', `Resuming ${controllerStatus.drillName || 'drill'}`);
             }
 
             const drillId = drillSelect.value;
@@ -615,7 +647,8 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             bootstrapModal.getOrCreateInstance(pickerModalElement).show();
         };
 
-        document.getElementById('drillTargetPickerStart')?.addEventListener('click', () => {
+        const pickerStartButton = document.getElementById('drillTargetPickerStart');
+        pickerStartButton?.addEventListener('click', () => {
             const selectedTargets = Array.from(
                 pickerList.querySelectorAll('input[type="checkbox"]:checked'),
                 (box) => Number(box.value)
@@ -625,13 +658,23 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
                 pickerError.hidden = false;
                 return;
             }
-            bootstrapModal.getInstance(pickerModalElement)?.hide();
-            if (pickerDrillId && !manualMode) {
-                runDrillOnTargets(pickerDrillId, selectedTargets);
-            }
+            // Close the picker fully before starting so its backdrop cannot block Pause (AI-assisted with Codex).
+            pickerStartButton.disabled = true;
+            const hidePicker = () => bootstrapModal.getInstance(pickerModalElement)?.hide();
+            pickerModalElement.addEventListener('shown.bs.modal', hidePicker, { once: true });
+            pickerModalElement.addEventListener('hidden.bs.modal', () => {
+                pickerModalElement.removeEventListener('shown.bs.modal', hidePicker);
+                pickerStartButton.disabled = false;
+                if (pickerDrillId && !manualMode) {
+                    runDrillOnTargets(pickerDrillId, selectedTargets);
+                }
+            }, { once: true });
+            hidePicker();
         });
 
         pauseDrillButton.addEventListener('click', async () => {
+            // Cancel a pending Start/Resume before pausing an already running drill (AI-assisted with Codex).
+            cancelStartCountdown?.();
             try {
                 await postToController('/api/drill/pause');
             } catch (error) {
@@ -639,6 +682,10 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             }
             pollDrillStatus();
         });
+
+        // Polling reports when the stage is ready to replay (AI-assisted with Codex).
+        document.getElementById('resetStageButton')?.addEventListener('click', () =>
+            sendPausedDrillCommand('/api/drill/reset-stage'));
 
         // AI-generated (Claude): turns every raised (red) target back to green.
         const hideAllTargets = () => {
@@ -782,20 +829,115 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         targetCard.setAttribute('aria-label', isDefective
             ? `Target ${targetNumber} is defective`
             : isRed
-                ? `Return target ${targetNumber} to green`
-                : `Mark target ${targetNumber} red`);
+                ? `Hide target ${targetNumber}`
+                : `Raise target ${targetNumber}`);
     });
 
-    // AI-modified (Claude): the All/Odd/Even filter was removed; the only view filter left is
-    // the "Hide defective" switch.
+    // Number and availability filters affect visibility only, never target commands or assignments.
     const hideDefectiveSwitch = document.getElementById('hideDefectiveTargets');
-    const applyDefectiveFilter = () => {
+    const numberFilterButton = document.getElementById('targetNumberFilterButton');
+    const numberFilterModal = document.getElementById('targetNumberFilterModal');
+    const numberFilterInput = document.getElementById('targetNumbersInput');
+    const numberFilterError = document.getElementById('targetNumbersError');
+    const numberFilterStatus = document.getElementById('targetNumberFilterStatus');
+    const numberFilterSummary = document.getElementById('targetNumberFilterSummary');
+    const configuredNumbers = new Set(targetColumns.map((column) => Number(column.dataset.targetNumber)));
+    let filteredNumbers = null;
+    let numberFilterText = '';
+
+    const applyTargetFilters = () => {
         const hideDefective = Boolean(hideDefectiveSwitch?.checked);
+        let visibleCount = 0;
         targetColumns.forEach((column) => {
-            column.classList.toggle('d-none', hideDefective && unavailableTargets.has(Number(column.dataset.targetNumber)));
+            const number = Number(column.dataset.targetNumber);
+            const hidden = (hideDefective && unavailableTargets.has(number))
+                || (filteredNumbers !== null && !filteredNumbers.has(number));
+            column.classList.toggle('d-none', hidden);
+            if (!hidden) visibleCount++;
         });
+        numberFilterButton?.classList.toggle('btn-primary', filteredNumbers !== null);
+        numberFilterButton?.classList.toggle('btn-outline-dark', filteredNumbers === null);
+        numberFilterButton?.setAttribute('aria-pressed', String(filteredNumbers !== null));
+        if (numberFilterStatus) numberFilterStatus.hidden = filteredNumbers === null;
+        if (numberFilterSummary) {
+            numberFilterSummary.textContent = `Showing ${visibleCount} of ${targetColumns.length} targets. Numbers: ${numberFilterText}. View only: All, Odd, Even, and Random also control targets hidden by this filter.`;
+        }
+        const emptyMessage = document.getElementById('targetFilterEmpty');
+        if (emptyMessage) emptyMessage.hidden = visibleCount !== 0;
     };
-    hideDefectiveSwitch?.addEventListener('change', applyDefectiveFilter);
+    hideDefectiveSwitch?.addEventListener('change', applyTargetFilters);
+
+    const clearNumberFilterError = () => {
+        numberFilterInput.classList.remove('is-invalid');
+        numberFilterInput.removeAttribute('aria-invalid');
+        numberFilterError.textContent = '';
+    };
+    numberFilterModal?.addEventListener('show.bs.modal', (event) => {
+        if (!manualTargetsAvailable()) {
+            event.preventDefault();
+            return;
+        }
+        numberFilterInput.value = numberFilterText;
+        clearNumberFilterError();
+    });
+    numberFilterModal?.addEventListener('shown.bs.modal', () => {
+        numberFilterInput.focus();
+        numberFilterInput.select();
+    });
+    numberFilterInput?.addEventListener('input', clearNumberFilterError);
+    document.getElementById('targetNumberFilterForm')?.addEventListener('submit', (event) => {
+        event.preventDefault();
+        if (!manualTargetsAvailable()) {
+            bootstrapModal?.getInstance(numberFilterModal)?.hide();
+            return;
+        }
+        const text = numberFilterInput.value.trim();
+        const selected = new Set();
+        const parts = text.replace(/\s*[-–—]\s*/g, '-').split(/[,\s]+/).filter(Boolean);
+        let error = text && !parts.length ? 'Enter a target number or range, such as 1, 3, 5-8.' : '';
+        const minimum = Math.min(...configuredNumbers);
+        const maximum = Math.max(...configuredNumbers);
+        for (const part of parts) {
+            const match = /^(\d+)(?:-(\d+))?$/.exec(part);
+            if (!match) {
+                error = 'Enter numbers or ranges, such as 1, 3, 5-8.';
+                break;
+            }
+            const first = Number(match[1]);
+            const last = Number(match[2] ?? match[1]);
+            if (!Number.isInteger(first) || !Number.isInteger(last) || first < minimum || last > maximum || first > last) {
+                error = `Use target numbers from ${minimum} to ${maximum}, with ranges in ascending order.`;
+                break;
+            }
+            for (let number = first; number <= last; number++) {
+                if (!configuredNumbers.has(number)) {
+                    error = `Target ${number} is not configured.`;
+                    break;
+                }
+                selected.add(number);
+            }
+            if (error) break;
+        }
+        if (error) {
+            numberFilterError.textContent = error;
+            numberFilterInput.classList.add('is-invalid');
+            numberFilterInput.setAttribute('aria-invalid', 'true');
+            numberFilterInput.focus();
+            return;
+        }
+        filteredNumbers = text ? selected : null;
+        numberFilterText = text;
+        clearNumberFilterError();
+        applyTargetFilters();
+        bootstrapModal?.getInstance(numberFilterModal)?.hide();
+    });
+    document.getElementById('clearTargetNumberFilter')?.addEventListener('click', () => {
+        filteredNumbers = null;
+        numberFilterText = '';
+        applyTargetFilters();
+    });
+    if (numberFilterButton) numberFilterButton.disabled = !manualTargetsAvailable();
+    applyTargetFilters();
 
     // AI-assisted target display preference; include this change in the PR's AI-use disclosure.
     const applyTargetView = (view) => {
@@ -823,7 +965,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         if (!event.target.closest('.target-card') && !targetGrid.classList.contains('is-list-view')) return;
         if (targetCard.classList.contains('is-defective') || unavailableTargets.has(Number(targetColumn.dataset.targetNumber))) return;
         // AI-generated (Claude): tapping a target only flips it in manual mode.
-        if (!manualMode) {
+        if (!manualTargetsAvailable()) {
             drillLaunchMessage.textContent = 'Targets are locked. Turn on Manual mode to raise or hide a target by tapping it.';
             drillLaunchMessage.hidden = false;
             return;
@@ -841,8 +983,8 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         targetCard.classList.toggle('is-red', isRed);
         targetCard.setAttribute('aria-pressed', String(isRed));
         targetCard.setAttribute('aria-label', isRed
-            ? `Return target ${targetNumber} to green`
-            : `Mark target ${targetNumber} red`);
+            ? `Hide target ${targetNumber}`
+            : `Raise target ${targetNumber}`);
         saveTargetCardStatus(targetCard);
     };
 
@@ -858,6 +1000,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
     // Hides go first so Random never has more targets up than it asked for. Returns false (and
     // shows why) if the controller refused, leaving the cards showing what really happened.
     const applyManualTargets = async (changes) => {
+        if (!manualTargetsAvailable()) return false;
         const pending = changes.filter(([column, raise]) => (
             column.querySelector('.target-card').classList.contains('is-red') !== raise
         ));
@@ -901,7 +1044,8 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
                 drillLaunchMessage.textContent = `${status.drillName} complete.`;
                 drillLaunchMessage.hidden = false;
             } else if (status.lastOutcome === 'failed') {
-                drillLaunchMessage.textContent = `${status.drillName} failed; its targets were hidden.`;
+                // A failed run may also have failed to hide its targets (AI-assisted with Codex).
+                drillLaunchMessage.textContent = `${status.drillName} failed. Check target positions before continuing.`;
                 drillLaunchMessage.hidden = false;
             }
         }
@@ -915,7 +1059,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
     const randomTargetCount = 3;
     document.querySelectorAll('.target-toggle').forEach((button) => {
         button.addEventListener('click', () => {
-            if (!manualMode) return;
+            if (!manualTargetsAvailable()) return;
             const set = button.dataset.toggleSet;
             const usableColumns = targetColumns.filter((column) => (
                 !column.querySelector('.target-card').classList.contains('is-defective')
@@ -947,7 +1091,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
 };
 
 if (targetGrid) {
-    fetch('database.json', { cache: 'no-store' })
+    controllerFetch('database.json', { cache: 'no-store' })
         .then((response) => response.json())
         .then((payload) => {
             const targets = Array.isArray(payload?.targets) ? payload.targets : [];
@@ -972,13 +1116,15 @@ if (targetGrid) {
 
 // Performance dashboard reads qualification histories from the device database.
 if (document.getElementById('performanceRows')) {
-    const qualificationFilters = document.querySelectorAll('input[name="qualification"]');
+    let qualificationFilters = [];
+    const qualificationFilterGroup = document.getElementById('performanceQualificationFilters');
     const performanceSearch = document.getElementById('performanceSearch');
     const performanceRows = document.getElementById('performanceRows');
     const performanceMessage = document.getElementById('performanceMessage');
     const sortSelect = document.getElementById('sortSelect');
     let sortMode = sortSelect.value || 'newest';
     let performanceOfficers = [];
+    let exportSnapshot = null;
 
     // Preserve YYYY-MM-DD calendar dates instead of shifting them through UTC.
     const parseScoreDate = (value) => {
@@ -994,20 +1140,57 @@ if (document.getElementById('performanceRows')) {
     };
 
     // Normalize stored score/date pairs and discard malformed records.
-    const qualificationNames = {
-        pistolQualScores: 'Pistol',
-        rifleQualScores: 'Rifle',
-        swatQualScores: 'SWAT'
+    let performanceQualifications = [];
+    const legacyQualifications = new Map([
+        ['pistol', { key: 'pistolQualScores', stats: 'pistolStats' }],
+        ['rifle', { key: 'rifleQualScores', stats: 'rifleStats' }],
+        ['swat', { key: 'swatQualScores', stats: 'swatStats' }]
+    ]);
+    const qualificationHistory = (officer, qualification) => qualification.legacy
+        ? officer[qualification.key]
+        : Object.hasOwn(officer.qualificationScores || {}, qualification.name)
+            ? officer.qualificationScores[qualification.name] : [];
+
+    // Both pages use the controller's catalog; legacy histories keep their original fields.
+    const renderPerformanceQualifications = (names) => {
+        if (!Array.isArray(names) || !names.length || names.some((name) => typeof name !== 'string' || !name.trim())) {
+            throw new Error('Could not read qualifications.');
+        }
+        const selected = new Set(qualificationFilters.filter((input) => input.checked).map((input) => input.value));
+        const includeAll = selected.size === qualificationFilters.length;
+        performanceQualifications = names.map((name, index) => {
+            const legacy = legacyQualifications.get(name.toLowerCase());
+            return { name, id: legacy ? name.toLowerCase() : name,
+                key: legacy?.key || `custom-${index}`, stats: legacy?.stats, legacy: Boolean(legacy) };
+        });
+        qualificationFilterGroup.querySelectorAll('label, #qualificationsLoading').forEach((element) => element.remove());
+        performanceQualifications.forEach((qualification, index) => {
+            const label = document.createElement('label');
+            label.className = 'text-break';
+            const input = document.createElement('input');
+            Object.assign(input, { type: 'checkbox', name: 'qualification', value: qualification.key,
+                checked: includeAll || selected.has(qualification.key), id: `performanceQualification${index}` });
+            label.append(input, document.createTextNode(` ${qualification.name}`));
+            qualificationFilterGroup.append(label);
+        });
+        qualificationFilters = Array.from(qualificationFilterGroup.querySelectorAll('input'));
+        const scoreQualification = document.getElementById('scoreQualification');
+        const previous = scoreQualification.value;
+        scoreQualification.replaceChildren(...performanceQualifications.map(({ name, id }) => new Option(name, id)));
+        if (performanceQualifications.some(({ id }) => id === previous)) scoreQualification.value = previous;
+        scoreQualification.disabled = false;
     };
 
     // Flatten officer histories so every control acts on one consistent result set.
-    const getQualificationRecords = () => performanceOfficers.flatMap((officer) => (
-        Object.entries(qualificationNames).flatMap(([key, name]) => {
-            if (!Array.from(qualificationFilters).some((filter) => filter.checked && filter.value === key)) {
+    const getQualificationRecords = (selected = new Set(qualificationFilters.filter((filter) => filter.checked).map((filter) => filter.value))) => performanceOfficers.flatMap((officer) => (
+        performanceQualifications.flatMap((qualification) => {
+            const { key, name } = qualification;
+            if (!selected.has(key)) {
                 return [];
             }
 
-            const history = Array.isArray(officer?.[key]) ? officer[key] : [];
+            const storedHistory = qualificationHistory(officer, qualification);
+            const history = Array.isArray(storedHistory) ? storedHistory : [];
             return history
                 .filter((entry) => Array.isArray(entry) && Number.isFinite(Number(entry[0])) && parseScoreDate(entry[1]) !== null)
                 .map(([score, date]) => ({
@@ -1050,7 +1233,7 @@ if (document.getElementById('performanceRows')) {
             ? records.reduce((total, record) => total + record.score, 0) / records.length
             : null;
         const topRecord = records.reduce((best, record) => !best || record.score > best.score ? record : best, null);
-        const officerCount = new Set(records.map((record) => record.name)).size;
+        const officerCount = new Set(records.map((record) => record.badge)).size;
 
         document.getElementById('averageScore').textContent = averageScore === null ? '--' : averageScore.toFixed(1);
         document.getElementById('averageNote').textContent = records.length
@@ -1117,6 +1300,14 @@ if (document.getElementById('performanceRows')) {
     // phone shows the same figures; only the name/badge search narrows the list.
     const renderOfficerStanding = () => {
         const standingRows = document.getElementById('standingRows');
+        const selected = performanceQualifications.filter(({ key }) => qualificationFilters.some((input) => input.value === key && input.checked));
+        const header = document.getElementById('standingHeader');
+        header.replaceChildren(...['Officer', 'Badge', ...selected.map(({ name }) => name)].map((name) => {
+            const cell = document.createElement('th');
+            cell.scope = 'col';
+            cell.textContent = name;
+            return cell;
+        }));
         const query = performanceSearch.value.trim().toLocaleLowerCase();
         const officers = performanceOfficers.filter((officer) => (
             !query || `${officer?.Name || ''} ${officer?.BadgeNum ?? ''}`.toLocaleLowerCase().includes(query)
@@ -1126,7 +1317,7 @@ if (document.getElementById('performanceRows')) {
         if (!officers.length) {
             const row = document.createElement('tr');
             const cell = document.createElement('td');
-            cell.colSpan = 5;
+            cell.colSpan = 2 + selected.length;
             cell.className = 'table-empty';
             cell.textContent = 'No officers match.';
             row.append(cell);
@@ -1140,8 +1331,10 @@ if (document.getElementById('performanceRows')) {
                 cell.textContent = value;
                 row.append(cell);
             });
-            ['pistolStats', 'rifleStats', 'swatStats'].forEach((key) => {
-                const stats = officer[key];
+            selected.forEach((qualification) => {
+                const stats = qualification.legacy ? officer[qualification.stats]
+                    : Object.hasOwn(officer.qualificationStats || {}, qualification.name)
+                        ? officer.qualificationStats[qualification.name] : null;
                 const cell = document.createElement('td');
                 cell.className = 'standing-cell';
                 if (!stats || !stats.attempts) {
@@ -1162,6 +1355,7 @@ if (document.getElementById('performanceRows')) {
     };
 
     const renderPerformance = () => {
+        exportSnapshot = null;
         const visibleRecords = getVisibleRecords();
         renderPerformanceSummary(visibleRecords);
         renderPerformanceTable(visibleRecords);
@@ -1182,7 +1376,7 @@ if (document.getElementById('performanceRows')) {
 
     // Search updates immediately; filter fields update when changed or edited.
     performanceSearch.addEventListener('input', renderPerformance);
-    qualificationFilters.forEach((filter) => filter.addEventListener('change', renderPerformance));
+    qualificationFilterGroup.addEventListener('change', renderPerformance);
     ['minimumScore', 'maximumScore', 'startDate', 'endDate'].forEach((id) => {
         document.getElementById(id).addEventListener('input', renderPerformance);
         document.getElementById(id).addEventListener('change', renderPerformance);
@@ -1202,8 +1396,180 @@ if (document.getElementById('performanceRows')) {
         renderPerformance();
     });
 
-    // Browser print supports Save as PDF without a separate PDF-generation dependency.
-    document.getElementById('exportPdfButton').addEventListener('click', () => window.print());
+    // Build a dedicated report from records, rather than printing the dashboard and its controls.
+    const exportModalElement = document.getElementById('performanceExportModal');
+    const exportModal = bootstrap.Modal.getOrCreateInstance(exportModalElement);
+    const exportForm = document.getElementById('performanceExportForm');
+    const exportOfficer = document.getElementById('exportOfficer');
+    const exportQualifications = document.getElementById('exportQualifications');
+    const exportFromDate = document.getElementById('exportFromDate');
+    const exportToDate = document.getElementById('exportToDate');
+    const exportError = document.getElementById('exportResultsError');
+    const exportReport = document.getElementById('performanceExportReport');
+    let exportPrepared = false;
+    let exportAttempt = 0;
+    let pendingPdfWindow = null;
+
+    const exportSelection = () => {
+        const selected = new Set(Array.from(exportQualifications.querySelectorAll('input:checked'), (input) => input.value));
+        const from = exportFromDate.value;
+        const to = exportToDate.value;
+        const error = !selected.size ? 'Select at least one qualification.'
+            : !exportFromDate.validity.valid || !exportToDate.validity.valid ? 'Enter valid dates.'
+                : from && to && from > to ? 'From must be on or before To.' : '';
+        const records = error ? [] : getQualificationRecords(selected).filter((record) => (
+            (!exportOfficer.value || record.badge === exportOfficer.value)
+            && (!from || localDateString(record.date) >= from)
+            && (!to || localDateString(record.date) <= to)
+        ));
+        return { selected, from, to, records, error };
+    };
+
+    const updateExportCount = () => {
+        const { records, error } = exportSelection();
+        exportError.hidden = !error;
+        exportError.textContent = error;
+        document.getElementById('exportResultCount').textContent = error ? ''
+            : `${records.length} ${records.length === 1 ? 'result' : 'results'} to export${records.length ? '.' : '. Choose different filters.'}`;
+        document.getElementById('printResultsButton').disabled = exportPrepared || Boolean(error) || !records.length;
+    };
+    exportForm.addEventListener('input', updateExportCount);
+    exportForm.addEventListener('change', updateExportCount);
+    document.getElementById('exportTodayResults').addEventListener('click', () => {
+        exportFromDate.value = localDateString();
+        exportToDate.value = exportFromDate.value;
+        updateExportCount();
+    });
+
+    document.getElementById('exportPdfButton').addEventListener('click', () => {
+        document.getElementById('openExportPdf').hidden = true;
+        const query = performanceSearch.value.trim().toLocaleLowerCase();
+        const matching = performanceOfficers.filter((officer) => query
+            && `${officer.Name} ${officer.BadgeNum}`.toLocaleLowerCase().includes(query));
+        exportOfficer.replaceChildren(new Option('All officers', ''), ...performanceOfficers.map((officer) => (
+            new Option(`${officer.Name} | Badge ${officer.BadgeNum}`, String(officer.BadgeNum))
+        )));
+        if (matching.length === 1) exportOfficer.value = String(matching[0].BadgeNum);
+        exportQualifications.replaceChildren(...performanceQualifications.map(({ name, key }, index) => {
+            const label = document.createElement('label');
+            label.className = 'form-check d-flex align-items-center gap-2 text-break mb-0';
+            const input = document.createElement('input');
+            Object.assign(input, { type: 'checkbox', className: 'form-check-input mt-0', value: key,
+                id: `exportQualification${index}`, checked: qualificationFilters.some((filter) => filter.value === key && filter.checked) });
+            label.append(input, document.createTextNode(name));
+            return label;
+        }));
+        exportFromDate.value = document.getElementById('startDate').value;
+        exportToDate.value = document.getElementById('endDate').value || localDateString();
+        updateExportCount();
+        exportModal.show();
+    });
+
+    const buildExportReport = (records, scope) => {
+        const element = (tag, text) => {
+            const node = document.createElement(tag);
+            node.textContent = text;
+            return node;
+        };
+        const average = records.length ? (records.reduce((total, record) => total + record.score, 0) / records.length).toFixed(1) : '—';
+        const heading = element('h1', 'Qualification results');
+        const generated = element('p', `Cookeville Police Department · Generated ${new Date().toLocaleString()}`);
+        const filters = element('p', scope);
+        const summary = element('p', `${records.length} results · Average score: ${average}`);
+        const table = document.createElement('table');
+        const header = table.createTHead().insertRow();
+        ['Officer', 'Badge', 'Qualification', 'Date', 'Score'].forEach((title) => {
+            const cell = element('th', title);
+            cell.scope = 'col';
+            header.append(cell);
+        });
+        const body = table.createTBody();
+        [...records].sort((a, b) => b.date - a.date || a.badge.localeCompare(b.badge) || a.qualification.localeCompare(b.qualification))
+            .forEach((record) => {
+                const row = body.insertRow();
+                [record.name, record.badge, record.qualification, formatScoreDate(record.date), String(record.score)]
+                    .forEach((text) => row.append(element('td', text)));
+            });
+        exportReport.replaceChildren(heading, generated, filters, summary, table);
+    };
+
+    exportModalElement.addEventListener('hide.bs.modal', () => {
+        if (!exportPrepared) return;
+        exportAttempt += 1;
+        exportPrepared = false;
+        pendingPdfWindow?.close();
+        pendingPdfWindow = null;
+        exportForm.querySelectorAll('input, select, button').forEach((control) => { control.disabled = false; });
+        document.getElementById('printResultsButton').textContent = 'Continue to PDF';
+        updateExportCount();
+    });
+
+    exportForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (exportPrepared) return;
+        const { selected, from, to, records, error } = exportSelection();
+        updateExportCount();
+        if (error || !records.length) return;
+        const names = performanceQualifications.filter(({ key }) => selected.has(key)).map(({ name }) => name).join(', ');
+        const dates = from && from === to ? from : `${from || 'earliest'} to ${to || 'latest'}`;
+        exportSnapshot = {
+            records,
+            scope: `${exportOfficer.selectedOptions[0].text} · Qualifications: ${names} · Dates: ${from || to ? dates : 'All dates'}`
+        };
+        buildExportReport(exportSnapshot.records, exportSnapshot.scope);
+        exportPrepared = true;
+        const attempt = ++exportAttempt;
+        const button = document.getElementById('printResultsButton');
+        button.disabled = true;
+        button.textContent = 'Preparing PDF…';
+        exportForm.querySelectorAll('input, select, button').forEach((control) => { control.disabled = true; });
+        document.getElementById('openExportPdf').hidden = true;
+        // Open within the click gesture, before loading assets, so browsers permit the new tab.
+        let pdfWindow = null;
+        try { pdfWindow = window.open('', '_blank'); } catch { /* Use the Open PDF link if pop-ups are unavailable. */ }
+        pendingPdfWindow = pdfWindow;
+        if (pdfWindow) {
+            pdfWindow.opener = null;
+            pdfWindow.document.title = 'Qualification results';
+            pdfWindow.document.body.textContent = 'Preparing PDF…';
+        }
+        try {
+            const { createQualificationPdf } = await import('./results-pdf.js?v=1');
+            const pdf = await createQualificationPdf(exportSnapshot);
+            if (attempt !== exportAttempt) return;
+            const url = URL.createObjectURL(pdf);
+            const link = document.getElementById('openExportPdf');
+            link.href = url;
+            link.hidden = false;
+            if (pdfWindow && !pdfWindow.closed) {
+                pdfWindow.location.replace(url);
+                exportPrepared = false;
+                exportModal.hide();
+            } else {
+                document.getElementById('exportResultCount').textContent = 'Your PDF is ready. Select Open PDF to view it.';
+            }
+        } catch {
+            if (attempt !== exportAttempt) return;
+            pdfWindow?.close();
+            exportError.hidden = false;
+            exportError.textContent = 'Could not create the PDF. Check the controller connection and try again.';
+        } finally {
+            if (attempt === exportAttempt) {
+                exportPrepared = false;
+                pendingPdfWindow = null;
+                exportForm.querySelectorAll('input, select, button').forEach((control) => { control.disabled = false; });
+                button.textContent = 'Continue to PDF';
+                // Keep a successful or failed export message visible until the filters change.
+                const selection = exportSelection();
+                button.disabled = Boolean(selection.error) || !selection.records.length;
+            }
+        }
+    });
+    window.addEventListener('beforeprint', () => {
+        // Print preview can fire more than once; retain the chosen export instead of using dashboard filters.
+        if (exportSnapshot) buildExportReport(exportSnapshot.records, exportSnapshot.scope);
+        else buildExportReport(getVisibleRecords(), 'Current Performance search and filters');
+    });
 
     // Add scores dialog: ported from Oviya's oviyaTest branch. AI-modified (Claude): scores are
     // saved on the controller (POST /api/officers/scores, one per score) instead of localStorage,
@@ -1238,6 +1604,10 @@ if (document.getElementById('performanceRows')) {
     });
     document.getElementById('closeScoresDialog').addEventListener('click', () => addScoresDialog.close());
     addScoresDialog.addEventListener('close', () => addScoresToggle.setAttribute('aria-expanded', 'false'));
+    document.getElementById('addOfficerButton').addEventListener('click', () => {
+        addScoresDialog.close();
+        window.location.href = 'settings.html';
+    });
 
     const updateScoreEntryLabels = () => {
         const entries = scoreEntries.querySelectorAll('.score-entry');
@@ -1246,17 +1616,21 @@ if (document.getElementById('performanceRows')) {
             const scoreInput = entry.querySelector('.score-entry-value');
             const dateInput = entry.querySelector('.score-entry-date');
             const scoreLabel = entry.querySelector('.score-entry-label');
-            const removeButton = entry.querySelector('.remove-score-entry');
             scoreInput.id = `scoreValue${scoreNumber}`;
             scoreInput.setAttribute('aria-label', `Score ${scoreNumber}`);
             scoreLabel.htmlFor = scoreInput.id;
             scoreLabel.textContent = `Score ${scoreNumber}`;
             dateInput.id = `scoreDate${scoreNumber}`;
             dateInput.setAttribute('aria-label', `Date for score ${scoreNumber}`);
+            const dateLabel = entry.querySelector('.visually-hidden');
+            dateLabel.htmlFor = dateInput.id;
+            dateLabel.textContent = `Date for score ${scoreNumber}`;
+            const removeButton = entry.querySelector('.remove-score-entry');
             removeButton.disabled = entries.length === 1;
             removeButton.setAttribute('aria-label', `Remove score ${scoreNumber}`);
         });
     };
+    updateScoreEntryLabels();
 
     document.getElementById('addScoreEntry').addEventListener('click', () => {
         const entry = scoreEntries.querySelector('.score-entry').cloneNode(true);
@@ -1267,16 +1641,12 @@ if (document.getElementById('performanceRows')) {
         entry.querySelector('.score-entry-value').focus();
     });
 
-    document.getElementById('addOfficerButton').addEventListener('click', () => {
-        addScoresDialog.close();
-        window.location.href = 'settings.html';
-    });
-
-    // One listener for every row's remove button (rows are cloned)
     scoreEntries.addEventListener('click', (event) => {
         const removeButton = event.target.closest('.remove-score-entry');
-        if (!removeButton || scoreEntries.querySelectorAll('.score-entry').length <= 1) return;
-        removeButton.closest('.score-entry').remove();
+        const entry = removeButton?.closest('.score-entry');
+        const entries = scoreEntries.querySelectorAll('.score-entry');
+        if (!entry || entries.length <= 1) return;
+        entry.remove();
         updateScoreEntryLabels();
     });
 
@@ -1298,6 +1668,10 @@ if (document.getElementById('performanceRows')) {
             return;
         }
         const qualType = document.getElementById('scoreQualification').value;
+        if (!performanceQualifications.some(({ id }) => id === qualType)) {
+            showAddScoresError('Select a qualification.');
+            return;
+        }
         const scores = Array.from(scoreEntries.querySelectorAll('.score-entry'), (entry) => ({
             score: entry.querySelector('.score-entry-value').value.trim(),
             date: entry.querySelector('.score-entry-date').value
@@ -1341,12 +1715,17 @@ if (document.getElementById('performanceRows')) {
     // Also fills the Add scores officer list (value = badge number). Officers come from the
     // controller's API (GET /api/officers?today=...), which adds Isaac's 12-month stats; the ESP32
     // has no clock, so this phone supplies today's date.
-    const loadPerformanceData = () => fetch(`/api/officers?today=${localDateString()}`, { cache: 'no-store' })
-        .then((response) => {
-            if (!response.ok) {
+    const loadPerformanceData = () => Promise.all([
+        controllerFetch(`/api/officers?today=${localDateString()}`, { cache: 'no-store' }),
+        controllerFetch('/api/qualifications', { cache: 'no-store' })
+    ])
+        .then(async ([officerResponse, qualificationResponse]) => {
+            if (!officerResponse.ok || !qualificationResponse.ok) {
                 throw new Error('Unable to load qualification records.');
             }
-            return response.json();
+            const [officers, names] = await Promise.all([officerResponse.json(), qualificationResponse.json()]);
+            renderPerformanceQualifications(names);
+            return officers;
         })
         .then((payload) => {
             performanceOfficers = Array.isArray(payload) ? payload : [];
@@ -1367,6 +1746,7 @@ if (document.getElementById('performanceRows')) {
             );
             scoreOfficerSelect.value = selectedBadge;
             saveScoresButton.disabled = !performanceOfficers.length;
+            document.getElementById('exportPdfButton').disabled = !performanceOfficers.length;
             renderPerformance();
         })
         .catch(() => {
@@ -1379,12 +1759,12 @@ if (document.getElementById('performanceRows')) {
     loadPerformanceData();
 }
 
-// AI-modified (Claude): Drills page, rewritten. Drills live on the controller (database.json in
+// Drills live on the controller (database.json in
 // flash, so they survive a power cycle) and are read and changed through /api/drills. New and
 // edited drills are built with the drag-and-drop sequence builder: Present / Delay / Hide /
-// Pause blocks. A Present or Hide step moves "All targets" (every target chosen when the drill is
+// Pause / Run drill blocks. A Present or Hide step moves "All targets" (every target chosen when the drill is
 // started) or a custom list; a Delay is in seconds (decimals allowed, stored as whole ms).
-// Stages inside a full drill show as fixed "Run drill" steps, so editing a full drill keeps them.
+// Run drill blocks reference saved drills by name, including repeated uses of the same drill.
 if (document.getElementById('drillList')) {
     const drillList = document.getElementById('drillList');
     const drillListMessage = document.getElementById('drillListMessage');
@@ -1397,6 +1777,7 @@ if (document.getElementById('drillList')) {
     const palette = document.getElementById('blockPalette');
     const sequenceList = document.getElementById('sequenceList');
     const sequenceSummary = document.getElementById('sequenceSummary');
+    const clearSequenceButton = document.getElementById('clearDrillSequence');
     const saveButton = document.getElementById('drillEditorSave');
     const deleteModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('deleteDrillModal'));
     const deleteDrillName = document.getElementById('deleteDrillName');
@@ -1405,6 +1786,57 @@ if (document.getElementById('drillList')) {
     let editingName = null;       // name of the drill being edited; null while creating one
     let pendingDeleteName = null;
     let activeDrillFilter = 'all';
+    let qualificationFilters = Array.from(document.querySelectorAll('.drill-qualification-filter'));
+    const allQualifications = document.getElementById('allDrillQualifications');
+    const qualificationContainer = document.getElementById('drillQualificationFilters');
+    const qualificationModalElement = document.getElementById('addQualificationModal');
+    const qualificationModal = bootstrap.Modal.getOrCreateInstance(qualificationModalElement);
+    const qualificationName = document.getElementById('qualificationName');
+    const qualificationError = document.getElementById('qualificationNameError');
+    let qualificationNames = ['Pistol', 'Rifle', 'SWAT'];
+
+    // Labels use textContent so user-provided qualification names remain plain text.
+    const qualificationCheckbox = (name, id, checked, className = '') => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'form-check mw-100 text-break';
+        const input = document.createElement('input');
+        Object.assign(input, { type: 'checkbox', id, value: name.toLowerCase(), checked,
+            className: `form-check-input ${className}` });
+        const label = document.createElement('label');
+        label.className = 'form-check-label';
+        label.htmlFor = id;
+        label.textContent = name;
+        wrapper.append(input, label);
+        return wrapper;
+    };
+
+    const updateQualificationState = () => {
+        const count = qualificationFilters.filter((item) => item.checked).length;
+        allQualifications.checked = count === qualificationFilters.length;
+        allQualifications.indeterminate = count > 0 && count < qualificationFilters.length;
+    };
+
+    const renderQualificationChoices = () => {
+        const selected = new Set(qualificationFilters.filter((item) => item.checked).map((item) => item.value));
+        const includeAll = allQualifications.checked;
+        qualificationContainer.querySelectorAll('.drill-qualification-filter').forEach((input) => input.parentElement.remove());
+        qualificationNames.forEach((name, index) => qualificationContainer.append(qualificationCheckbox(
+            name, `drillQualification${index}`, includeAll || selected.has(name.toLowerCase()), 'drill-qualification-filter'
+        )));
+        qualificationFilters = Array.from(qualificationContainer.querySelectorAll('.drill-qualification-filter'));
+        updateQualificationState();
+    };
+
+    const loadQualifications = async () => {
+        const response = await controllerFetch('/api/qualifications', { cache: 'no-store' });
+        if (!response.ok) throw new Error('Could not load qualifications. Check the controller connection.');
+        const names = await response.json();
+        if (!Array.isArray(names) || !names.length || names.some((name) => typeof name !== 'string' || !name.trim())) {
+            throw new Error('Could not read qualification names.');
+        }
+        qualificationNames = names;
+        renderQualificationChoices();
+    };
     let blockCounter = 0;         // makes each block's input ids unique
 
     const blockInfo = {
@@ -1468,7 +1900,7 @@ if (document.getElementById('drillList')) {
         const body = block.querySelector('.seq-block-body');
 
         if (action === 'present' || action === 'hide') {
-            // AI-modified (Claude): Present also offers Random: that many targets, picked by the
+            // Present also offers Random: that many targets, picked by the
             // controller each time the step runs ("random": n)
             const chosen = new Set((Array.isArray(step.targets) ? step.targets : []).map(Number));
             const randomCount = action === 'present' && Number(step.random) > 0 ? Number(step.random) : 0;
@@ -1511,17 +1943,68 @@ if (document.getElementById('drillList')) {
         } else if (action === 'pause') {
             body.innerHTML = '<p class="seq-block-note">Waits until the operator presses Resume.</p>';
         } else {
-            body.innerHTML = '<p class="seq-block-note">Runs the drill <strong></strong>. Edit it on its own card.</p>';
-            body.querySelector('strong').textContent = action;
+            body.innerHTML = `
+                <label class="form-label small mb-1" for="${uid}-drill">Saved drill</label>
+                <select class="form-select form-select-sm seq-drill-select" id="${uid}-drill"></select>
+                <p class="seq-block-note mt-2">Runs the saved drill. Changes to it apply the next time this full drill starts.</p>`;
+            const select = body.querySelector('.seq-drill-select');
+            const choices = drills.filter((drill) => drill.drillName !== editingName);
+            select.append(new Option(choices.length ? 'Select a saved drill' : 'No other saved drills', ''));
+            choices.forEach((drill) => select.append(new Option(drill.drillName, drill.drillName)));
+            // Preserve a broken reference so Save reports it rather than silently replacing it.
+            if (action && !choices.some((drill) => drill.drillName === action)) {
+                const unavailable = new Option(`Unavailable drill: ${action}`, action);
+                unavailable.disabled = true;
+                select.append(unavailable);
+            }
+            select.value = action;
+            select.addEventListener('change', () => { block.dataset.action = select.value; });
         }
         return block;
     };
 
-    const defaultStep = (type) => (type === 'delay' ? { action: 'delay', timeMs: 3000 } : { action: type });
+    const defaultStep = (type) => type === 'run-drill'
+        ? { action: '' }
+        : type === 'delay' ? { action: 'delay', timeMs: 3000 } : { action: type };
+
+    // Check references using the pending sequence, including saved parents that reuse this drill.
+    const validateRunDrills = (name, steps) => {
+        const savedName = editingName ?? name;
+        const sequences = new Map(drills.map((drill) => [drill.drillName, drill.sequence]));
+        sequences.set(savedName, steps);
+        const affected = new Set([savedName]);
+        for (const child of affected) {
+            for (const [parent, sequence] of sequences) {
+                if (sequence?.some((step) => step.action === child)) affected.add(parent);
+            }
+        }
+        const check = (drillName, path = []) => {
+            if (path.includes(drillName)) {
+                return `Run drill blocks cannot create a loop: ${[...path, drillName].join(' → ')}.`;
+            }
+            if (path.length >= maxDrillNesting) {
+                return `Including "${drillName}" would exceed the ${maxDrillNesting}-level drill nesting limit.`;
+            }
+            const sequence = sequences.get(drillName);
+            if (!sequence?.length) return `Saved drill "${drillName}" is missing or empty.`;
+            for (const step of sequence) {
+                if (basicDrillActions.has(step.action)) continue;
+                const error = check(step.action, [...path, drillName]);
+                if (error) return error;
+            }
+            return '';
+        };
+        for (const drillName of affected) {
+            const error = check(drillName);
+            if (error) return error;
+        }
+        return '';
+    };
 
     // Step numbers, move-button state, and the summary line under the sequence.
     const refreshSequence = () => {
         const blocks = Array.from(sequenceList.querySelectorAll(':scope > .seq-block'));
+        clearSequenceButton.disabled = blocks.length === 0;
         let delaySeconds = 0;
         blocks.forEach((block, index) => {
             const title = block.querySelector('.seq-block-title').textContent;
@@ -1553,13 +2036,13 @@ if (document.getElementById('drillList')) {
         if (!blocks.length) return { error: 'Add at least one block to the sequence.' };
         const steps = [];
         for (const [index, block] of blocks.entries()) {
-            const action = block.dataset.action;
+            const action = block.querySelector('.seq-drill-select')?.value ?? block.dataset.action;
             const label = `Step ${index + 1} (${block.querySelector('.seq-block-title').textContent})`;
             const step = { step: index + 1, action };
             if (action === 'present' || action === 'hide') {
                 const mode = block.querySelector('input[type="radio"]:checked')?.value;
                 if (mode === 'random') {
-                    // AI-generated (Claude): whole number from 1 to the number of targets
+                    // Whole number from 1 to the number of targets
                     const count = Number(block.querySelector('.seq-random-input').value);
                     if (!Number.isInteger(count) || count < 1 || count > targetCount) {
                         return { error: `${label}: enter how many random targets, from 1 to ${targetCount}.`, block };
@@ -1582,6 +2065,10 @@ if (document.getElementById('drillList')) {
                     return { error: `${label}: enter a time between 0.01 and 3600 seconds.`, block };
                 }
                 step.timeMs = timeMs;
+            } else if (!basicDrillActions.has(action)) {
+                if (!action || !drills.some((drill) => drill.drillName === action)) {
+                    return { error: `${label}: select an existing saved drill.`, block };
+                }
             }
             steps.push(step);
         }
@@ -1589,6 +2076,15 @@ if (document.getElementById('drillList')) {
     };
 
     // ------------------------------------------------------------------ editor wiring
+    // Clear the draft sequence; saved stages and referenced drills change only on Save.
+    clearSequenceButton.addEventListener('click', () => {
+        sequenceList.replaceChildren();
+        showEditorError('');
+        refreshSequence();
+        sequenceSummary.textContent = 'Sequence cleared. Add blocks to start over.';
+        palette.querySelector('[data-block]')?.focus({ preventScroll: true });
+    });
+
     palette.addEventListener('click', (event) => {
         const paletteBlock = event.target.closest('[data-block]');
         if (paletteBlock) addBlock(paletteBlock.dataset.block);
@@ -1635,6 +2131,10 @@ if (document.getElementById('drillList')) {
             group: { name: 'drill-steps', pull: 'clone', put: false },
             sort: false,
             animation: 150,
+            // Keep palette copies draggable in embedded browsers and on touchscreens.
+            forceFallback: true,
+            fallbackOnBody: true,
+            fallbackTolerance: 4,
             delay: 150,
             delayOnTouchOnly: true,
             draggable: '[data-block]'
@@ -1658,6 +2158,10 @@ if (document.getElementById('drillList')) {
         editingName = drill ? drill.drillName : null;
         editorTitle.textContent = drill ? `Edit ${drill.drillName}` : 'New drill';
         nameInput.value = drill ? drill.drillName : '';
+        const assigned = drill ? getOwnDrillQualifications(drill) : new Set();
+        document.getElementById('drillEditorQualifications').replaceChildren(...qualificationNames.map((name, index) => (
+            qualificationCheckbox(name, `editorQualification${index}`, assigned.has(name.toLowerCase()))
+        )));
         sequenceList.replaceChildren(...(Array.isArray(drill?.sequence) ? drill.sequence : []).map(createBlock));
         showEditorError('');
         refreshSequence();
@@ -1693,13 +2197,21 @@ if (document.getElementById('drillList')) {
             return;
         }
 
+        const nestingError = validateRunDrills(name, steps);
+        if (nestingError) {
+            showEditorError(nestingError);
+            editorError.scrollIntoView({ block: 'nearest' });
+            return;
+        }
+
         saveButton.disabled = true;
         try {
+            const qualifications = Array.from(document.querySelectorAll('#drillEditorQualifications input:checked'), (input) => input.value);
             if (editingName === null) {
-                await postToController('/api/drills', { drillName: name, sequence: steps });
+                await postToController('/api/drills', { drillName: name, sequence: steps, qualifications });
             } else {
                 // Isaac's rename: a new drillName also updates full drills that include this one
-                await postToController(`/api/drills?name=${encodeURIComponent(editingName)}`, { drillName: name, sequence: steps }, 'PUT');
+                await postToController(`/api/drills?name=${encodeURIComponent(editingName)}`, { drillName: name, sequence: steps, qualifications }, 'PUT');
             }
             editorModal.hide();
             showListMessage(`${name} saved.`, 'success');
@@ -1720,15 +2232,45 @@ if (document.getElementById('drillList')) {
         return { steps: sequence.length, stages, delaySeconds: Number((delayMs / 1000).toFixed(2)) };
     };
 
+    // Save only direct assignments; inherited qualifications must follow later stage edits.
+    const getOwnDrillQualifications = (drill) => {
+        const matches = new Set();
+        if (Array.isArray(drill.qualifications)) {
+            drill.qualifications.forEach((name) => matches.add(String(name).toLowerCase()));
+        } else {
+            qualificationFilters.forEach((filter) => {
+                const prefix = `${filter.value} qual`;
+                const name = drill.drillName.toLowerCase();
+                if (name === prefix || name.startsWith(`${prefix} `)) matches.add(filter.value);
+            });
+        }
+        return matches;
+    };
+
+    const getDrillQualifications = (drill, visited = new Set()) => {
+        if (visited.has(drill.drillName)) return new Set();
+        visited.add(drill.drillName);
+        const matches = getOwnDrillQualifications(drill);
+        (Array.isArray(drill.sequence) ? drill.sequence : []).forEach((step) => {
+            if (basicDrillActions.has(step?.action)) return;
+            const referenced = drills.find((other) => other.drillName === step?.action);
+            if (referenced) getDrillQualifications(referenced, visited).forEach((value) => matches.add(value));
+        });
+        return matches;
+    };
+
     const renderDrills = () => {
+        const selected = qualificationFilters.filter((filter) => filter.checked).map((filter) => filter.value);
         const visible = drills.filter((drill) => (
-            activeDrillFilter === 'all' || getDrillCategory(null, drill) === activeDrillFilter
+            (activeDrillFilter === 'all' || getDrillCategory(null, drill) === activeDrillFilter)
+            && (selected.length === qualificationFilters.length
+                || selected.some((value) => getDrillQualifications(drill).has(value)))
         ));
         if (!visible.length) {
             const column = document.createElement('div');
             column.className = 'col-12';
             column.innerHTML = '<div class="alert alert-info mb-0"></div>';
-            column.firstChild.textContent = drills.length ? 'No drills match this filter.' : 'No drills yet. Tap Create Drill to build one.';
+            column.firstChild.textContent = drills.length ? 'No drills match these filters.' : 'No drills yet. Tap Create Drill to build one.';
             drillList.replaceChildren(column);
             return;
         }
@@ -1775,7 +2317,7 @@ if (document.getElementById('drillList')) {
 
     const loadDrills = async () => {
         try {
-            const response = await fetch('/api/drills', { cache: 'no-store' });
+            const response = await controllerFetch('/api/drills', { cache: 'no-store' });
             if (!response.ok) throw new Error('bad response');
             const payload = await response.json();
             drills = (Array.isArray(payload) ? payload : [])
@@ -1814,7 +2356,53 @@ if (document.getElementById('drillList')) {
         });
     });
 
-    loadDrills();
+    qualificationContainer.addEventListener('change', (event) => {
+        if (!event.target.matches('.drill-qualification-filter')) return;
+        updateQualificationState();
+        renderDrills();
+    });
+    allQualifications.addEventListener('change', () => {
+        qualificationFilters.forEach((filter) => { filter.checked = allQualifications.checked; });
+        allQualifications.indeterminate = false;
+        renderDrills();
+    });
+
+    document.getElementById('addQualificationButton').addEventListener('click', () => {
+        document.getElementById('addQualificationForm').reset();
+        qualificationName.classList.remove('is-invalid');
+        qualificationName.removeAttribute('aria-invalid');
+        qualificationModal.show();
+    });
+    qualificationModalElement.addEventListener('shown.bs.modal', () => qualificationName.focus());
+    document.getElementById('addQualificationForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const name = qualificationName.value.trim().replace(/\s+/g, ' ');
+        const button = document.getElementById('saveQualificationButton');
+        try {
+            if (!name) throw new Error('Enter a qualification name.');
+            if (new TextEncoder().encode(name).length > 32) throw new Error('This name is too long. Use a shorter qualification name.');
+            if (qualificationNames.some((existing) => existing.toLowerCase() === name.toLowerCase())) {
+                throw new Error('A qualification with this name already exists.');
+            }
+            button.disabled = true;
+            await postToController('/api/qualifications', { name });
+            await loadQualifications();
+            renderDrills();
+            qualificationModal.hide();
+            showListMessage(`${name} qualification added. Edit a drill to assign it.`, 'success');
+        } catch (error) {
+            qualificationError.textContent = error.message;
+            qualificationName.classList.add('is-invalid');
+            qualificationName.setAttribute('aria-invalid', 'true');
+            qualificationName.focus();
+        } finally {
+            button.disabled = false;
+        }
+    });
+
+    loadQualifications().then(() => {
+        document.getElementById('addQualificationButton').disabled = false;
+    }).catch((error) => showListMessage(error.message, 'warning')).finally(loadDrills);
 }
 
 // AI-generated (Claude): Settings page (settings.html).
@@ -1919,7 +2507,7 @@ if (defectiveTargetList) {
 
     const loadDefectiveTargets = async () => {
         try {
-            const response = await fetch('/api/targets', { cache: 'no-store' });
+            const response = await controllerFetch('/api/targets', { cache: 'no-store' });
             if (!response.ok) throw new Error('bad response');
             const targets = (await response.json() || [])
                 .filter((target) => Number.isInteger(Number(target?.id)))
@@ -2051,7 +2639,7 @@ if (officerList) {
 
     const loadOfficers = async () => {
         try {
-            const response = await fetch(`/api/officers?today=${localDateString()}`, { cache: 'no-store' });
+            const response = await controllerFetch(`/api/officers?today=${localDateString()}`, { cache: 'no-store' });
             if (!response.ok) throw new Error('bad response');
             const officers = (await response.json() || [])
                 .filter((officer) => Number.isInteger(Number(officer?.BadgeNum)))
@@ -2106,4 +2694,42 @@ if (officerList) {
     });
 
     loadOfficers();
+}
+
+// Shared, offline help for the four controller pages.
+if (drillStatus && typeof bootstrap !== 'undefined') {
+    const help = document.createElement('div');
+    help.innerHTML = `
+        <button type="button" class="btn btn-light border rounded-circle shadow-sm help-button"
+            data-bs-toggle="modal" data-bs-target="#helpModal" aria-controls="helpModal"
+            aria-haspopup="dialog" aria-label="Help and Q&A" title="Help and Q&A">
+            <span aria-hidden="true">?</span>
+        </button>
+        <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalTitle" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 class="modal-title fs-5" id="helpModalTitle">Help &amp; Q&amp;A</h2>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close help"></button>
+                    </div>
+                    <div class="modal-body">
+                        <h3 class="h6">How do I start a drill?</h3>
+                        <p>On Targets, exit manual mode, select a drill, and press Start drill. Choose the targets if asked, then wait for the start countdown.</p>
+                        <h3 class="h6">How do Pause and Redo stage work?</h3>
+                        <p>Pause holds the drill until Resume. In a full drill, Pause then Redo stage hides the drill targets and rewinds the current stage. Press Resume to replay it. Redo stage is unavailable for standalone drills.</p>
+                        <h3 class="h6">How do I build a sequence?</h3>
+                        <p>On Drills, choose Create Drill or Edit. Drag blocks into the sequence, or tap to add them at the end. Use Run drill to include a saved drill as many times as needed. Use the grip or arrow buttons to reorder steps, then Save drill.</p>
+                        <h3 class="h6">How do I mark a defective target?</h3>
+                        <p>Open Settings and mark the target defective. It becomes unavailable for drills and manual target selection.</p>
+                        <h3 class="h6">Why are the controls unavailable?</h3>
+                        <p class="mb-0">Check the status banner and your connection to the range WiFi. Exit manual mode before starting a drill. After Stop, use Reset to hide the targets and unlock the controls.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    document.body.append(help);
+    document.body.classList.add('has-help');
 }
