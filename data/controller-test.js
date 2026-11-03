@@ -1,8 +1,9 @@
-// ============================================================================
-// TEMPORARY CONTROLLER BYPASS FOR LOCAL WEBPAGE TESTING ONLY.
-// AI-ASSISTED WITH CODEX. REMOVE THIS FILE AND ITS script.js LOADER AFTER TESTING.
-// TEST DATA STAYS IN THIS BROWSER TAB. THIS DOES NOT VALIDATE FIRMWARE OR HARDWARE.
-// ============================================================================
+/*
+ * TEMPORARILY DISABLED: controller bypass for local webpage testing only.
+ * This retained QA harness is not loaded by production pages and does not validate
+ * firmware or hardware.
+ */
+/*
 export async function createControllerTest() {
     if (!['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
         || new URLSearchParams(location.search).get('test') !== '1') {
@@ -267,3 +268,4 @@ export async function createControllerTest() {
     };
 }
 // END TEMPORARY CONTROLLER BYPASS.
+*/

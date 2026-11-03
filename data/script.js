@@ -185,20 +185,20 @@ document.body.append(faqButton, faqModal);
 faqButton.addEventListener('click', () => {
     bootstrap.Modal.getOrCreateInstance(faqModal).show();
 });
-// ============================================================================
-// TEMPORARY CONTROLLER BYPASS FOR WEBPAGE TESTING (AI-ASSISTED WITH CODEX).
-// ENABLE ON LOCALHOST WITH ?test=1. REMOVE THIS BLOCK AND controller-test.js
-// AFTER TESTING; REPLACE controllerFetch CALLS BELOW WITH fetch.
-// ============================================================================
-const controllerTestMode = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
-    && new URLSearchParams(location.search).get('test') === '1';
-const controllerTest = controllerTestMode
-    ? import('./controller-test.js?v=connection-rssi-3').then((module) => module.createControllerTest())
-    : null;
-const controllerFetch = async (...args) => controllerTest
-    ? (await controllerTest)(...args)
-    : fetch(...args);
-// END TEMPORARY CONTROLLER BYPASS.
+/*
+ * TEMPORARILY DISABLED: local controller bypass for webpage testing.
+ * The bypass remains here for repeatable QA, but production always uses the ESP32 API.
+ *
+ * const controllerTestMode = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
+ *     && new URLSearchParams(location.search).get('test') === '1';
+ * const controllerTest = controllerTestMode
+ *     ? import('./controller-test.js?v=connection-rssi-3').then((module) => module.createControllerTest())
+ *     : null;
+ * const controllerFetch = async (...args) => controllerTest
+ *     ? (await controllerTest)(...args)
+ *     : fetch(...args);
+ */
+const controllerFetch = (...args) => fetch(...args);
 
 const drillStatus = document.getElementById('drillStatus');
 // AI-generated (Claude): the text inside the status bar.
@@ -211,7 +211,7 @@ const setDrillStatusText = (text) => {
 
 // AI-generated (Claude): shared degraded-connection indicator. Backend integration should call
 // window.setConnectionStatus('poor', rssi) or window.setConnectionStatus('none'); call it with
-// null to hide the indicator. QA can trigger the same states with ?connection=poor&rssi=-85.
+// null to hide the indicator.
 const connectionAlert = document.createElement('button');
 connectionAlert.type = 'button';
 connectionAlert.className = 'connection-alert';
@@ -246,23 +246,24 @@ const setConnectionStatus = (state, rssi = null) => {
 };
 
 window.setConnectionStatus = setConnectionStatus;
-const connectionParams = new URLSearchParams(location.search);
-const connectionDemoState = connectionParams.get('connection');
-const connectionDemoRSSI = Number(connectionParams.get('rssi'));
 const fetchController = async (...args) => {
     try {
         const response = await controllerFetch(...args);
-        if (response.ok && connectionDemoState) setConnectionStatus(connectionDemoState, connectionDemoRSSI);
         return response;
     } catch (error) {
-        setConnectionStatus(connectionDemoState || 'none');
+        setConnectionStatus('none');
         throw error;
     }
 };
 
+/* TEMPORARILY DISABLED: query-string connection-state overrides used by webpage testing.
+const connectionParams = new URLSearchParams(location.search);
+const connectionDemoState = connectionParams.get('connection');
+const connectionDemoRSSI = Number(connectionParams.get('rssi'));
 if (connectionDemoState === 'poor' || connectionDemoState === 'none') {
     setConnectionStatus(connectionDemoState, connectionDemoRSSI);
 }
+*/
 
 // AI-generated (Claude): All / Odd / Even / Clear buttons above a target checkbox list
 // (Create/Edit Drill forms, and the target picker for drills with no targets). Sets the
@@ -318,7 +319,7 @@ const pollDrillStatus = async () => {
     try {
         const response = await fetchController('/api/drill/status', { cache: 'no-store' });
         controllerStatus = response.ok ? await response.json() : null;
-        if (!connectionDemoState && controllerStatus) {
+        if (controllerStatus) {
             if (controllerStatus.signal === 'weak' && Number.isFinite(controllerStatus.rssi)) {
                 setConnectionStatus('poor');
             }
@@ -330,7 +331,7 @@ const pollDrillStatus = async () => {
             else if (controllerStatus.signal === 'good') setConnectionStatus(null);
         }
     } catch {
-        setConnectionStatus(connectionDemoState || 'none');
+        setConnectionStatus('none');
         controllerStatus = null;
     }
     // An active drill takes precedence over a saved manual-mode preference (AI-assisted with Codex).
@@ -1373,7 +1374,7 @@ if (targetGrid) {
         .catch((error) => {
             targetAssignmentDrills = getTargetDrillLibrary();
             initializeTargetPage(Array.from({ length: 20 }, (_, index) => index + 1));
-            if (!connectionDemoState && error instanceof TypeError) {
+            if (error instanceof TypeError) {
                 setConnectionStatus('none');
             }
         });
