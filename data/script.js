@@ -193,7 +193,7 @@ faqButton.addEventListener('click', () => {
 const controllerTestMode = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
     && new URLSearchParams(location.search).get('test') === '1';
 const controllerTest = controllerTestMode
-    ? import('./controller-test.js').then((module) => module.createControllerTest())
+    ? import('./controller-test.js?v=connection-rssi-3').then((module) => module.createControllerTest())
     : null;
 const controllerFetch = async (...args) => controllerTest
     ? (await controllerTest)(...args)
@@ -210,8 +210,8 @@ const setDrillStatusText = (text) => {
 };
 
 // AI-generated (Claude): shared degraded-connection indicator. Backend integration should call
-// window.setConnectionStatus('poor') or window.setConnectionStatus('none'); call it with null to
-// hide the indicator. QA can trigger the same states with ?connection=poor or ?connection=none.
+// window.setConnectionStatus('poor', rssi) or window.setConnectionStatus('none'); call it with
+// null to hide the indicator. QA can trigger the same states with ?connection=poor&rssi=-85.
 const connectionAlert = document.createElement('button');
 connectionAlert.type = 'button';
 connectionAlert.className = 'connection-alert';
@@ -222,7 +222,7 @@ connectionAlert.addEventListener('click', () => {
 });
 drillStatus.insertAdjacentElement('afterend', connectionAlert);
 
-const setConnectionStatus = (state) => {
+const setConnectionStatus = (state, rssi = null) => {
     const isPoor = state === 'poor';
     const isNone = state === 'none';
     const lastBanner = document.getElementById('controllerTestBanner') || drillStatus;
@@ -230,19 +230,38 @@ const setConnectionStatus = (state) => {
     connectionAlert.hidden = !isPoor && !isNone;
     connectionAlert.classList.toggle('connection-alert-poor', isPoor);
     connectionAlert.classList.toggle('connection-alert-none', isNone);
-    connectionAlert.innerHTML = isPoor
-        ? '<span class="connection-icon connection-icon-poor" aria-hidden="true"><i class="bi bi-wifi"></i><b>!</b></span><span>Poor connection</span>'
-        : '<span class="connection-icon connection-icon-none" aria-hidden="true"><i class="bi bi-wifi-off"></i></span><span>No connection</span>';
-    connectionAlert.setAttribute('aria-label', isPoor
-        ? 'Poor connection. Tap to dismiss.'
-        : 'No connection. Tap to dismiss.');
-    connectionAlert.title = isPoor ? 'Poor connection' : 'No connection';
+    connectionAlert.replaceChildren();
+    const icon = document.createElement('span');
+    icon.className = `connection-icon connection-icon-${isPoor ? 'poor' : 'none'}`;
+    icon.setAttribute('aria-hidden', 'true');
+    icon.innerHTML = isPoor
+        ? '<i class="bi bi-wifi"></i><b>!</b>'
+        : '<i class="bi bi-wifi-off"></i>';
+    const label = document.createElement('span');
+    label.textContent = isPoor ? 'Poor connection' : 'No connection';
+    connectionAlert.append(icon, label);
+    const accessibleLabel = isPoor ? 'Poor connection. Tap to dismiss.' : 'No connection. Tap to dismiss.';
+    connectionAlert.setAttribute('aria-label', accessibleLabel);
+    connectionAlert.title = accessibleLabel;
 };
 
 window.setConnectionStatus = setConnectionStatus;
-const connectionDemoState = new URLSearchParams(location.search).get('connection');
+const connectionParams = new URLSearchParams(location.search);
+const connectionDemoState = connectionParams.get('connection');
+const connectionDemoRSSI = Number(connectionParams.get('rssi'));
+const fetchController = async (...args) => {
+    try {
+        const response = await controllerFetch(...args);
+        if (response.ok && connectionDemoState) setConnectionStatus(connectionDemoState, connectionDemoRSSI);
+        return response;
+    } catch (error) {
+        setConnectionStatus(connectionDemoState || 'none');
+        throw error;
+    }
+};
+
 if (connectionDemoState === 'poor' || connectionDemoState === 'none') {
-    setConnectionStatus(connectionDemoState);
+    setConnectionStatus(connectionDemoState, connectionDemoRSSI);
 }
 
 // AI-generated (Claude): All / Odd / Even / Clear buttons above a target checkbox list
@@ -297,9 +316,19 @@ let drillStatusTimer = null;
 const pollDrillStatus = async () => {
     clearTimeout(drillStatusTimer);
     try {
-        const response = await controllerFetch('/api/drill/status', { cache: 'no-store' });
-        setConnectionStatus(connectionDemoState || (response.ok ? null : 'none'));
+        const response = await fetchController('/api/drill/status', { cache: 'no-store' });
         controllerStatus = response.ok ? await response.json() : null;
+        if (!connectionDemoState && controllerStatus) {
+            if (controllerStatus.signal === 'weak' && Number.isFinite(controllerStatus.rssi)) {
+                setConnectionStatus('poor');
+            }
+            else if (controllerStatus.signal === 'weak'
+                || controllerStatus.signal === 'none' || controllerStatus.signal === 'unknown'
+                || !Number.isFinite(controllerStatus.rssi)) {
+                setConnectionStatus('none');
+            }
+            else if (controllerStatus.signal === 'good') setConnectionStatus(null);
+        }
     } catch {
         setConnectionStatus(connectionDemoState || 'none');
         controllerStatus = null;
@@ -320,7 +349,7 @@ const pollDrillStatus = async () => {
 const postToController = async (path, body, method = 'POST') => {
     let response;
     try {
-        response = await controllerFetch(path, body === undefined
+        response = await fetchController(path, body === undefined
             ? { method }
             : { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     } catch {
@@ -1316,11 +1345,19 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
 };
 
 if (targetGrid) {
-    controllerFetch('database.json', { cache: 'no-store' })
-        .then((response) => response.json())
-        .then((payload) => {
-            const targets = Array.isArray(payload?.targets) ? payload.targets : [];
-            targetAssignmentDrills = getTargetDrillLibrary(payload?.drills);
+    Promise.all([
+        fetchController('/api/targets', { cache: 'no-store' }),
+        fetchController('/api/drills', { cache: 'no-store' })
+    ])
+        .then(async ([targetsResponse, drillsResponse]) => {
+            if (!targetsResponse.ok || !drillsResponse.ok) {
+                throw new Error('The controller did not return target data.');
+            }
+            const [targets, drills] = await Promise.all([
+                targetsResponse.json(),
+                drillsResponse.json()
+            ]);
+            targetAssignmentDrills = getTargetDrillLibrary(drills);
             const targetIds = targets
                 .map((target) => Number(target?.id))
                 .filter((id) => Number.isInteger(id) && id >= 1 && id <= 20)
@@ -1333,9 +1370,12 @@ if (targetGrid) {
                 unavailableTargetIds
             );
         })
-        .catch(() => {
+        .catch((error) => {
             targetAssignmentDrills = getTargetDrillLibrary();
             initializeTargetPage(Array.from({ length: 20 }, (_, index) => index + 1));
+            if (!connectionDemoState && error instanceof TypeError) {
+                setConnectionStatus('none');
+            }
         });
 }
 
@@ -1940,8 +1980,8 @@ if (document.getElementById('performanceRows')) {
     // controller's API (GET /api/officers?today=...), which adds Isaac's 12-month stats; the ESP32
     // has no clock, so this phone supplies today's date.
     const loadPerformanceData = () => Promise.all([
-        controllerFetch(`/api/officers?today=${localDateString()}`, { cache: 'no-store' }),
-        controllerFetch('/api/qualifications', { cache: 'no-store' })
+        fetchController(`/api/officers?today=${localDateString()}`, { cache: 'no-store' }),
+        fetchController('/api/qualifications', { cache: 'no-store' })
     ])
         .then(async ([officerResponse, qualificationResponse]) => {
             if (!officerResponse.ok || !qualificationResponse.ok) {
@@ -2052,7 +2092,7 @@ if (document.getElementById('drillList')) {
     };
 
     const loadQualifications = async () => {
-        const response = await controllerFetch('/api/qualifications', { cache: 'no-store' });
+        const response = await fetchController('/api/qualifications', { cache: 'no-store' });
         if (!response.ok) throw new Error('Could not load qualifications. Check the controller connection.');
         const names = await response.json();
         if (!Array.isArray(names) || !names.length || names.some((name) => typeof name !== 'string' || !name.trim())) {
@@ -2177,7 +2217,9 @@ if (document.getElementById('drillList')) {
             choices.forEach((drill) => select.append(new Option(drill.drillName, drill.drillName)));
             // Preserve a broken reference so Save reports it rather than silently replacing it.
             if (action && !choices.some((drill) => drill.drillName === action)) {
-                const unavailable = new Option(`Unavailable drill: ${action}`, action);
+                const unavailable = document.createElement('option');
+                unavailable.textContent = `Unavailable drill: ${action}`;
+                unavailable.value = action;
                 unavailable.disabled = true;
                 select.append(unavailable);
             }
@@ -2541,7 +2583,7 @@ if (document.getElementById('drillList')) {
 
     const loadDrills = async () => {
         try {
-            const response = await controllerFetch('/api/drills', { cache: 'no-store' });
+            const response = await fetchController('/api/drills', { cache: 'no-store' });
             if (!response.ok) throw new Error('bad response');
             const payload = await response.json();
             drills = (Array.isArray(payload) ? payload : [])
@@ -2731,7 +2773,7 @@ if (defectiveTargetList) {
 
     const loadDefectiveTargets = async () => {
         try {
-            const response = await controllerFetch('/api/targets', { cache: 'no-store' });
+            const response = await fetchController('/api/targets', { cache: 'no-store' });
             if (!response.ok) throw new Error('bad response');
             const targets = (await response.json() || [])
                 .filter((target) => Number.isInteger(Number(target?.id)))
@@ -2863,7 +2905,7 @@ if (officerList) {
 
     const loadOfficers = async () => {
         try {
-            const response = await controllerFetch(`/api/officers?today=${localDateString()}`, { cache: 'no-store' });
+            const response = await fetchController(`/api/officers?today=${localDateString()}`, { cache: 'no-store' });
             if (!response.ok) throw new Error('bad response');
             const officers = (await response.json() || [])
                 .filter((officer) => Number.isInteger(Number(officer?.BadgeNum)))
@@ -2918,42 +2960,4 @@ if (officerList) {
     });
 
     loadOfficers();
-}
-
-// Shared, offline help for the four controller pages.
-if (drillStatus && typeof bootstrap !== 'undefined') {
-    const help = document.createElement('div');
-    help.innerHTML = `
-        <button type="button" class="btn btn-light border rounded-circle shadow-sm help-button"
-            data-bs-toggle="modal" data-bs-target="#helpModal" aria-controls="helpModal"
-            aria-haspopup="dialog" aria-label="Help and Q&A" title="Help and Q&A">
-            <span aria-hidden="true">?</span>
-        </button>
-        <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalTitle" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-scrollable">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h2 class="modal-title fs-5" id="helpModalTitle">Help &amp; Q&amp;A</h2>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close help"></button>
-                    </div>
-                    <div class="modal-body">
-                        <h3 class="h6">How do I start a drill?</h3>
-                        <p>On Targets, exit manual mode, select a drill, and press Start drill. Choose the targets if asked, then wait for the start countdown.</p>
-                        <h3 class="h6">How do Pause and Redo stage work?</h3>
-                        <p>Pause holds the drill until Resume. In a full drill, Pause then Redo stage hides the drill targets and rewinds the current stage. Press Resume to replay it. Redo stage is unavailable for standalone drills.</p>
-                        <h3 class="h6">How do I build a sequence?</h3>
-                        <p>On Drills, choose Create Drill or Edit. Drag blocks into the sequence, or tap to add them at the end. Use Run drill to include a saved drill as many times as needed. Use the grip or arrow buttons to reorder steps, then Save drill.</p>
-                        <h3 class="h6">How do I mark a defective target?</h3>
-                        <p>Open Settings and mark the target defective. It becomes unavailable for drills and manual target selection.</p>
-                        <h3 class="h6">Why are the controls unavailable?</h3>
-                        <p class="mb-0">Check the status banner and your connection to the range WiFi. Exit manual mode before starting a drill. After Stop, use Reset to hide the targets and unlock the controls.</p>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-                    </div>
-                </div>
-            </div>
-        </div>`;
-    document.body.append(help);
-    document.body.classList.add('has-help');
 }

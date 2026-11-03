@@ -18,6 +18,11 @@ export async function createControllerTest() {
     };
     const run = saved?.run || { status: { ...idleStatus }, steps: [], stages: [], index: 0, remaining: null, at: Date.now() };
     const status = run.status;
+    const rssiParameter = new URLSearchParams(location.search).get('rssi');
+    const testRSSI = rssiParameter === null ? NaN : Number(rssiParameter);
+    const testSignal = Number.isFinite(testRSSI)
+        ? { signal: testRSSI < -75 ? 'weak' : 'good', rssi: testRSSI }
+        : { signal: 'unknown', rssi: null };
     const save = () => sessionStorage.setItem(storageKey, JSON.stringify({ database, run }));
     const json = (body, code = 200) => new Response(JSON.stringify(body), {
         status: code, headers: { 'Content-Type': 'application/json' }
@@ -163,7 +168,8 @@ export async function createControllerTest() {
                         delayRemainingMs: run.remaining || 0, stageName: current?.name || '',
                         stageIndex: current ? run.stages.indexOf(current) + 1 : 0,
                         betweenStages: Boolean(current && run.index >= current.end),
-                        canResetStage: Boolean(current && status.state === 'paused' && !status.stageResetPending) });
+                        canResetStage: Boolean(current && status.state === 'paused' && !status.stageResetPending),
+                        ...testSignal });
                 }
                 return json({ error: 'Unknown temporary test endpoint.' }, 404);
             } else if (route === '/api/drill/start') {
