@@ -50,25 +50,6 @@
     background-color: currentColor;
 }
 
-/* Small shared help control, below menus and modal backdrops. */
-.has-help {
-    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
-}
-
-.help-button {
-    position: fixed;
-    right: calc(1rem + env(safe-area-inset-right, 0px));
-    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
-    z-index: 1030;
-    display: grid;
-    place-items: center;
-    width: 44px;
-    height: 44px;
-    padding: 0;
-    color: #6c757d;
-    font: 600 1.25rem/1 system-ui, sans-serif;
-}
-
 /* AI-generated (Claude): visible only when the controller reports a degraded connection. */
 .connection-alert {
     display: inline-flex;
@@ -125,13 +106,8 @@
 }
 
 @media print {
-    .has-help {
-        padding-bottom: 0;
-    }
-
-    .help-button,
     .connection-alert,
-    #helpModal {
+    #faqModal {
         display: none !important;
     }
 }
@@ -297,7 +273,7 @@
 /* AI-generated (Claude): shared Q&A help control and readable FAQ dialog. */
 .faq-help-button {
     position: fixed;
-    right: 1rem;
+    right: calc(1rem + env(safe-area-inset-right, 0px));
     bottom: calc(1rem + env(safe-area-inset-bottom));
     z-index: 1040;
     display: inline-grid;

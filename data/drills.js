@@ -13,6 +13,12 @@ if (document.getElementById('drillList')) {
     let pendingDeleteDrillId = null;
     let databaseDrills = [];
     let databaseUnavailableTargets = new Set();
+    const escapeHtml = (value) => String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 
     const showFormError = (form, message, invalidInputs) => {
         const errorMessage = document.getElementById(form.id === 'newDrillForm' ? 'newDrillError' : 'editDrillError');
@@ -249,16 +255,16 @@ if (document.getElementById('drillList')) {
                         <span class="drill-ticket-label">Drill ${String(index + 1).padStart(2, '0')}</span>
                         <i class="bi bi-crosshair text-primary" aria-hidden="true"></i>
                     </div>
-                    <h2 class="h4 mb-4">${(drill?.name || 'Untitled Drill').replace(/</g, '&lt;')}</h2>
+                    <h2 class="h4 mb-4">${escapeHtml(drill?.name || 'Untitled Drill')}</h2>
                     <dl class="drill-details">
-                        <div><dt>Name</dt><dd>${(drill?.name || 'Untitled Drill').replace(/</g, '&lt;')}</dd></div>
-                        <div><dt>Target Numbers</dt><dd>${getTargets(drill)}</dd></div>
-                        <div><dt>Duration</dt><dd>${formatDuration(drill?.duration)}</dd></div>
-                        <div><dt>Owner</dt><dd>${getOwners(drill).replace(/</g, '&lt;')}</dd></div>
+                        <div><dt>Name</dt><dd>${escapeHtml(drill?.name || 'Untitled Drill')}</dd></div>
+                        <div><dt>Target Numbers</dt><dd>${escapeHtml(getTargets(drill))}</dd></div>
+                        <div><dt>Duration</dt><dd>${escapeHtml(formatDuration(drill?.duration))}</dd></div>
+                        <div><dt>Owner</dt><dd>${escapeHtml(getOwners(drill))}</dd></div>
                     </dl>
                     <div class="drill-actions">
-                        <button class="btn btn-secondary edit-drill-btn" type="button" data-drill-id="${drillId}"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Edit</button>
-                        <button class="btn btn-danger delete-drill-btn" type="button" data-drill-id="${drillId}"><i class="bi bi-trash3 me-1" aria-hidden="true"></i>Delete</button>
+                        <button class="btn btn-secondary edit-drill-btn" type="button" data-drill-id="${escapeHtml(drillId)}"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Edit</button>
+                        <button class="btn btn-danger delete-drill-btn" type="button" data-drill-id="${escapeHtml(drillId)}"><i class="bi bi-trash3 me-1" aria-hidden="true"></i>Delete</button>
                     </div>
                 </article>
             </div>
