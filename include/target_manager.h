@@ -94,6 +94,9 @@ struct DrillStatus {
     bool canResetStage;
     bool stageResetPending;   // hide/rewind has not finished; Resume is refused
     bool stageRestartReady;   // rewound and paused at the first step, waiting for Resume
+    // AI-generated (Claude): a full drill's last stage has finished and the controller is holding
+    // (targets hidden) so it can be redone. Reset stage replays it; Resume ends the drill.
+    bool finalStageComplete;
 };
 
 /// @brief This function executes the drill that is passed into its arg by finding it in the json drills list and converting it to the FreeRTOS cmd queue
@@ -116,7 +119,8 @@ bool pauseDrill();
 bool resumeDrill();
 
 /// @brief Hide targets and rewind the paused full drill's current/completed stage (AI-assisted with Codex).
-///        Remains paused until Resume.
+///        Remains paused until Resume. AI-modified (Claude): this includes the last stage, since a
+///        full drill holds paused after it (see DrillStatus::finalStageComplete).
 /// @return Accepted if queued/already rewound; otherwise why reset is unavailable
 StageResetResult resetDrillStage();
 

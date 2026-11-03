@@ -122,6 +122,15 @@ size_t presents(){
     return std::count_if(commands.begin(), commands.end(), [](const Move& m){return m.present;});
 }
 void completed(){ CHECK(lastOutcome == DrillOutcome::Completed); }
+// AI-generated (Claude): a full drill ending on a stage now holds after it; Resume ends the drill
+void finishAtFinalHold(TickType_t when){
+    at(when, []{
+        auto s = getDrillStatus();
+        CHECK(s.finalStageComplete && s.betweenStages && s.canResetStage && !facing);
+        CHECK(resumeDrill());
+        CHECK(!getDrillStatus().finalStageComplete);
+    });
+}
 
 void boundaryReplay(){
     setup();
@@ -145,6 +154,7 @@ void boundaryReplay(){
         CHECK(getDrillStatus().betweenStages && getDrillStatus().stageIndex == 1);
         CHECK(resumeDrill());
     });
+    finishAtFinalHold(20000);
     run(); completed();
     CHECK(presents() == 3);
     CHECK(now >= 16000);
@@ -161,6 +171,7 @@ void midDelayReplay(){
         CHECK(getDrillStatus().stageRestartReady && getDrillStatus().delayMs == 0 && !facing);
         CHECK(resumeDrill());
     });
+    finishAtFinalHold(20000);
     run(); completed();
     CHECK(presents() == 3);
     CHECK(now >= 14710); // full eight seconds after replay is facing
@@ -206,6 +217,7 @@ void facingWaitReplay(){
     at(1060, []{ CHECK(resetDrillStage() == StageResetResult::Accepted); });
     at(1700, []{ CHECK(!facing); CHECK(resumeDrill()); });
     at(4800, []{ CHECK(resumeDrill()); });
+    finishAtFinalHold(20000);
     run(); completed(); CHECK(presents() == 3);
 }
 void stopRaces(){
@@ -247,6 +259,7 @@ void invalidAndFailure(){
     setup("Before");
     CHECK(resetDrillStage() == StageResetResult::NotPaused);
     at(1010, []{ CHECK(resetDrillStage() == StageResetResult::NoStage); CHECK(resumeDrill()); });
+    finishAtFinalHold(10000);
     run(); completed();
     CHECK(resetDrillStage() == StageResetResult::NotPaused);
     for(int failure = 0; failure < 3; failure++){
@@ -269,6 +282,7 @@ void assignmentsAndRandom(){
         at(1600, []{ CHECK(resetDrillStage() == StageResetResult::Accepted); });
         at(2300, []{ CHECK(resumeDrill()); });
         at(2900, []{ CHECK(resumeDrill()); });
+        finishAtFinalHold(5000);
         run(); completed();
         CHECK(presents() == 2);
         for(const auto& command : commands) CHECK(!(command.mask & targetBit(2)));
@@ -295,15 +309,47 @@ void selectedTargetsAndLateNotifications(){
     });
     at(5900, []{ CHECK(getDrillStatus().delayMs == 3000 && getDrillStatus().delayRemainingMs == 10); });
     at(6000, []{ CHECK(getDrillStatus().betweenStages); CHECK(resumeDrill()); });
+    finishAtFinalHold(20000);
     run(); completed();
     CHECK(presents() == 3);
     for(const auto& command : commands) CHECK(command.mask == targetBit(1));
+}
+// AI-generated (Claude): redo the last stage of a full drill from the final-stage hold
+void finalStageReplay(){
+    setup();
+    at(4100, []{ CHECK(resumeDrill()); });
+    at(16000, []{
+        auto s = getDrillStatus();
+        CHECK(s.state == DrillState::Paused && s.finalStageComplete && s.betweenStages);
+        CHECK(s.stageIndex == 2 && std::string(s.stageName) == "Stage 2");
+        CHECK(s.step == s.stepCount && !facing);
+        CHECK(resetDrillStage() == StageResetResult::Accepted);
+        CHECK(!getDrillStatus().finalStageComplete); // reset pending
+    });
+    at(16700, []{
+        auto s = getDrillStatus();
+        CHECK(s.stageRestartReady && s.stageIndex == 2 && !s.finalStageComplete && !facing);
+        CHECK(resumeDrill());
+    });
+    at(26000, []{
+        CHECK(presents() == 3);
+        CHECK(getDrillStatus().finalStageComplete);
+        CHECK(stopDrill()); // Stop at the hold freezes; nothing was facing
+    });
+    run();
+    CHECK(lastOutcome == DrillOutcome::Stopped && !facing);
+    // Drills that already end with a top-level pause get no extra hold
+    setup("Repeated");
+    CHECK(finalHoldStep == 0);
+    CHECK(activeSteps.size() == 8);
+    setup("Stage 1");
+    CHECK(finalHoldStep == 0);
 }
 int main(){
     try {
         for(auto test : {boundaryReplay, midDelayReplay, plainResume, repeatedStage,
                         nestedInternalPause, facingWaitReplay, stopRaces, invalidAndFailure,
-                        assignmentsAndRandom, selectedTargetsAndLateNotifications}) test();
-        std::cout << "PASS: 10 scenario groups (production runner, simulated FreeRTOS/HAL)\n";
+                        assignmentsAndRandom, selectedTargetsAndLateNotifications, finalStageReplay}) test();
+        std::cout << "PASS: 11 scenario groups (production runner, simulated FreeRTOS/HAL)\n";
     }catch(const std::exception& error){ std::cerr << error.what() << '\n'; return 1; }
 }

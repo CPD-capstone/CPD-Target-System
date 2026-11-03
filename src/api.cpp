@@ -51,6 +51,19 @@ static bool getQueryInt(AsyncWebServerRequest* request, const char* name, int& o
     return true;
 }
 
+// AI-generated (Claude): adds {signal: "good" | "weak" | "unknown", rssi: dBm or null} for the
+// phone that sent request
+static void addSignal(JsonDocument& doc, AsyncWebServerRequest* request) {
+    ClientSignal signal = getClientSignal(request->client()->remoteIP());
+    if (!signal.found) {
+        doc["signal"] = "unknown";
+        doc["rssi"] = nullptr;
+        return;
+    }
+    doc["signal"] = signal.weak ? "weak" : "good";
+    doc["rssi"] = signal.rssi;
+}
+
 // Registers a handler for a JSON request body on uri for the given method
 static void onJsonBody(AsyncWebServer& server, const char* uri, WebRequestMethod method,
                        ArJsonRequestHandlerFunction handler) {
@@ -190,13 +203,42 @@ static void handleGetOfficers(AsyncWebServerRequest* request) {
     sendJson(request, 200, out);
 }
 
+// AI-generated (Claude): officer names may only contain letters, spaces and - ' . ,
+static const size_t MAX_OFFICER_NAME_LEN = 64;
+
+// Trims raw into out and checks it, returning nullptr if the name is valid or an error message
+static const char* checkOfficerName(const char* raw, String& out) {
+    out = raw;
+    out.trim();
+    if (out.isEmpty()) return "Name is required";
+    if (out.length() > MAX_OFFICER_NAME_LEN) return "Name must be 64 characters or fewer";
+
+    bool hasLetter = false;
+    char prev = '\0';
+    for (char c : out) {
+        if (isAlpha(c)) {
+            hasLetter = true;
+        } else if (c == ' ') {
+            if (prev == ' ') return "Name cannot contain double spaces";
+        } else if (c != '-' && c != '\'' && c != '.' && c != ',') {
+            return "Name may only contain letters, spaces, and - ' . ,";
+        }
+        prev = c;
+    }
+    if (!hasLetter) return "Name must contain a letter";
+    return nullptr;
+}
+
+// AI-modified (Claude): validates the name's characters and requires a positive badge number
 // POST /api/officers  {BadgeNum, Name}
 static void handleAddOfficer(AsyncWebServerRequest* request, JsonVariant& json) {
-    const char* name = json["Name"] | "";
-    if (!json["BadgeNum"].is<int>() || !*name) {
-        return sendError(request, 400, "Badge and Name are required");
+    if (!json["BadgeNum"].is<int>()) return sendError(request, 400, "BadgeNum is required");
+    if (json["BadgeNum"].as<int>() <= 0) return sendError(request, 400, "BadgeNum must be positive");
+    String name;
+    if (const char* error = checkOfficerName(json["Name"] | "", name)) {
+        return sendError(request, 400, error);
     }
-    if (!addOfficer(json["BadgeNum"].as<int>(), name)) {
+    if (!addOfficer(json["BadgeNum"].as<int>(), name.c_str())) {
         return sendError(request, 409, "An officer with that badge number already exists");
     }
     sendOk(request);
@@ -209,6 +251,8 @@ static void handleAddQualScore(AsyncWebServerRequest* request, JsonVariant& json
     if (!json["BadgeNum"].is<int>() || !json["score"].is<int>() || !*qualType || !*date) {
         return sendError(request, 400, "BadgeNum, qualType, score and date are required");
     }
+    // AI-generated (Claude): the Performance page only accepts whole, non-negative scores
+    if (json["score"].as<int>() < 0) return sendError(request, 400, "score must not be negative");
     if (!addQualScore(json["BadgeNum"].as<int>(), qualType, json["score"].as<int>(), date)) {
         return sendError(request, 400, "Score rejected: unknown officer, qualType, or bad date");
     }
@@ -219,9 +263,11 @@ static void handleAddQualScore(AsyncWebServerRequest* request, JsonVariant& json
 static void handleEditOfficer(AsyncWebServerRequest* request, JsonVariant& json) {
     int badge;
     if (!getQueryInt(request, "badge", badge)) return sendError(request, 400, "Badge is required");
-    const char* name = json["Name"] | "";
-    if (!*name) return sendError(request, 400, "Name is required");
-    if (!editOfficer(badge, name)) return sendError(request, 404, "Officer not found");
+    String name;
+    if (const char* error = checkOfficerName(json["Name"] | "", name)) { // AI-modified (Claude)
+        return sendError(request, 400, error);
+    }
+    if (!editOfficer(badge, name.c_str())) return sendError(request, 404, "Officer not found");
     sendOk(request);
 }
 
@@ -322,9 +368,9 @@ static void handleResumeDrill(AsyncWebServerRequest* request) {
 static void handleResetStage(AsyncWebServerRequest* request) {
     switch (resetDrillStage()) {
         case StageResetResult::Accepted:    return sendOk(request);
-        case StageResetResult::NotPaused:   return sendError(request, 409, "Pause the full drill before resetting a stage");
-        case StageResetResult::NoStage:     return sendError(request, 409, "No full-drill stage is available to reset");
-        case StageResetResult::Busy:        return sendError(request, 409, "A stage reset or Resume is already pending");
+        case StageResetResult::NotPaused:   return sendError(request, 409, "Pause the full drill before redoing a stage");
+        case StageResetResult::NoStage:     return sendError(request, 409, "No full-drill stage is available to redo");
+        case StageResetResult::Busy:        return sendError(request, 409, "A stage redo or Resume is already pending");
         case StageResetResult::Stopped:     return sendError(request, 409, "Targets are stopped; press Reset first");
         case StageResetResult::HalNotReady: return sendError(request, 503, "Target hardware is not ready");
     }
@@ -352,7 +398,8 @@ static void handleReset(AsyncWebServerRequest* request) {
 
 // GET /api/drill/status
 //   -> {state, drillName, step, stepCount, stepAction, targets: [n, ...], lastOutcome, stopped,
-//       hardwareReady, facing: [n, ...]}
+//       hardwareReady, facing: [n, ...], delayMs, delayRemainingMs, stageName, stageIndex,
+//       betweenStages, canResetStage, stageResetPending, stageRestartReady, finalStageComplete}
 // While idle, drillName/stepCount/targets describe the last drill run (step is 0).
 // stopped = emergency stop is latched; only /api/reset moves targets until it is cleared.
 static void handleDrillStatus(AsyncWebServerRequest* request) {
@@ -379,6 +426,9 @@ static void handleDrillStatus(AsyncWebServerRequest* request) {
     doc["canResetStage"] = status.canResetStage && hal_isReady();
     doc["stageResetPending"] = status.stageResetPending;
     doc["stageRestartReady"] = status.stageRestartReady;
+    doc["finalStageComplete"] = status.finalStageComplete;
+
+    addSignal(doc, request);
     sendJson(request, 200, doc);
 }
 
