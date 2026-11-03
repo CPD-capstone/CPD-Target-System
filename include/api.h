@@ -46,6 +46,8 @@
 //   stageRestartReady (see DrillStatus). Reset accepts asynchronously; hardware failure ends the drill.
 //   AI-generated (Claude): finalStageComplete = a full drill's last stage finished and the drill is
 //   paused (targets hidden) so it can be redone; reset-stage replays it, resume ends the drill.
+//   AI-generated (Claude): signal ("good" / "weak" / "unknown") and rssi (dBm, or null) = how well
+//   the controller hears the phone that polled; weak means rssi < WEAK_SIGNAL_RSSI (wifi_manager.h).
 //   POST   /api/targets/present  {targets?}             -> setTargets(.., true)  (refused mid-drill/stopped)
 //   POST   /api/targets/hide     {targets?}             -> setTargets(.., false) (refused mid-drill/stopped)
 //   GET    /api/targets/state    -> {facing: [n, ...]}
