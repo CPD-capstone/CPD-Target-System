@@ -95,6 +95,9 @@ namespace{
     // runnerLock so a status snapshot never mixes two drills.
     char activeName[DRILL_NAME_MAX] = "";               // drill being (or last) run
     uint16_t activeStepCount = 0;                       // activeSteps.size(), safe to read under the lock
+    // AI-generated (Claude): 1-based step of the pause prepareDrill() appends after a full drill's
+    // last stage (see "final-stage hold" there); 0 when the drill has none
+    uint16_t finalHoldStep = 0;
     volatile uint16_t currentStep = 0;                  // 1-based; 0 when idle
     volatile StepType currentType = StepType::Present;  // type of currentStep
     volatile DrillOutcome lastOutcome = DrillOutcome::None;
@@ -642,6 +645,17 @@ namespace{
             Serial.printf("executeDrill: drill \"%s\" has no steps\r\n", drillName.c_str());
             return DrillStartResult::InvalidDrill;
         }
+        // AI-generated (Claude): final-stage hold. A full drill whose last step belongs to its
+        // last stage would otherwise end the moment that stage finishes, leaving nothing to
+        // redo. Append "hide all, pause" so the runner waits there like the pause between
+        // stages: Reset stage replays the last stage, Resume ends the drill. A drill that already
+        // ends with a top-level pause (or other top-level steps) is left as written.
+        uint16_t finalHold = 0;
+        if(!stages.empty() && stages.back().end == steps.size()){
+            steps.push_back({StepType::Hide, 0, 0, 0});  // mask 0 = all of the drill's targets
+            steps.push_back({StepType::Pause, 0, 0, 0});
+            finalHold = steps.size();                    // 1-based step number of that pause
+        }
 
         // Step 3: work out which targets to use. targetMask 0 means "all"; otherwise take the
         // caller's selection (ignoring bits above target 20). Then drop anything that is not
@@ -661,6 +675,7 @@ namespace{
         portENTER_CRITICAL(&runnerLock);
         activeMask = mask;
         activeStepCount = activeSteps.size();
+        finalHoldStep = finalHold;
         strlcpy(activeName, drillName.c_str(), sizeof(activeName));
         portEXIT_CRITICAL(&runnerLock);
         // %05lX prints the mask in hex, e.g. 0xFFFFF = all 20 targets
@@ -868,6 +883,9 @@ DrillStatus getDrillStatus(){
                            && !stopLatched && !hasPendingControl();
     status.stageResetPending = pauseControl == PauseControl::ResetPending;
     status.stageRestartReady = pauseControl == PauseControl::ReplayReady;
+    // AI-generated (Claude): waiting at the final-stage hold, before any Reset/Resume is accepted
+    status.finalStageComplete = drillState == DrillState::Paused && finalHoldStep != 0
+                                && currentStep == finalHoldStep && pauseControl == PauseControl::Waiting;
     // AI-generated (Claude): delay countdown. The signed difference handles tick wrap-around.
     status.delayMs = delayTotalMs;
     if(delayTotalMs == 0){

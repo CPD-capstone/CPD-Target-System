@@ -9,7 +9,9 @@ static JsonArray qualificationNames(JsonDocument& doc);
  *
  *   "Officers": [ { "Name": str, "BadgeNum": int,
  *                   "pistolQualScores": [[score, "YYYY-MM-DD"], ...],   // newest first
- *                   "rifleQualScores":  [...], "swatQualScores": [...] } ]
+ *                   "rifleQualScores":  [...], "swatQualScores": [...],
+ *                   "qualificationScores": { "<custom name>": [...] } } ]   // AI-modified (Claude)
+ *   "qualifications": [ "Pistol", "Rifle", "SWAT", ...custom names ]
  *   "drills":   [ { "drillName": str,
  *                   "sequence": [ { "step": int, "action": str, "timeMs"?: int } ] } ]
  *                 action is "present" | "hide" | "pause" | "delay" (delay requires timeMs),

@@ -47,7 +47,9 @@ bool editTarget(int id, bool working);
 bool deleteTarget(int id);
 
 // AI-modified (Claude): the officer getters also report qualification stats. Each officer gets
-// "pistolStats", "rifleStats" and "swatStats", each { "attempts", "average", "top" }. The ESP32
+// "pistolStats", "rifleStats" and "swatStats", each { "attempts", "average", "top" }, plus
+// "qualificationStats" { name: {...} } for each custom qualification in its "qualificationScores"
+// (AI-modified, Claude). The ESP32
 // has no clock (offline AP, no NTP/RTC), so the caller supplies today's date. Only scores dated
 // within the past 12 months (same date last year through today, inclusive) count. The average is
 // rounded to one decimal place; average and top are null when attempts is 0.

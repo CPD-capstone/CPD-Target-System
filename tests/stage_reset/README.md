@@ -8,10 +8,11 @@ g++ -std=c++17 -I tests/stage_reset/mocks -I include -I .pio/libdeps/esp32/Ardui
 & "$env:TEMP\cpd-stage-reset-tests.exe"
 ```
 
-Ten scenario groups run the production runner with a simulated clock, notifications,
+Eleven scenario groups run the production runner with a simulated clock, notifications,
 in-memory JSON and HAL cooldowns. They cover replay/timing, ordinary Resume, nested pauses,
 repeated stages/requests, target-facing waits, Stop races (including after replay is ready), invalid requests, failures,
-assigned/random targets, restricted selections, late notifications, defective exclusion and cleanup.
+assigned/random targets, restricted selections, late notifications, defective exclusion, cleanup
+and redoing the last stage from the final-stage hold (AI-added, Claude).
 No device/database is modified.
 
 Validation completed: firmware build, native tests, JavaScript syntax, and headless Edge
