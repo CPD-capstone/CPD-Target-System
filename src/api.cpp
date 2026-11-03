@@ -51,6 +51,19 @@ static bool getQueryInt(AsyncWebServerRequest* request, const char* name, int& o
     return true;
 }
 
+// AI-generated (Claude): adds {signal: "good" | "weak" | "unknown", rssi: dBm or null} for the
+// phone that sent request
+static void addSignal(JsonDocument& doc, AsyncWebServerRequest* request) {
+    ClientSignal signal = getClientSignal(request->client()->remoteIP());
+    if (!signal.found) {
+        doc["signal"] = "unknown";
+        doc["rssi"] = nullptr;
+        return;
+    }
+    doc["signal"] = signal.weak ? "weak" : "good";
+    doc["rssi"] = signal.rssi;
+}
+
 // Registers a handler for a JSON request body on uri for the given method
 static void onJsonBody(AsyncWebServer& server, const char* uri, WebRequestMethod method,
                        ArJsonRequestHandlerFunction handler) {
@@ -414,6 +427,8 @@ static void handleDrillStatus(AsyncWebServerRequest* request) {
     doc["stageResetPending"] = status.stageResetPending;
     doc["stageRestartReady"] = status.stageRestartReady;
     doc["finalStageComplete"] = status.finalStageComplete;
+
+    addSignal(doc, request);
     sendJson(request, 200, doc);
 }
 
