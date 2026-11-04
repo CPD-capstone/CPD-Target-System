@@ -92,3 +92,52 @@ bool scheduleWiFiPasswordChange(const String& newPassword){
     }
     return true;
 }
+
+// AI-generated (Claude): connection quality ------------------------------------------------------
+
+// The Wi-Fi driver knows each joined phone's MAC and RSSI, and the DHCP server knows each MAC's IP;
+// the request only carries the IP, so the two lists are joined by MAC. ESP-IDF 5.3 replaced
+// esp_netif_get_sta_list() with esp_wifi_ap_get_sta_list_with_ip(), so both are supported.
+#include <esp_wifi.h>
+#include <esp_idf_version.h>
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 3, 0)
+#include <esp_wifi_ap_get_sta_list.h>
+#else
+#include <esp_netif.h>
+#endif
+
+ClientSignal getClientSignal(const IPAddress& clientIP){
+    ClientSignal result = {false, 0, false};
+
+    wifi_sta_list_t stations;
+    if(esp_wifi_ap_get_sta_list(&stations) != ESP_OK){
+        return result;
+    }
+
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 3, 0)
+    wifi_sta_mac_ip_list_t addresses;
+    if(esp_wifi_ap_get_sta_list_with_ip(&stations, &addresses) != ESP_OK){
+        return result;
+    }
+#else
+    esp_netif_sta_list_t addresses;
+    if(esp_netif_get_sta_list(&stations, &addresses) != ESP_OK){
+        return result;
+    }
+#endif
+
+    for(int i = 0; i < addresses.num; i++){
+        if(IPAddress(addresses.sta[i].ip.addr) != clientIP){
+            continue;
+        }
+        for(int j = 0; j < stations.num; j++){
+            if(memcmp(addresses.sta[i].mac, stations.sta[j].mac, 6) == 0){
+                result.found = true;
+                result.rssi = stations.sta[j].rssi;
+                result.weak = result.rssi < WEAK_SIGNAL_RSSI;
+                return result;
+            }
+        }
+    }
+    return result;
+}

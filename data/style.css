@@ -30,12 +30,93 @@
     flex: 1 0 auto;
 }
 
-/* AI-modified (Claude): status banner at the top of every page. Static, centered text that
-   wraps onto a second line when long (it used to scroll, which was hard to read). */
+/* Fixed bars and even spacing keep the menu icon uniform across pages. */
+.menu-toggle {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 44px;
+    height: 44px;
+    padding: 8px;
+}
+
+.menu-toggle > span {
+    display: block;
+    flex: none;
+    width: 24px;
+    height: 2px;
+    background-color: currentColor;
+}
+
+/* AI-generated (Claude): visible only when the controller reports a degraded connection. */
+.connection-alert {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    width: 100%;
+    min-height: 2.5rem;
+    justify-content: center;
+    padding: 0.4rem 1rem;
+    border: 2px solid currentColor;
+    border-width: 0 0 2px;
+    font-weight: 700;
+}
+
+.connection-alert[hidden] {
+    display: none;
+}
+
+.connection-alert-poor {
+    background: #fff3cd;
+    color: #664d03;
+}
+
+.connection-alert-none {
+    background: #f8d7da;
+    color: #842029;
+}
+
+.connection-icon {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.connection-icon-poor {
+    gap: 0.02rem;
+    font-size: 1.3rem;
+}
+
+.connection-icon-poor b {
+    position: absolute;
+    right: -0.14rem;
+    bottom: -0.14rem;
+    display: grid;
+    place-items: center;
+    width: 0.85rem;
+    height: 0.85rem;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    background: #fff3cd;
+    font: 800 0.65rem/1 system-ui, sans-serif;
+}
+
+@media print {
+    .connection-alert,
+    #faqModal {
+        display: none !important;
+    }
+}
+
+/* AI-modified: use a readable system font for the shared status banner. */
 .drill-status-bar {
     padding: 0.6rem 1rem;
     border-bottom: 4px solid var(--bs-secondary);
-    font-family: 'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', sans-serif;
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
     font-size: clamp(1.35rem, 4.5vw, 2.25rem);
     font-weight: 700;
     line-height: 1.15;
@@ -82,6 +163,16 @@
     align-items: center;
     justify-content: space-between;
     margin-bottom: 0.85rem;
+}
+
+/* Long saved names must wrap instead of widening phone layouts and dialogs. */
+.drill-ticket-name,
+#drillEditorTitle,
+#deleteDrillName,
+#manualModeDrillName,
+#endDrillName {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .drill-ticket-label {
@@ -179,6 +270,64 @@
     color: #842029;
 }
 
+/* AI-generated (Claude): shared Q&A help control and readable FAQ dialog. */
+.faq-help-button {
+    position: fixed;
+    right: calc(1rem + env(safe-area-inset-right, 0px));
+    bottom: calc(1rem + env(safe-area-inset-bottom));
+    z-index: 1040;
+    display: inline-grid;
+    width: 3.25rem;
+    height: 3.25rem;
+    align-items: center;
+    justify-items: center;
+    padding: 0;
+    border-radius: 50%;
+    box-shadow: 0 0.25rem 0.75rem rgba(33, 37, 41, 0.2);
+    font-size: 1.65rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.faq-modal-content {
+    border: 0;
+    border-radius: 0.75rem;
+}
+
+.faq-group + .faq-group {
+    margin-top: 1.25rem;
+}
+
+.faq-group-title {
+    margin-bottom: 0.35rem;
+    color: #0057b8;
+    font-weight: 750;
+}
+
+.faq-item {
+    padding: 0.65rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.faq-item summary {
+    color: #14232d;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+.faq-item p {
+    margin: 0.5rem 1.5rem 0 0;
+    color: #495057;
+    line-height: 1.5;
+}
+
+@media print {
+    .faq-help-button,
+    #faqModal {
+        display: none !important;
+    }
+}
+
 .target-card {
     position: relative;
     display: block;
@@ -253,6 +402,40 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+    gap: 0.5rem;
+}
+
+/* Keep all five target controls joined and readable on narrow screens. */
+@media (max-width: 575.98px) {
+    .target-filter-group {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        width: 100%;
+    }
+
+    .target-filter-group > .btn {
+        min-width: 0;
+        min-height: 44px;
+        padding-inline: 0.2rem;
+        font-size: 0.75rem;
+        white-space: nowrap;
+    }
+
+    .target-filter-group .bi {
+        display: none;
+    }
+}
+
+.target-number-filter-status {
+    color: #6c757d;
+    font-size: 0.85rem;
+    overflow-wrap: anywhere;
+}
+
+.target-number-filter-status:not([hidden]) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
     gap: 0.5rem;
 }
 
@@ -511,13 +694,23 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
 .drill-timer {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 1rem;
     margin-top: 0.75rem;
     padding: 0.4rem 1rem;
     border-radius: 0.5rem;
     background: #212529;
     color: #ffffff;
+}
+
+.drill-timer.is-paused {
+    border: 1px solid #ffda6a;
+    background: #ffe69c;
+    color: #664d03;
+}
+
+.drill-timer.is-paused .drill-timer-value {
+    margin-left: auto;
 }
 
 .drill-timer-label {
@@ -586,10 +779,31 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
     margin-left: 1.5rem;
 }
 
-/* AI-generated (Claude): drill sequence builder (Drills page editor). */
+/* Drill sequence builder (Drills page editor). */
+/* Keep the plus visually small while giving fingers a full-size touch target. */
+.qualification-add-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 8px;
+    flex: none;
+    text-decoration: none;
+}
+
+.qualification-add-button .bi {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    font-size: 0.875rem;
+}
+
 .block-palette {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0.5rem;
 }
 
@@ -604,17 +818,20 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
     border-radius: 0.5rem;
     font-weight: 600;
     cursor: grab;
-    touch-action: manipulation;
+    /* Let a held block drag instead of starting a page scroll. */
+    touch-action: none;
 }
 
+/* Use distinct action colors in the drill palette and sequence cards. */
 .seq-palette-block--present,
-.seq-block--present { --seq-color: #198754; --seq-tint: #e8f5ee; }
+.seq-block--present { --seq-color: #146c43; --seq-tint: #e7f1eb; }
 .seq-palette-block--delay,
-.seq-block--delay { --seq-color: #0d6efd; --seq-tint: #e7f1ff; }
+.seq-block--delay { --seq-color: #495057; --seq-tint: #e2e3e5; }
 .seq-palette-block--hide,
-.seq-block--hide { --seq-color: #6f42c1; --seq-tint: #f1ecfa; }
+.seq-block--hide { --seq-color: #dc3545; --seq-tint: #f8e8ea; }
 .seq-palette-block--pause,
-.seq-block--pause { --seq-color: #b35c00; --seq-tint: #fff3e6; }
+.seq-block--pause { --seq-color: #997404; --seq-tint: #fff3cd; }
+.seq-palette-block--drill,
 .seq-block--drill { --seq-color: #495057; --seq-tint: #f1f3f5; }
 
 .seq-palette-block {
@@ -736,7 +953,7 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
     max-width: 12rem;
 }
 
-/* AI-generated (Claude): Present block, Random option */
+/* Present block, Random option */
 .seq-random {
     margin-top: 0.5rem;
 }

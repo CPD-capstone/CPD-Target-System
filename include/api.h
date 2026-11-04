@@ -19,10 +19,15 @@
 //   GET    /api/officers?today=YYYY-MM-DD[&badge=<n>]            -> Officers array (or one officer)
 //                                          with pistolStats/rifleStats/swatStats {attempts, average,
 //                                          top} over the past 12 months
-//                                          (the client supplies today; the ESP32 has no clock)
+//                                          (the client supplies today; the ESP32 has no clock),
+//                                          plus qualificationStats {name: {attempts, average, top}}
+//                                          for custom qualifications (AI-modified, Claude)
 //   POST   /api/officers                   {BadgeNum, Name}       -> addOfficer
 //   PUT    /api/officers?badge=<n>         {Name}                 -> editOfficer (AI-generated, Claude)
 //   POST   /api/officers/scores            {BadgeNum, qualType, score, date} -> addQualScore
+//                                          (qualType: any name from /api/qualifications; score >= 0)
+//   GET    /api/qualifications             -> ["Pistol", "Rifle", "SWAT", ...custom names]
+//   POST   /api/qualifications             {name}                 -> addQualification (unique, <= 32 bytes)
 //   DELETE /api/officers?badge=<n>                                -> deleteOfficer
 //
 // AI-assisted (Claude): drill and target control (target_manager). "targets" is an array of
@@ -33,9 +38,16 @@
 //   POST   /api/drill/start      {drillName, targets?}  -> executeDrill
 //   POST   /api/drill/pause                             -> pauseDrill (freezes the drill clock)
 //   POST   /api/drill/resume                            -> resumeDrill (after a pause or pause step)
+//   POST   /api/drill/reset-stage                       -> resetDrillStage (paused full drills; AI-assisted with Codex)
 //   GET    /api/drill/status     -> {state, drillName, step, stepCount, stepAction, targets,
 //                                    lastOutcome, stopped, hardwareReady, facing,
 //                                    delayMs, delayRemainingMs}  (delay step length / time left)
+//   Stage status fields (AI-assisted with Codex): stageName, stageIndex, betweenStages, canResetStage, stageResetPending,
+//   stageRestartReady (see DrillStatus). Reset accepts asynchronously; hardware failure ends the drill.
+//   AI-generated (Claude): finalStageComplete = a full drill's last stage finished and the drill is
+//   paused (targets hidden) so it can be redone; reset-stage replays it, resume ends the drill.
+//   AI-generated (Claude): signal ("good" / "weak" / "unknown") and rssi (dBm, or null) = how well
+//   the controller hears the phone that polled; weak means rssi < WEAK_SIGNAL_RSSI (wifi_manager.h).
 //   POST   /api/targets/present  {targets?}             -> setTargets(.., true)  (refused mid-drill/stopped)
 //   POST   /api/targets/hide     {targets?}             -> setTargets(.., false) (refused mid-drill/stopped)
 //   GET    /api/targets/state    -> {facing: [n, ...]}
