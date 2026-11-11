@@ -30,6 +30,102 @@
     flex: 1 0 auto;
 }
 
+/* Fixed bars and even spacing keep the menu icon uniform across pages. */
+.menu-toggle {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 44px;
+    height: 44px;
+    padding: 8px;
+}
+
+.menu-toggle > span {
+    display: block;
+    flex: none;
+    width: 24px;
+    height: 2px;
+    background-color: currentColor;
+}
+
+/* AI-generated (Claude): visible only when the controller reports a degraded connection. */
+.connection-alert {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    width: 100%;
+    min-height: 2.5rem;
+    justify-content: center;
+    padding: 0.4rem 1rem;
+    border: 2px solid currentColor;
+    border-width: 0 0 2px;
+    font-weight: 700;
+}
+
+.connection-alert[hidden] {
+    display: none;
+}
+
+.connection-alert-poor {
+    background: #fff3cd;
+    color: #664d03;
+}
+
+.connection-alert-none {
+    background: #f8d7da;
+    color: #842029;
+}
+
+.connection-icon {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.connection-icon-poor {
+    gap: 0.02rem;
+    font-size: 1.3rem;
+}
+
+.connection-icon-poor b {
+    position: absolute;
+    right: -0.14rem;
+    bottom: -0.14rem;
+    display: grid;
+    place-items: center;
+    width: 0.85rem;
+    height: 0.85rem;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    background: #fff3cd;
+    font: 800 0.65rem/1 system-ui, sans-serif;
+}
+
+@media print {
+    .connection-alert,
+    #faqModal {
+        display: none !important;
+    }
+}
+
+/* AI-modified: use a readable system font for the shared status banner. */
+.drill-status-bar {
+    padding: 0.6rem 1rem;
+    border-bottom: 4px solid var(--bs-secondary);
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: clamp(1.35rem, 4.5vw, 2.25rem);
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: 0.06em;
+    text-align: center;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+}
+
 .page-readout {
     max-width: 19rem;
     margin: auto auto 1.5rem;
@@ -67,6 +163,16 @@
     align-items: center;
     justify-content: space-between;
     margin-bottom: 0.85rem;
+}
+
+/* Long saved names must wrap instead of widening phone layouts and dialogs. */
+.drill-ticket-name,
+#drillEditorTitle,
+#deleteDrillName,
+#manualModeDrillName,
+#endDrillName {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .drill-ticket-label {
@@ -124,6 +230,38 @@
     font-weight: 600;
 }
 
+/* AI-assisted target availability and assignment styles. */
+.target-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+    gap: 0.5rem;
+}
+
+.target-options.is-invalid {
+    padding: 0.35rem;
+    border: 1px solid #dc3545;
+    border-radius: 0.375rem;
+}
+
+.target-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.5rem;
+    padding: 0.4rem 0.55rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    background: #ffffff;
+    cursor: pointer;
+}
+
+.target-option:has(input:checked) {
+    border-color: #0d6efd;
+    background: #eef5ff;
+}
+
+/* AI-generated (Claude): placeholder box for the future drill sequence builder. */
+
 .delete-confirmation {
     border-top: 4px solid #dc3545;
 }
@@ -132,18 +270,333 @@
     color: #842029;
 }
 
+/* AI-generated (Claude): shared Q&A help control and readable FAQ dialog. */
+.faq-help-button {
+    position: fixed;
+    right: calc(1rem + env(safe-area-inset-right, 0px));
+    bottom: calc(1rem + env(safe-area-inset-bottom));
+    z-index: 1040;
+    display: inline-grid;
+    width: 3.25rem;
+    height: 3.25rem;
+    align-items: center;
+    justify-items: center;
+    padding: 0;
+    border-radius: 50%;
+    box-shadow: 0 0.25rem 0.75rem rgba(33, 37, 41, 0.2);
+    font-size: 1.65rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.faq-modal-content {
+    border: 0;
+    border-radius: 0.75rem;
+}
+
+.faq-group + .faq-group {
+    margin-top: 1.25rem;
+}
+
+.faq-group-title {
+    margin-bottom: 0.35rem;
+    color: #0057b8;
+    font-weight: 750;
+}
+
+.faq-item {
+    padding: 0.65rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.faq-item summary {
+    color: #14232d;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+.faq-item p {
+    margin: 0.5rem 1.5rem 0 0;
+    color: #495057;
+    line-height: 1.5;
+}
+
+@media print {
+    .faq-help-button,
+    #faqModal {
+        display: none !important;
+    }
+}
+
 .target-card {
     position: relative;
     display: block;
-    padding: 0;
+    width: 150px;
+    min-width: 150px;
+    /* AI-modified (Claude): top padding clears the number badge (which overhangs the card's
+       top edge) so it no longer sits on the target's head. */
+    padding: 1.25rem 0 0;
     border: 0;
     background: transparent;
     perspective: 700px;
     cursor: pointer;
 }
 
-.target-toolbar {
-    flex-shrink: 1;
+/* AI-generated (Claude): Targets page control bar. One bordered box whose sections size to
+   their contents and sit centered; the 1px grid gap over a grey background draws the dividers
+   in every layout. Phones: stacked. Tablets/laptops: drill section on top, manual + view
+   below. Wide screens: one row. */
+.control-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    background: #dee2e6;
+}
+
+.target-view-button {
+    min-width: 2.75rem;
+}
+
+.control-section {
+    padding: 0.7rem 1rem;
+    background: #ffffff;
+}
+
+@media (min-width: 768px) {
+    .control-bar {
+        grid-template-columns: auto auto;
+        justify-content: center;
+        width: fit-content;
+        max-width: calc(100% - 2rem);
+        margin-inline: auto !important;
+    }
+
+    .control-section:first-child {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (min-width: 1400px) {
+    .control-bar {
+        grid-template-columns: auto auto auto;
+    }
+
+    .control-section:first-child {
+        grid-column: auto;
+    }
+}
+
+.control-section-title {
+    margin-bottom: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.control-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Keep all five target controls joined and readable on narrow screens. */
+@media (max-width: 575.98px) {
+    .target-filter-group {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        width: 100%;
+    }
+
+    .target-filter-group > .btn {
+        min-width: 0;
+        min-height: 44px;
+        padding-inline: 0.2rem;
+        font-size: 0.75rem;
+        white-space: nowrap;
+    }
+
+    .target-filter-group .bi {
+        display: none;
+    }
+}
+
+.target-number-filter-status {
+    color: #6c757d;
+    font-size: 0.85rem;
+    overflow-wrap: anywhere;
+}
+
+.target-number-filter-status:not([hidden]) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+}
+
+/* Lock / unlock note under the Toggle targets buttons. */
+.control-hint {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0.45rem 0 0;
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+.is-manual-mode .control-hint {
+    color: #8a5a00;
+    font-weight: 600;
+}
+
+.toolbar-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #495057;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* AI-generated (Claude): All / Odd / Even / Clear row above a target checkbox list. */
+.target-quick-select {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-bottom: 0.5rem;
+}
+
+/* AI-generated (Claude): targets only respond to taps in manual mode. */
+.target-page:not(.is-manual-mode) .target-card {
+    cursor: default;
+}
+
+/* AI-modified (Claude): wraps so the select drops to its own line on narrow phones now that
+   there are three buttons; fills its control panel. */
+.drill-launch-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.drill-launch-bar .form-select {
+    min-width: 12rem;
+    flex: 1 1 12rem;
+}
+
+.drill-launch-bar .btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+#targetGrid [data-target-number] {
+    position: relative;
+}
+
+/* AI-modified (Claude): rows closer together. row-gap needs !important to beat the grid's
+   Bootstrap row-gap-5 class (3rem), which grid view still uses. */
+#targetGrid.is-list-view {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: stretch;
+    max-width: 72rem;
+    margin-inline: auto;
+    padding-inline: 0.75rem;
+    column-gap: 0.75rem;
+    row-gap: 0.5rem !important;
+}
+
+#targetGrid.is-list-view > [data-target-number] {
+    position: relative;
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 100%;
+    min-height: 3rem;
+    margin-top: 0;
+    align-items: center;
+    justify-content: flex-start !important;
+    gap: 0.75rem;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    background: #ffffff;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+#targetGrid.is-list-view > [data-target-number]::before {
+    content: attr(data-target-number);
+    display: grid;
+    flex: 0 0 2rem;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    border-radius: 0.375rem;
+    background: #e9ecef;
+    color: #495057;
+    font: 700 0.8rem/1 monospace;
+}
+
+#targetGrid.is-list-view > [data-target-number]:hover {
+    border-color: #adb5bd;
+    background: #f8f9fa;
+}
+
+/* AI-modified (Claude): the button fills the rest of the row, so the whole row is the tap
+   target (script.js also counts taps on the number badge). */
+#targetGrid.is-list-view .target-card {
+    flex: 1 1 auto;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    width: auto;
+    min-width: 0;
+    padding: 0;
+    text-align: left;
+}
+
+body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is-defective)) {
+    cursor: pointer;
+}
+
+/* AI-modified (Claude): also hide the state-image wrapper so it takes no space in list view. */
+#targetGrid.is-list-view .target-card img,
+#targetGrid.is-list-view .target-face {
+    display: none;
+}
+
+#targetGrid.is-list-view .target-number {
+    display: none;
+}
+
+#targetGrid.is-list-view .target-list-label {
+    display: block;
+    font-weight: 700;
+}
+
+#targetGrid.is-list-view .target-card.is-red .target-list-label {
+    color: #dc3545;
+}
+
+#targetGrid.is-list-view .target-card.is-defective .target-list-label {
+    color: #6c757d;
+    text-decoration: line-through;
+}
+
+@media (max-width: 767.98px) {
+    #targetGrid.is-list-view {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 399.98px) {
+    #targetGrid.is-list-view {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 
 .target-number {
@@ -163,21 +616,47 @@
     transform: translateX(-50%);
 }
 
-.target-filter.is-active {
-    background-color: #0d6efd;
-    color: #ffffff;
+.target-list-label {
+    display: none;
 }
 
-.target-card img {
+/* AI-modified (Claude): the card swaps between the green / red / grey USPSA images instead of
+   recoloring one image with CSS filters. The images are square with empty space at the sides,
+   so object-fit: cover fills the 150x180 card without cropping the silhouette. */
+.target-face {
+    position: relative;
     display: block;
+    width: 150px;
+    height: 180px;
     transform: rotateY(0deg);
-    transition: transform 0.55s ease, filter 0.275s ease;
+    transition: transform 0.55s ease;
     transform-style: preserve-3d;
 }
 
-.target-card.is-red img {
-    filter: hue-rotate(225deg) saturate(1.25);
+.target-card.is-red .target-face {
     transform: rotateY(180deg);
+}
+
+.target-face img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 0.275s ease;
+}
+
+.target-card .face-hidden,
+.target-card.is-red .face-raised,
+.target-card.is-defective .face-defective {
+    opacity: 1;
+}
+
+.target-card.is-red .face-hidden,
+.target-card.is-defective .face-hidden,
+.target-card.is-defective .face-raised {
+    opacity: 0;
 }
 
 .target-card:focus-visible {
@@ -186,7 +665,305 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .target-card img {
-        transition: filter 0.1s ease;
+    .target-face,
+    .target-face img {
+        transition: filter 0.1s ease, opacity 0.1s ease, transform 0.1s ease;
+    }
+}
+
+/* AI-generated (Claude): start delay countdown beside the Stop button (Run a drill). */
+.start-countdown {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-width: 6.5rem;
+    padding: 0.2rem 0.75rem;
+    border: 1px solid #ffe69c;
+    border-radius: 0.375rem;
+    background: #fff3cd;
+    color: #664d03;
+    font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+}
+
+/* AI-generated (Claude): drill timer under the Run a drill buttons */
+.drill-timer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 1rem;
+    margin-top: 0.75rem;
+    padding: 0.4rem 1rem;
+    border-radius: 0.5rem;
+    background: #212529;
+    color: #ffffff;
+}
+
+.drill-timer.is-paused {
+    border: 1px solid #ffda6a;
+    background: #ffe69c;
+    color: #664d03;
+}
+
+.drill-timer.is-paused .drill-timer-value {
+    margin-left: auto;
+}
+
+.drill-timer-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.drill-timer-value {
+    font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    font-size: 2.75rem;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.drill-timer-value small {
+    font-size: 1.25rem;
+}
+
+/* AI-generated (Claude): Settings page */
+.settings-main {
+    max-width: 36rem;
+}
+
+/* AI-generated (Claude): Settings > Officers */
+.officer-list {
+    border-top: 1px solid #dee2e6;
+}
+
+.officer-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.officer-row-name {
+    flex: 1 1 10rem;
+    min-width: 0;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.officer-row-badge {
+    color: #6c757d;
+    font-size: 0.85rem;
+}
+
+.officer-row .form-control {
+    flex: 1 1 10rem;
+}
+
+.officer-add-fields {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.start-delay-seconds {
+    max-width: 12rem;
+    margin-left: 1.5rem;
+}
+
+/* Drill sequence builder (Drills page editor). */
+/* Keep the plus visually small while giving fingers a full-size touch target. */
+.qualification-add-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 8px;
+    flex: none;
+    text-decoration: none;
+}
+
+.qualification-add-button .bi {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    font-size: 0.875rem;
+}
+
+.block-palette {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.5rem;
+}
+
+.seq-palette-block {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 2.75rem;
+    padding: 0.4rem 0.5rem;
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    cursor: grab;
+    /* Let a held block drag instead of starting a page scroll. */
+    touch-action: none;
+}
+
+/* Use distinct action colors in the drill palette and sequence cards. */
+.seq-palette-block--present,
+.seq-block--present { --seq-color: #146c43; --seq-tint: #e7f1eb; }
+.seq-palette-block--delay,
+.seq-block--delay { --seq-color: #495057; --seq-tint: #e2e3e5; }
+.seq-palette-block--hide,
+.seq-block--hide { --seq-color: #dc3545; --seq-tint: #f8e8ea; }
+.seq-palette-block--pause,
+.seq-block--pause { --seq-color: #997404; --seq-tint: #fff3cd; }
+.seq-palette-block--drill,
+.seq-block--drill { --seq-color: #495057; --seq-tint: #f1f3f5; }
+
+.seq-palette-block {
+    border-color: var(--seq-color);
+    background: var(--seq-tint);
+    color: var(--seq-color);
+}
+
+.sequence-list {
+    display: grid;
+    gap: 0.5rem;
+    min-height: 4.5rem;
+    margin: 0;
+    padding: 0.5rem;
+    border: 2px dashed #ced4da;
+    border-radius: 0.5rem;
+    list-style: none;
+}
+
+.sequence-list:empty::before {
+    content: 'Drag blocks here, or tap one above.';
+    align-self: center;
+    color: #6c757d;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.seq-block {
+    border: 1px solid #dee2e6;
+    border-left: 4px solid var(--seq-color);
+    border-radius: 0.5rem;
+    background: #ffffff;
+}
+
+.seq-block.is-invalid {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.2);
+}
+
+.seq-block.sortable-ghost,
+.seq-palette-block.sortable-ghost {
+    opacity: 0.4;
+}
+
+.seq-block-head {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.5rem;
+    background: var(--seq-tint);
+    border-radius: 0.4rem 0.4rem 0 0;
+}
+
+.seq-handle {
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 2rem;
+    color: #6c757d;
+    font-size: 1.2rem;
+    cursor: grab;
+    touch-action: none;
+}
+
+.seq-step-number {
+    min-width: 1.5rem;
+    color: #6c757d;
+    font: 700 0.8rem/1 monospace;
+}
+
+.seq-block-icon {
+    color: var(--seq-color);
+}
+
+.seq-block-title {
+    flex: 1 1 auto;
+    font-weight: 700;
+    color: var(--seq-color);
+}
+
+.seq-block-tools {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.seq-block-tools .btn {
+    padding: 0.15rem 0.45rem;
+}
+
+.seq-block-body {
+    padding: 0.5rem 0.75rem 0.6rem;
+}
+
+.seq-block-body:empty {
+    display: none;
+}
+
+.seq-block-note {
+    margin: 0;
+    color: #6c757d;
+    font-size: 0.85rem;
+}
+
+.seq-custom-targets {
+    margin-top: 0.5rem;
+}
+
+.seq-target-options {
+    grid-template-columns: repeat(auto-fill, minmax(3.1rem, 1fr));
+    gap: 0.35rem;
+}
+
+.seq-target-options .target-option {
+    justify-content: center;
+    padding: 0.3rem 0.25rem;
+}
+
+.seq-delay {
+    max-width: 12rem;
+}
+
+/* Present block, Random option */
+.seq-random {
+    margin-top: 0.5rem;
+}
+
+.seq-random-count {
+    max-width: 10rem;
+}
+
+@media (max-width: 575.98px) {
+    .block-palette {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }

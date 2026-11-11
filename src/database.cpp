@@ -1,13 +1,17 @@
 #include "database.h"
 #include "hal.h"
 
+static JsonArray qualificationNames(JsonDocument& doc);
+
 /*
  * AI-assisted (Claude): the CRUD functions below were migrated from an older object-keyed
  * schema to the one in data/database.json, which is authoritative. It uses top-level ARRAYS:
  *
  *   "Officers": [ { "Name": str, "BadgeNum": int,
  *                   "pistolQualScores": [[score, "YYYY-MM-DD"], ...],   // newest first
- *                   "rifleQualScores":  [...], "swatQualScores": [...] } ]
+ *                   "rifleQualScores":  [...], "swatQualScores": [...],
+ *                   "qualificationScores": { "<custom name>": [...] } } ]   // AI-modified (Claude)
+ *   "qualifications": [ "Pistol", "Rifle", "SWAT", ...custom names ]
  *   "drills":   [ { "drillName": str,
  *                   "sequence": [ { "step": int, "action": str, "timeMs"?: int } ] } ]
  *                 action is "present" | "hide" | "pause" | "delay" (delay requires timeMs),
@@ -29,11 +33,14 @@ static const char* DB_PATH = "/database.json";
 static const char* TMP_PATH = "/database.tmp";
 
 //Parses the file at path into doc; false if it is missing or not valid JSON
-static bool readJsonFile(const char* path, JsonDocument& doc) {
+// AI-modified (Claude): optional filter keeps only the matching fields, to save RAM
+static bool readJsonFile(const char* path, JsonDocument& doc, const JsonDocument* filter = nullptr) {
     File readFile = LittleFS.open(path, "r");
     if (!readFile) return false;
 
-    DeserializationError error = deserializeJson(doc, readFile);
+    DeserializationError error = filter
+        ? deserializeJson(doc, readFile, DeserializationOption::Filter(*filter))
+        : deserializeJson(doc, readFile);
     readFile.close();
 
     if (error) {
@@ -43,13 +50,14 @@ static bool readJsonFile(const char* path, JsonDocument& doc) {
     return true;
 }
 
-//Helper function for loading the data
+// Helper function for loading the data
 // AI-modified (Claude): if power was lost after a save's temp file was fully written but
 // before it replaced database.json, the temp file is the newest good copy -- restore it.
-bool loadDatabase(JsonDocument& doc) {
-    if (readJsonFile(DB_PATH, doc)) return true;
+// Renamed for simplicity
+static bool loadDatabaseFiltered(JsonDocument& doc, const JsonDocument* filter) {
+    if (readJsonFile(DB_PATH, doc, filter)) return true;
 
-    if (LittleFS.exists(TMP_PATH) && readJsonFile(TMP_PATH, doc)) {
+    if (LittleFS.exists(TMP_PATH) && readJsonFile(TMP_PATH, doc, filter)) {
         Serial.println("Recovering database.json from database.tmp");
         LittleFS.remove(DB_PATH);
         LittleFS.rename(TMP_PATH, DB_PATH);
@@ -59,6 +67,28 @@ bool loadDatabase(JsonDocument& doc) {
     Serial.println("database.json missing or unreadable");
     doc.clear();
     return false;
+}
+
+bool loadDatabase(JsonDocument& doc) {
+    return loadDatabaseFiltered(doc, nullptr);
+}
+
+// AI-assisted (Claude): loads only the top-level array `key` ("targets", "Officers" or "drills")
+// and returns it; the array is null if the section is missing
+static JsonArray loadSection(JsonDocument& doc, const char* key) {
+    JsonDocument filter;
+    filter[key] = true;
+    if (!loadDatabaseFiltered(doc, &filter)) return JsonArray();
+    return doc[key];
+}
+
+// AI-assisted (Claude): copies `src` into `out` so it becomes the root of `out`; false if src
+// is null or `out` ran out of memory
+static bool copyInto(JsonDocument& out, JsonVariantConst src) {
+    out.clear();
+    if (src.isNull()) return false;
+    out.set(src);
+    return !out.overflowed();
 }
 
 //Helper function for writing new data
@@ -111,6 +141,15 @@ static int findIndex(JsonArrayConst arr, const char* key, const char* value) {
         if (field && strcmp(field, value) == 0) return (int)i;
     }
     return -1;
+}
+
+// AI-assisted (Claude): true if date looks like "YYYY-MM-DD" (digits in the right places)
+bool isDateString(const char* date) {
+    if (!date || strlen(date) != 10 || date[4] != '-' || date[7] != '-') return false;
+    for (int i = 0; i < 10; i++) {
+        if (i != 4 && i != 7 && !isdigit((unsigned char)date[i])) return false;
+    }
+    return true;
 }
 
 static bool isBasicAction(const char* action) {
@@ -170,6 +209,29 @@ static bool validateSequence(JsonArrayConst drills, const char* drillName, JsonA
     return true;
 }
 
+// AI-assisted (Claude): public wrapper so the API can report a reserved name before saving anything
+bool isReservedDrillName(const char* drillName) {
+    return drillName && isBasicAction(drillName);
+}
+
+// AI-assisted (Claude): a new drill name must be non-empty, unused, and not a basic action --
+// a drill named "delay" would be read as a delay step wherever another drill includes it
+static bool isValidDrillName(JsonArrayConst drills, const char* drillName) {
+    if (!drillName || !*drillName) {
+        Serial.println("Drill name is empty");
+        return false;
+    }
+    if (isBasicAction(drillName)) {
+        Serial.printf("Drill name %s is reserved for a step action\r\n", drillName);
+        return false;
+    }
+    if (findIndex(drills, "drillName", drillName) >= 0) {
+        Serial.printf("Drill %s already exists\r\n", drillName);
+        return false;
+    }
+    return true;
+}
+
 // ---- Targets -------------------------------------------------------------------------------
 
 // AI-modified (Claude): targets are an array of { id, working }
@@ -188,6 +250,12 @@ void readTargets() {
         bool working = t["working"] | false;
         Serial.printf("Target %d | Working: %s\r\n", id, working ? "yes" : "no");
     }
+}
+
+// Getter for targets
+bool getTargets(JsonDocument& out) {
+    JsonDocument doc;
+    return copyInto(out, loadSection(doc, "targets"));
 }
 
 // AI-modified (Claude): the range has a fixed set of NUM_TARGETS, so only ids 1..NUM_TARGETS
@@ -244,6 +312,87 @@ bool deleteTarget(int id) {
 
 // ---- Officers ------------------------------------------------------------------------------
 
+// ---- AI-assisted (Claude): qualification stats ---------------------------------------------
+
+//Writes { attempts, average, top } for the scores in a [[score, "YYYY-MM-DD"], ...] list dated
+//from cutoff (a year ago) through today (both "YYYY-MM-DD", so plain string comparison orders them). The
+//average is rounded to one decimal place; average and top are null when attempts is 0.
+static void writeStats(JsonObject dest, JsonArrayConst scores, const char* cutoff, const char* today) {
+    long sum = 0;
+    int count = 0;
+    int top = 0;
+    for (JsonArrayConst entry : scores) {
+        const char* date = entry[1];
+        if (!entry[0].is<int>() || !date) continue;
+        if (strcmp(date, cutoff) < 0 || strcmp(date, today) > 0) continue;
+        int score = entry[0].as<int>();
+        if (count == 0 || score > top) top = score;
+        sum += score;
+        count++;
+    }
+    dest["attempts"] = count;
+    if (count == 0) {
+        dest["average"] = nullptr;
+        dest["top"] = nullptr;
+        return;
+    }
+    dest["average"] = round((double)sum / count * 10.0) / 10.0;
+    dest["top"] = top;
+}
+
+//Adds pistolStats / rifleStats / swatStats to an officer object, from its own score lists
+static void addStats(JsonObject officer, const char* cutoff, const char* today) {
+    writeStats(officer["pistolStats"].to<JsonObject>(), officer["pistolQualScores"], cutoff, today);
+    writeStats(officer["rifleStats"].to<JsonObject>(), officer["rifleQualScores"], cutoff, today);
+    writeStats(officer["swatStats"].to<JsonObject>(), officer["swatQualScores"], cutoff, today);
+    JsonObject customStats = officer["qualificationStats"].to<JsonObject>();
+    for (JsonPair history : officer["qualificationScores"].as<JsonObject>()) {
+        writeStats(customStats[history.key().c_str()].to<JsonObject>(), history.value().as<JsonArrayConst>(), cutoff, today);
+    }
+}
+
+//Validates today and writes the date one year earlier ("YYYY-MM-DD") into cutoff[11].
+//Feb 29 maps to "YYYY-02-29" of the previous year, which still compares correctly as a string.
+static bool makeCutoff(const char* today, char* cutoff) {
+    if (!isDateString(today)) {
+        Serial.printf("Date must be YYYY-MM-DD: %s\r\n", today ? today : "(null)");
+        return false;
+    }
+    snprintf(cutoff, 11, "%04d%s", atoi(today) - 1, today + 4);
+    return true;
+}
+
+// AI-modified (Claude): getters also return each officer's 12-month qualification stats
+// Getter for officers (all of them)
+bool getOfficers(const char* today, JsonDocument& out) {
+    out.clear();
+    char cutoff[11];
+    if (!makeCutoff(today, cutoff)) return false;
+
+    JsonDocument doc;
+    JsonArray officers = loadSection(doc, "Officers");
+    for (JsonObject officer : officers) {
+        addStats(officer, cutoff, today);
+    }
+    return copyInto(out, officers);
+}
+
+// Getter for officer (just one)
+bool getOfficer(int badgeNum, const char* today, JsonDocument& out) {
+    out.clear();
+    char cutoff[11];
+    if (!makeCutoff(today, cutoff)) return false;
+
+    JsonDocument doc;
+    JsonArray officers = loadSection(doc, "Officers");
+    int i = findIndex(officers, "BadgeNum", badgeNum);
+    if (i < 0) return false;
+
+    JsonObject officer = officers[i];
+    addStats(officer, cutoff, today);
+    return copyInto(out, officer);
+}
+
 // AI-modified (Claude): officers are identified by BadgeNum and start with empty score lists
 bool addOfficer(int badgeNum, const char* name) {
     JsonDocument doc;
@@ -288,18 +437,21 @@ bool editOfficer(int badgeNum, const char* name) {
 // AI-modified (Claude): replaces editUserPerformance. Scores are stored newest-first, and
 // ArduinoJson has no insert-at-index, so the old list is copied aside and re-added after the new entry.
 bool addQualScore(int badgeNum, const char* qualType, int score, const char* date) {
-    if (strcmp(qualType, "pistol") != 0 && strcmp(qualType, "rifle") != 0 && strcmp(qualType, "swat") != 0) {
-        Serial.printf("Unknown qualification type: %s\r\n", qualType);
-        return false;
-    }
+    if (!qualType || !*qualType) return false;
     //Expect "YYYY-MM-DD"
-    if (!date || strlen(date) != 10 || date[4] != '-' || date[7] != '-') {
+    if (!isDateString(date)) {
         Serial.printf("Date must be YYYY-MM-DD: %s\r\n", date ? date : "(null)");
         return false;
     }
 
     JsonDocument doc;
     if (!loadDatabase(doc)) return false;
+
+    String registeredName;
+    for (const char* name : qualificationNames(doc)) {
+        if (String(name).equalsIgnoreCase(qualType)) registeredName = name;
+    }
+    if (registeredName.isEmpty()) return false;
 
     JsonArray officers = doc["Officers"];
     int i = findIndex(officers, "BadgeNum", badgeNum);
@@ -308,14 +460,23 @@ bool addQualScore(int badgeNum, const char* qualType, int score, const char* dat
         return false;
     }
 
-    char key[24];
-    snprintf(key, sizeof(key), "%sQualScores", qualType);
-
+    // Preserve existing built-in fields. Custom histories use the catalog's exact saved names.
+    String normalized = registeredName;
+    normalized.toLowerCase();
+    const bool legacy = normalized == "pistol" || normalized == "rifle" || normalized == "swat";
+    JsonObject histories = officers[i].as<JsonObject>();
+    String key = normalized + "QualScores";
+    if (!legacy) {
+        histories = officers[i]["qualificationScores"].is<JsonObject>()
+            ? officers[i]["qualificationScores"].as<JsonObject>()
+            : officers[i]["qualificationScores"].to<JsonObject>();
+        key = registeredName;
+    }
     JsonDocument oldScores;
-    oldScores.set(officers[i][key]);
+    oldScores.set(histories[key]);
 
     //to<JsonArray>() empties the field, then the new entry goes in first
-    JsonArray scores = officers[i][key].to<JsonArray>();
+    JsonArray scores = histories[key].to<JsonArray>();
     JsonArray entry = scores.add<JsonArray>();
     entry.add(score);
     entry.add(date);
@@ -344,8 +505,69 @@ bool deleteOfficer(int badgeNum) {
 
 // ---- Drills --------------------------------------------------------------------------------
 
+// Older databases receive the same built-in qualification names without a migration upload.
+static JsonArray qualificationNames(JsonDocument& doc) {
+    if (!doc["qualifications"].is<JsonArray>()) {
+        JsonArray names = doc["qualifications"].to<JsonArray>();
+        names.add("Pistol");
+        names.add("Rifle");
+        names.add("SWAT");
+    }
+    return doc["qualifications"].as<JsonArray>();
+}
+
+bool getQualifications(JsonDocument& out) {
+    JsonDocument doc;
+    if (!loadDatabase(doc)) return false;
+    return copyInto(out, qualificationNames(doc));
+}
+
+bool addQualification(const char* name) {
+    String trimmed = name ? name : "";
+    trimmed.trim();
+    if (trimmed.isEmpty() || trimmed.length() > 32) return false;
+    for (char c : trimmed) if (static_cast<unsigned char>(c) < 32) return false;
+    JsonDocument doc;
+    if (!loadDatabase(doc)) return false;
+    JsonArray names = qualificationNames(doc);
+    for (const char* existing : names) if (trimmed.equalsIgnoreCase(existing)) return false;
+    names.add(trimmed);
+    return saveDatabase(doc);
+}
+
+static bool validQualifications(JsonDocument& doc, JsonArrayConst selected) {
+    if (selected.isNull()) return true;
+    JsonArray names = qualificationNames(doc);
+    if (selected.size() > names.size()) return false;
+    for (JsonVariantConst value : selected) {
+        if (!value.is<const char*>()) return false;
+        bool found = false;
+        for (const char* name : names) if (String(name).equalsIgnoreCase(value.as<const char*>())) found = true;
+        if (!found) return false;
+    }
+    return true;
+}
+
+// Getter for drills (all of them)
+bool getDrills(JsonDocument& out) {
+    JsonDocument doc;
+    return copyInto(out, loadSection(doc, "drills"));
+}
+
+// Getter for drill (just one, not expanded)
+bool getDrill(const char* drillName, JsonDocument& out) {
+    JsonDocument doc;
+    JsonArray drills = loadSection(doc, "drills");
+    int i = findIndex(drills, "drillName", drillName);
+    if (i < 0) {
+        out.clear();
+        return false;
+    }
+    return copyInto(out, drills[i]);
+}
+
 // AI-modified (Claude): drills are just "drillName" + a validated "sequence"
-bool addDrill(const char* drillName, JsonArrayConst sequence) {
+bool addDrill(const char* drillName, JsonArrayConst sequence, JsonArrayConst qualifications) {
     JsonDocument doc;
     if (!loadDatabase(doc)) return false;
 
@@ -354,22 +576,21 @@ bool addDrill(const char* drillName, JsonArrayConst sequence) {
         drills = doc["drills"].to<JsonArray>();
     }
 
-    if (findIndex(drills, "drillName", drillName) >= 0) {
-        Serial.printf("Drill %s already exists\r\n", drillName);
-        return false;
-    }
+    if (!isValidDrillName(drills, drillName)) return false;
     if (!validateSequence(drills, drillName, sequence)) return false;
+    if (!validQualifications(doc, qualifications)) return false;
 
     JsonObject drill = drills.add<JsonObject>();
     drill["drillName"] = drillName;
     drill["sequence"] = sequence;
+    if (!qualifications.isNull()) drill["qualifications"] = qualifications;
 
     return saveDatabase(doc);
 }
 
-// AI-modified (Claude): replaces the sequence only; renaming isn't supported, so Full Drills
+// AI-modified (Claude): replaces the sequence only (see renameDrill for the name), so Full Drills
 // that reference this drill by name stay valid
-bool editDrill(const char* drillName, JsonArrayConst newSequence) {
+bool editDrill(const char* drillName, JsonArrayConst newSequence, JsonArrayConst qualifications) {
     JsonDocument doc;
     if (!loadDatabase(doc)) return false;
 
@@ -380,8 +601,36 @@ bool editDrill(const char* drillName, JsonArrayConst newSequence) {
         return false;
     }
     if (!validateSequence(drills, drillName, newSequence)) return false;
+    if (!validQualifications(doc, qualifications)) return false;
 
     drills[i]["sequence"] = newSequence;
+    if (!qualifications.isNull()) drills[i]["qualifications"] = qualifications;
+    return saveDatabase(doc);
+}
+
+// AI-assisted (Claude): renames a drill and every step that includes it, in one save, so Full
+// Drills that reference it stay valid
+bool renameDrill(const char* oldName, const char* newName) {
+    JsonDocument doc;
+    if (!loadDatabase(doc)) return false;
+
+    JsonArray drills = doc["drills"];
+    int i = findIndex(drills, "drillName", oldName);
+    if (i < 0) {
+        Serial.printf("No drill found: %s\r\n", oldName);
+        return false;
+    }
+    if (!isValidDrillName(drills, newName)) return false;
+
+    // Update references first: comparing against drills[i]["drillName"] would change under us
+    for (JsonObject drill : drills) {
+        for (JsonObject step : drill["sequence"].as<JsonArray>()) {
+            const char* action = step["action"];
+            if (action && strcmp(action, oldName) == 0) step["action"] = newName;
+        }
+    }
+    drills[i]["drillName"] = newName;
+
     return saveDatabase(doc);
 }
 

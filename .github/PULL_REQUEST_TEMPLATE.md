@@ -37,13 +37,6 @@ If AI was used:
 - **AI tool/model:**
 - **How the AI assistance was credited or disclosed:**
 - **Files or components generated or modified with AI:**
-- **Prompt(s) used:**
-
-<!-- Paste the exact prompts below. Do not include passwords, tokens, private data, or other secrets. -->
-
-```text
-
-```
 
 - [ ] I reviewed, understood, and tested all AI-assisted code.
 - [ ] I identified AI-generated or AI-modified code with comments.

@@ -9,7 +9,7 @@ ESP32 firmware for the Cookeville Police Department shooting range’s target co
 ## Core responsibilities by area
 
 - `src/` and `include/` — ESP32 firmware and device-control logic
-- `data/` — static frontend files for the captive portal web UI (`targets.html`, `drills.html`, `style.css`, `script.js`, and static assets like `uspsa-target.svg`)
+- `data/` — static frontend files for the captive portal web UI (`targets.html`, `drills.html`, `style.css`, `script.js`, and static assets like the `uspsa_target_*.svg` images)
 - `docs/` — requirements, architecture, testing, maintenance, and design guidance
 - `platformio.ini` — PlatformIO build configuration for the ESP32 firmware
 
@@ -26,7 +26,7 @@ pio run -t uploadfs
 Important notes:
 - Changes to anything under `data/` require `uploadfs`; firmware upload alone does not update the web UI.
 - There is no test suite or linter configured for this project.
-- `data/package.json` references `react-scripts`, but it is vestigial; the UI is currently plain HTML, CSS, and JavaScript using Bootstrap, not a modern frontend framework.
+- The UI is plain HTML, CSS, and JavaScript using Bootstrap, with no build step.
 - The current board target is temporary; `platformio.ini` currently targets `ttgo-lora32-v21`, while the expected production board is `esp32doit-devkit-v1`.
 
 ## Architecture overview
@@ -47,7 +47,8 @@ The frontend is static and lives under `data/`:
 
 - `targets.html` — target control page
 - `drills.html` — drill definition and library page
-- `uspsa-target-status.html` — status page
+- `Performance.html` — qualification scores
+- `settings.html` — start delay, defective targets, officers, WiFi password
 - `script.js` — shared frontend logic
 - `style.css` — shared project styling
 
@@ -73,7 +74,7 @@ Follow the project’s visual conventions and avoid introducing custom design la
 - `drills` definitions
 - `targets` working/availability state
 
-Do not modify older legacy firmware code without explicit reason or team confirmation. The code in `src/database.cpp` is still tied to an older schema and is not the current target for new feature work unless directed by the project owner.
+Do not modify older legacy firmware code without explicit reason or team confirmation. 
 
 ## Known issues and constraints
 
@@ -121,7 +122,7 @@ For frontend changes, validate behavior in the browser by checking:
 
 ## Example of the desired target-defect workflow
 
-A staff user should be able to:
+A user should be able to:
 
 1. Open the target grid.
 2. Toggle a target as defective with one clear, deliberate action.

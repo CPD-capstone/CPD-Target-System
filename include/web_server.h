@@ -14,15 +14,15 @@
 #define HTTP_PORT 80
 #define DNS_PORT 53
 
-// WebServer and WebSocket instances
+// WebServer instance
+// AI-modified (Claude): removed the unused WebSocket (ws) and webserver_loop() declarations.
+// With one client at a time, the UI polls GET /api/drill/status instead of using a WebSocket.
 extern AsyncWebServer server;
-extern AsyncWebSocket ws;
 
 /// @brief starts webserver
 void initWebserver();
-void processCaptivePortalDNS();
 
 /// @brief to be called in loop() to handle DNS queries
-void webserver_loop();
+void processCaptivePortalDNS();
 
 #endif

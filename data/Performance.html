@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- AI-generated (Claude): lets staff add the controller to the Home Screen (Share > Add to
+         Home Screen); it then opens full-screen with no browser or captive-portal bars, and
+         links between pages stay inside the app (manifest scope "/"). -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="CPD Range">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#0057b8">
+    <title>Performance | CPD Target System</title>
+    <!-- AI-modified (Claude): Bootstrap, Bootstrap Icons and the banner font are served from
+         data/vendor/ (LittleFS) instead of a CDN, because phones on the "CPD Range Control"
+         access point have no internet. The .css/.js files are stored gzipped; serveStatic()
+         sends the .gz automatically. -->
+    <link rel="stylesheet" href="vendor/bootstrap.min.css">
+    <link rel="stylesheet" href="vendor/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="vendor/barlow-condensed.css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="performance.css?v=results-export-1">
+</head>
+<body class="performance-page">
+    <!-- Match the title banner and menu placement used by the Drills page. -->
+    <!-- AI-modified (Claude): drill status bar shared with the Targets page, so an active drill
+         stays visible on every page. script.js fills it from the saved drill state. -->
+    <div id="drillStatus" class="drill-status-bar text-white bg-primary" style="--bs-primary-rgb: 0, 87, 184;" role="status" aria-live="polite">
+        <span class="drill-status-text" id="drillStatusText">No drill in progress</span>
+    </div>
+
+    <div class="m-3">
+        <button class="btn btn-outline-primary menu-toggle" type="button" data-bs-toggle="offcanvas" data-bs-target="#menuPanel" aria-controls="menuPanel" aria-label="Open menu">
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+        </button>
+    </div>
+
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="menuPanel" aria-labelledby="menuPanelLabel">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="menuPanelLabel">Menu</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close menu"></button>
+        </div>
+        <div class="offcanvas-body">
+            <div class="d-grid gap-2">
+                <!-- AI-modified (Claude): same menu on every page, current page highlighted. -->
+                <a class="btn btn-outline-primary text-start" href="targets.html">Targets</a>
+                <a class="btn btn-outline-primary text-start" href="drills.html">Drills</a>
+                <a class="btn btn-outline-primary text-start active" href="Performance.html" aria-current="page">Performance</a>
+                <!-- AI-generated (Claude): start delay and WiFi password settings. -->
+                <a class="btn btn-outline-primary text-start" href="settings.html">Settings</a>
+            </div>
+        </div>
+    </div>
+
+    <main class="container-fluid px-3 px-md-4 py-3 performance-main">
+        <!-- AI-generated (Claude): page title, matching the Drills page heading. -->
+        <div class="mb-4">
+            <h1 class="h3 mb-1">Performance</h1>
+            <p class="text-secondary mb-0">Qualification scores for every officer.</p>
+        </div>
+
+        <!-- Page controls set the scope used by the summary and results table. -->
+        <section class="performance-toolbar" aria-label="Performance controls">
+            <label class="performance-search" for="performanceSearch">
+                <i class="bi bi-search" aria-hidden="true"></i>
+                <input class="form-control" type="search" id="performanceSearch" placeholder="Search name or badge" autocomplete="off">
+            </label>
+            <div class="performance-actions">
+                <div class="dropdown">
+                    <button class="btn performance-action-button" type="button" id="filterButton" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                        <i class="bi bi-funnel" aria-hidden="true"></i>
+                        <span>Filter</span>
+                        <span class="filter-count" id="filterCount" hidden>0</span>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end performance-filter-menu" aria-labelledby="filterButton">
+                        <div class="filter-menu-heading">
+                            <strong>Filter results</strong>
+                            <button class="btn btn-link btn-sm" type="button" id="clearFiltersButton">Clear</button>
+                        </div>
+                        <fieldset class="filter-group" id="performanceQualificationFilters">
+                            <legend>Qualification</legend>
+                            <span class="small text-secondary" id="qualificationsLoading">Loading qualifications...</span>
+                        </fieldset>
+                        <fieldset class="filter-group filter-range-group">
+                            <legend>Score range</legend>
+                            <label for="minimumScore">Minimum</label>
+                            <input class="form-control" id="minimumScore" type="number" min="0" step="1" inputmode="numeric" placeholder="Any">
+                            <label for="maximumScore">Maximum</label>
+                            <input class="form-control" id="maximumScore" type="number" min="0" step="1" inputmode="numeric" placeholder="Any">
+                        </fieldset>
+                        <fieldset class="filter-group filter-range-group">
+                            <legend>Attempt date</legend>
+                            <label for="startDate">From</label>
+                            <input class="form-control" id="startDate" type="date">
+                            <label for="endDate">To</label>
+                            <input class="form-control" id="endDate" type="date">
+                        </fieldset>
+                    </div>
+                </div>
+                <label class="performance-sort" for="sortSelect">
+                    <select class="form-select" id="sortSelect">
+                        <option value="" selected disabled>Sort by</option>
+                        <option value="newest">Newest</option>
+                        <option value="oldest">Oldest</option>
+                        <option value="score-high">Highest score</option>
+                        <option value="score-low">Lowest score</option>
+                    </select>
+                </label>
+                <button class="btn btn-primary export-button" type="button" id="exportPdfButton" disabled>
+                    <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
+                    <span>Export PDF</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Fetch and parsing problems are reported here without hiding the page. -->
+        <p class="performance-message" id="performanceMessage" role="status" aria-live="polite" hidden></p>
+
+        <!-- Summary figures update with the selected filters. -->
+        <section class="performance-metrics" aria-label="Qualification summary">
+            <article class="performance-metric">
+                <span class="metric-label">Average score</span>
+                <strong class="metric-value" id="averageScore">--</strong>
+                <span class="metric-note" id="averageNote">Across visible records</span>
+            </article>
+            <article class="performance-metric metric-highlight">
+                <span class="metric-label">Top score</span>
+                <strong class="metric-value" id="topScore">--</strong>
+                <span class="metric-note" id="topScoreNote">No records loaded</span>
+            </article>
+            <article class="performance-metric">
+                <span class="metric-label">Recorded attempts</span>
+                <strong class="metric-value" id="attemptCount">--</strong>
+                <span class="metric-note" id="officerCount">Across all officers</span>
+            </article>
+        </section>
+
+        <!-- Each table row represents one dated qualification attempt. -->
+        <!-- AI-generated (Claude): each officer's qualification standing over the last 12 months,
+             calculated on the controller (GET /api/officers?today=..., Isaac's officer stats). -->
+        <section class="performance-records officer-standing" aria-labelledby="standingTitle">
+            <div class="section-heading records-heading">
+                <div>
+                    <h2 id="standingTitle">Officer standing</h2>
+                    <p class="standing-note mb-0">Last 12 months: average, top score and attempts per qualification.</p>
+                </div>
+                <span class="record-count" id="standingCount">0 officers</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table performance-table align-middle mb-0">
+                    <thead>
+                        <tr id="standingHeader">
+                            <th scope="col">Officer</th>
+                            <th scope="col">Badge</th>
+                        </tr>
+                    </thead>
+                    <tbody id="standingRows">
+                        <tr><td colspan="5" class="table-empty">Loading officers...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Add scores dialog: ported from Oviya's oviyaTest branch ("AI-assisted change: open batch
+             score entry in a dialog above Results"). AI-modified (Claude): scores are saved on the
+             controller, and errors show inside the dialog. -->
+        <section class="add-scores" aria-label="Add qualification scores">
+            <div class="add-scores-toolbar">
+                <button class="btn btn-primary export-button add-scores-toggle" type="button" id="addScoresToggle" aria-expanded="false" aria-controls="addScoresDialog">
+                    <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                    <span>Add scores</span>
+                </button>
+            </div>
+            <dialog class="add-scores-dialog" id="addScoresDialog" aria-labelledby="addScoresTitle">
+                <div class="add-scores-dialog-heading">
+                    <h2 id="addScoresTitle">Add qualification scores</h2>
+                    <button class="btn-close" type="button" id="closeScoresDialog" aria-label="Close"></button>
+                </div>
+                <form id="addScoresForm" novalidate>
+                    <div class="add-scores-fields">
+                        <label for="scoreOfficer">
+                            Officer
+                            <select class="form-select" id="scoreOfficer" required>
+                                <option value="">Select an officer</option>
+                            </select>
+                        </label>
+                        <label for="scoreQualification">
+                            Qualification
+                            <select class="form-select" id="scoreQualification" required disabled>
+                                <option value="">Loading qualifications...</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="score-entry-list" id="scoreEntries" aria-label="Scores to add">
+                        <div class="score-entry">
+                            <label class="score-entry-label" for="scoreValue1">Score 1</label>
+                            <input class="form-control score-entry-value" id="scoreValue1" type="number" min="0" step="1" inputmode="numeric" required>
+                            <label class="visually-hidden" for="scoreDate1">Date for score 1</label>
+                            <input class="form-control score-entry-date" id="scoreDate1" type="date" required>
+                            <button class="btn btn-outline-secondary remove-score-entry" type="button" aria-label="Remove score 1" disabled>
+                                <i class="bi bi-trash3" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <p class="add-scores-error" id="addScoresError" role="alert" hidden></p>
+                    <div class="add-scores-footer">
+                        <div class="add-scores-buttons">
+                            <button class="btn btn-outline-primary" type="button" id="addScoreEntry">
+                                <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                                Add another score
+                            </button>
+                            <button class="btn btn-outline-secondary" type="button" id="addOfficerButton">
+                                <i class="bi bi-person-plus" aria-hidden="true"></i>
+                                Add Officer
+                            </button>
+                            <button class="btn btn-primary" type="submit" id="saveScoresButton" disabled>Save scores</button>
+                        </div>
+                    </div>
+                </form>
+            </dialog>
+        </section>
+
+        <section class="performance-records" aria-labelledby="recordsTitle">
+            <div class="section-heading records-heading">
+                <div>
+                    <h2 id="recordsTitle">Results</h2>
+                </div>
+                <span class="record-count" id="recordCount">0 records</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table performance-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">Officer</th>
+                            <th scope="col">Badge</th>
+                            <th scope="col">Qualification</th>
+                            <th scope="col">Date</th>
+                            <th scope="col" class="text-end">Score</th>
+                            <th scope="col">Standing</th>
+                        </tr>
+                    </thead>
+                    <tbody id="performanceRows">
+                        <tr><td colspan="6" class="table-empty">Loading records...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <div class="modal fade" id="performanceExportModal" tabindex="-1" aria-labelledby="performanceExportTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5" id="performanceExportTitle">Export qualification results</h2>
+                    <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close export"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="performanceExportForm" novalidate>
+                        <label class="form-label" for="exportOfficer">Officer</label>
+                        <select class="form-select mb-3" id="exportOfficer"></select>
+                        <fieldset class="mb-3">
+                            <legend class="fs-6">Qualifications</legend>
+                            <div class="d-flex flex-wrap gap-3" id="exportQualifications"></div>
+                        </fieldset>
+                        <button class="btn btn-sm btn-outline-primary mb-2" type="button" id="exportTodayResults">Today's results</button>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="form-label" for="exportFromDate">From</label>
+                                <input class="form-control" type="date" id="exportFromDate">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label" for="exportToDate">To</label>
+                                <input class="form-control" type="date" id="exportToDate">
+                            </div>
+                        </div>
+                        <p class="small mb-0" id="exportResultCount" role="status" aria-live="polite"></p>
+                        <p class="form-text mb-0">Your PDF will open in a new tab.</p>
+                        <p class="text-danger small mt-2 mb-0" id="exportResultsError" role="alert" hidden></p>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <a class="btn btn-outline-primary" id="openExportPdf" target="_blank" rel="noopener" hidden>Open PDF</a>
+                    <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary" type="submit" form="performanceExportForm" id="printResultsButton">Continue to PDF</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <section id="performanceExportReport" hidden aria-label="Qualification results report"></section>
+
+    <!-- Bootstrap provides the shared menu interaction. -->
+    <script src="vendor/bootstrap.bundle.min.js"></script>
+    <script src="script.js?v=connection-rssi-4"></script>
+</body>
+</html>
