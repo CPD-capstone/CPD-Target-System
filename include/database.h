@@ -10,6 +10,21 @@ void startLFS();
 // AI-assisted (Claude): declarations for the CRUD functions in database.cpp. Every function
 // loads /database.json, applies the change, and writes it back atomically.
 
+/// @brief Loads the whole of /database.json, restoring it from /database.tmp if a save was
+///        interrupted. Prefer the get* functions below when only one section is needed.
+/// @param doc document to fill; cleared on failure
+/// @return true if the database was read and parsed
+bool loadDatabase(JsonDocument& doc);
+
+// AI-assisted (Claude): read functions for the web API. Each loads only the section it needs and
+// makes the requested data the root of `out`, ready for serializeJson(out, ...). `out` is
+// cleared when they return false.
+
+/// @brief Reads the targets array: [ { "id", "working" }, ... ].
+/// @param out document to fill
+/// @return true if the targets section exists and was copied
+bool getTargets(JsonDocument& out);
+
 /// @brief Prints every target's id and working flag to Serial.
 void readTargets();
 
@@ -31,6 +46,34 @@ bool editTarget(int id, bool working);
 /// @return true if the target exists and the change was saved
 bool deleteTarget(int id);
 
+// AI-modified (Claude): the officer getters also report qualification stats. Each officer gets
+// "pistolStats", "rifleStats" and "swatStats", each { "attempts", "average", "top" }, plus
+// "qualificationStats" { name: {...} } for each custom qualification in its "qualificationScores"
+// (AI-modified, Claude). The ESP32
+// has no clock (offline AP, no NTP/RTC), so the caller supplies today's date. Only scores dated
+// within the past 12 months (same date last year through today, inclusive) count. The average is
+// rounded to one decimal place; average and top are null when attempts is 0.
+
+/// @brief Checks that a string is a date in "YYYY-MM-DD" form (digits and dashes only).
+/// @param date string to check; may be null
+/// @return true if the format is valid
+bool isDateString(const char* date);
+
+/// @brief Reads the Officers array, including each officer's score lists, with
+///        "pistolStats", "rifleStats" and "swatStats" added to every officer.
+/// @param today current date, "YYYY-MM-DD"; the stats cover the 12 months ending today
+/// @param out document to fill
+/// @return true if today is valid, the Officers section exists, and the result was copied
+bool getOfficers(const char* today, JsonDocument& out);
+
+/// @brief Reads one officer: { "Name", "BadgeNum", "pistolQualScores", ..., "pistolStats",
+///        "rifleStats", "swatStats" }.
+/// @param badgeNum badge number of the officer
+/// @param today current date, "YYYY-MM-DD"; the stats cover the 12 months ending today
+/// @param out document to fill
+/// @return true if today is valid, the officer exists, and the result was copied
+bool getOfficer(int badgeNum, const char* today, JsonDocument& out);
+
 /// @brief Adds an officer with empty pistol/rifle/swat score lists.
 /// @param badgeNum badge number; must not already exist
 /// @param name officer's name
@@ -45,7 +88,7 @@ bool editOfficer(int badgeNum, const char* name);
 
 /// @brief Records a qualification score as the newest entry of that officer's score list.
 /// @param badgeNum badge number of the officer
-/// @param qualType "pistol", "rifle" or "swat"
+/// @param qualType registered qualification name; legacy pistol/rifle/swat aliases remain valid
 /// @param score the score
 /// @param date date shot, "YYYY-MM-DD"
 /// @return true if the inputs are valid, the officer exists, and the change was saved
@@ -56,18 +99,53 @@ bool addQualScore(int badgeNum, const char* qualType, int score, const char* dat
 /// @return true if the officer existed and the change was saved
 bool deleteOfficer(int badgeNum);
 
+/// @brief Reads the drills array: [ { "drillName", "sequence" }, ... ].
+/// @param out document to fill
+/// @return true if the drills section exists and was copied
+bool getDrills(JsonDocument& out);
+
+/// @brief Reads one drill: { "drillName", "sequence" }. Nested drills are not expanded.
+/// @param drillName name of the drill
+/// @param out document to fill
+/// @return true if the drill exists and was copied
+bool getDrill(const char* drillName, JsonDocument& out);
+
 /// @brief Adds a drill. Each step's action must be present/hide/pause/delay (delay needs a
 ///        positive timeMs) or the name of another existing drill, without forming a loop.
-/// @param drillName unique drill name
+/// @param drillName unique, non-empty drill name other than present/hide/pause/delay
 /// @param sequence array of { "step", "action", "timeMs"? } objects
+/// @param qualifications optional registered qualification names; omitted preserves legacy behavior
 /// @return true if the drill is valid and was saved
-bool addDrill(const char* drillName, JsonArrayConst sequence);
+bool addDrill(const char* drillName, JsonArrayConst sequence, JsonArrayConst qualifications = JsonArrayConst());
 
 /// @brief Replaces a drill's sequence, validated the same way as addDrill().
 /// @param drillName name of the drill to edit
 /// @param newSequence replacement sequence
+/// @param qualifications optional registered qualification names; omitted preserves existing assignments
 /// @return true if the drill exists, the sequence is valid, and the change was saved
-bool editDrill(const char* drillName, JsonArrayConst newSequence);
+bool editDrill(const char* drillName, JsonArrayConst newSequence, JsonArrayConst qualifications = JsonArrayConst());
+
+/// @brief Reads qualification names, including defaults for older databases.
+/// @param out document to fill with the names array
+/// @return true if the database could be read
+bool getQualifications(JsonDocument& out);
+
+/// @brief Saves a unique qualification name on the controller.
+/// @param name non-empty name of at most 32 bytes
+/// @return true if the name is valid, unique, and saved
+bool addQualification(const char* name);
+
+/// @brief Checks whether a name is reserved for a step action (present/hide/pause/delay) and so
+///        can't be used as a drill name.
+/// @param drillName name to check
+/// @return true if the name is reserved
+bool isReservedDrillName(const char* drillName);
+
+/// @brief Renames a drill and updates every step in other drills that includes it by name.
+/// @param oldName current name of the drill
+/// @param newName new name; must be non-empty, unused, and not present/hide/pause/delay
+/// @return true if the drill exists, the new name is valid, and the change was saved
+bool renameDrill(const char* oldName, const char* newName);
 
 /// @brief Deletes a drill, refusing while another drill still includes it as a step.
 /// @param drillName name of the drill to delete

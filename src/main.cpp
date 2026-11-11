@@ -7,7 +7,7 @@ void setup(){
     Serial.begin(115200);
 
     // set up core designations
-    //hal_init(); // commented out until further testing
+    hal_init();
 
     // start database
     startLFS();

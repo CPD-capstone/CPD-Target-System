@@ -1,0 +1,700 @@
+/* Performance page palette and layout are isolated from the existing pages. */
+.performance-page {
+    --performance-ink: #14232d;
+    --performance-muted: #687780;
+    --performance-line: #dce3e5;
+    --performance-paper: #ffffff;
+    --performance-ground: #f2f5f4;
+    --performance-blue: #0057b8;
+    --performance-red: #bd3b32;
+    --performance-green: #26745b;
+    min-height: 100vh;
+    background: var(--performance-ground);
+    color: var(--performance-ink);
+    font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif;
+}
+
+.performance-main {
+    padding-bottom: 4rem !important;
+}
+
+.section-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1.5rem;
+}
+
+.section-heading h2 {
+    margin: 0;
+    font-weight: 750;
+}
+
+.performance-toolbar,
+.performance-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.performance-toolbar {
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.performance-search {
+    display: flex;
+    width: min(100%, 25rem);
+    min-height: 2.65rem;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0 0.75rem;
+    border: 1px solid #cbd5d8;
+    border-radius: 0.375rem;
+    background: var(--performance-paper);
+    color: var(--performance-muted);
+}
+
+.performance-search .form-control {
+    min-width: 0;
+    padding: 0.45rem 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    font-size: 0.9rem;
+}
+
+.performance-search:focus-within {
+    border-color: var(--performance-blue);
+    box-shadow: 0 0 0 0.2rem rgba(0, 87, 184, 0.15);
+}
+
+/* The search wrapper provides the blue focus indicator. */
+.performance-search .form-control:focus {
+    outline: none;
+}
+
+.performance-action-button {
+    display: inline-flex;
+    min-height: 2.65rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    border: 1px solid #cbd5d8;
+    border-radius: 0.375rem;
+    color: var(--performance-ink);
+    background: var(--performance-paper);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.performance-action-button:hover,
+.performance-action-button[aria-expanded="true"] {
+    border-color: var(--performance-blue);
+    color: var(--performance-blue);
+}
+
+.performance-sort {
+    display: flex;
+    min-height: 2.65rem;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--performance-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.performance-sort .form-select {
+    width: auto;
+    min-width: 8.5rem;
+    min-height: 2.65rem;
+    border-color: #cbd5d8;
+    border-radius: 0.375rem;
+    color: var(--performance-ink);
+    font-size: 0.82rem;
+}
+
+.filter-count {
+    display: grid;
+    min-width: 1.2rem;
+    height: 1.2rem;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--performance-blue);
+    color: #fff;
+    font-size: 0.68rem;
+}
+
+.performance-filter-menu {
+    width: min(20rem, calc(100vw - 2rem));
+    padding: 0;
+    border: 1px solid var(--performance-line);
+    border-radius: 0.375rem;
+    box-shadow: 0 0.75rem 2rem rgba(20, 35, 45, 0.16);
+}
+
+.filter-menu-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--performance-line);
+}
+
+.filter-menu-heading .btn-link {
+    padding: 0;
+    border-radius: 0.375rem;
+    color: var(--performance-blue);
+    text-decoration: none;
+}
+
+.filter-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.55rem 0.75rem;
+    margin: 0;
+    padding: 0.8rem 1rem;
+    border: 0;
+    border-bottom: 1px solid var(--performance-line);
+}
+
+.filter-group legend {
+    float: none;
+    width: 100%;
+    margin: 0;
+    color: var(--performance-muted);
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.filter-group label {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.84rem;
+}
+
+.filter-group input[type="checkbox"] {
+    width: 1rem;
+    height: 1rem;
+    accent-color: var(--performance-blue);
+}
+
+.filter-range-group {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+}
+
+.filter-range-group legend {
+    grid-column: 1 / -1;
+}
+
+.filter-range-group .form-control {
+    min-height: 2.2rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 0.2rem;
+    font-size: 0.8rem;
+}
+
+.performance-message {
+    min-height: 1.4rem;
+    margin: 0 0 0.6rem;
+    color: var(--performance-muted);
+    font-size: 0.85rem;
+}
+
+.performance-message.is-error {
+    color: #a32d27;
+}
+
+.performance-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border: 1px solid var(--performance-line);
+    background: var(--performance-paper);
+}
+
+.performance-metric {
+    display: flex;
+    min-height: 8.4rem;
+    flex-direction: column;
+    justify-content: center;
+    padding: 1.2rem 1.5rem;
+}
+
+.performance-metric + .performance-metric {
+    border-left: 1px solid var(--performance-line);
+}
+
+.metric-label,
+.metric-note {
+    color: var(--performance-muted);
+    font-size: 0.78rem;
+}
+
+.metric-label {
+    font-weight: 700;
+}
+
+.metric-value {
+    margin: 0.2rem 0;
+    font-size: 2rem;
+    line-height: 1.1;
+}
+
+.metric-highlight {
+    border-top: 3px solid var(--performance-red);
+}
+
+.performance-records {
+    margin-top: 1.75rem;
+    border: 1px solid var(--performance-line);
+    background: var(--performance-paper);
+}
+
+.section-heading h2 {
+    font-size: 1.15rem;
+}
+.record-count {
+    color: var(--performance-muted);
+    font-size: 0.8rem;
+}
+
+
+.performance-records {
+    overflow: hidden;
+}
+
+.records-heading {
+    padding: 1.25rem 1.5rem;
+    align-items: center;
+}
+
+.performance-table thead th {
+    padding: 0.75rem 1.5rem;
+    border-color: var(--performance-line);
+    background: #f6f8f8;
+    color: var(--performance-muted);
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.performance-table tbody td {
+    padding: 0.9rem 1.5rem;
+    border-color: #e8edee;
+    color: var(--performance-ink);
+    font-size: 0.88rem;
+}
+
+.performance-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.score-value {
+    font-weight: 800;
+}
+
+.score-standing {
+    display: inline-flex;
+    min-width: 4.7rem;
+    justify-content: center;
+    padding: 0.25rem 0.45rem;
+    background: #e8f3ee;
+    color: var(--performance-green);
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.score-standing.is-developing {
+    background: #fff2df;
+    color: #875b16;
+}
+
+.table-empty {
+    height: 5rem;
+    color: var(--performance-muted) !important;
+    text-align: center;
+}
+
+.performance-page button:focus-visible,
+.performance-page input:focus-visible {
+    outline: 3px solid #e5ad45;
+    outline-offset: 2px;
+}
+
+/* Filter fields and checkboxes share the blue focus treatment used by score entry. */
+.performance-page .performance-filter-menu input:focus,
+.performance-page #performanceExportForm input:focus,
+.performance-page #performanceExportForm button:focus-visible,
+.performance-page #filterButton:focus-visible,
+.performance-page #clearFiltersButton:focus-visible {
+    outline: none;
+    border-color: var(--performance-blue);
+    box-shadow: 0 0 0 0.2rem rgba(0, 87, 184, 0.2);
+}
+
+.export-button {
+    display: inline-flex;
+    min-height: 2.65rem;
+    align-items: center;
+    gap: 0.45rem;
+    border-radius: 0.375rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+@media (max-width: 700px) {
+    .performance-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .performance-search {
+        width: 100%;
+    }
+
+    /* AI-modified (Claude): was 3 equal columns, but the Sort select's 8.5rem minimum is wider
+       than a third of a phone screen, so it overlapped Export PDF. Now Filter and Sort share
+       the first row (each allowed to shrink) and Export PDF gets its own full-width row. */
+    .performance-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.5rem;
+    }
+
+    .performance-actions > .dropdown,
+    .performance-actions .performance-action-button,
+    .performance-sort,
+    .performance-sort .form-select {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .performance-actions .export-button {
+        grid-column: 1 / -1;
+        justify-content: center;
+    }
+
+    .performance-action-button {
+        padding-right: 0.5rem;
+        padding-left: 0.5rem;
+    }
+
+    .performance-metric {
+        min-height: 7rem;
+        padding: 0.9rem;
+    }
+
+    .metric-value {
+        font-size: 1.6rem;
+    }
+
+    .metric-note {
+        font-size: 0.68rem;
+    }
+
+    .performance-table thead th,
+    .performance-table tbody td {
+        padding-right: 0.75rem;
+        padding-left: 0.75rem;
+    }
+
+    .performance-table thead th {
+        font-size: 0.62rem;
+    }
+}
+
+@media (max-width: 420px) {
+    .performance-metrics {
+        grid-template-columns: 1fr;
+    }
+
+    .performance-metric {
+        min-height: 5.8rem;
+    }
+
+    .performance-metric + .performance-metric {
+        border-top: 1px solid var(--performance-line);
+        border-left: 0;
+    }
+
+    .metric-highlight {
+        border-top: 3px solid var(--performance-red) !important;
+    }
+}
+
+@media print {
+    @page {
+        size: letter;
+        margin: 15mm;
+    }
+
+    .performance-page > * {
+        display: none !important;
+    }
+
+    .performance-page > #performanceExportReport {
+        display: block !important;
+        font: 11pt/1.4 Arial, sans-serif;
+        color: #000;
+        overflow-wrap: anywhere;
+    }
+
+    #performanceExportReport h1 {
+        font-size: 20pt;
+        margin-bottom: 0.5rem;
+    }
+
+    #performanceExportReport table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    #performanceExportReport th,
+    #performanceExportReport td {
+        padding: 0.45rem;
+        border: 1px solid #999;
+        text-align: left;
+        vertical-align: top;
+    }
+
+    #performanceExportReport tr {
+        break-inside: avoid;
+    }
+
+    #performanceExportReport thead {
+        display: table-header-group;
+    }
+
+    .performance-page {
+        background: #fff;
+        color: #000;
+    }
+
+    .performance-toolbar,
+    .performance-message,
+    .offcanvas,
+    .offcanvas-backdrop {
+        display: none !important;
+    }
+
+    .performance-main {
+        width: 100%;
+        padding: 0;
+    }
+
+    .performance-metrics,
+    .performance-records {
+        break-inside: avoid;
+        border-color: #999;
+        box-shadow: none;
+    }
+
+    .performance-records {
+        overflow: visible;
+    }
+
+    .performance-table {
+        font-size: 9pt;
+    }
+}
+
+#performanceExportForm .form-control {
+    min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+}
+
+/* Add scores dialog: ported from Oviya's oviyaTest branch ("AI-assisted change: align the
+   batch-entry controls with the Results section"). AI-modified (Claude): own @media blocks,
+   an in-dialog error line, hidden when printing. */
+.add-scores {
+    margin: 1.25rem 0 0.75rem;
+}
+
+.add-scores-toolbar {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.add-scores-toggle {
+    width: 7.4rem;
+    justify-content: center;
+}
+
+.add-scores-dialog {
+    width: min(42rem, calc(100vw - 2rem));
+    max-width: none;
+    max-height: min(85vh, 48rem);
+    margin: auto;
+    padding: 1.25rem;
+    border: 0;
+    border-radius: 0.75rem;
+    background: var(--performance-paper);
+    color: var(--performance-ink);
+    box-shadow: 0 1rem 3rem rgba(20, 35, 45, 0.24);
+    overflow-y: auto;
+}
+
+.add-scores-dialog::backdrop {
+    background: rgba(20, 35, 45, 0.55);
+}
+
+.add-scores-dialog-heading {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding-right: 2rem;
+    margin-bottom: 1.25rem;
+}
+
+.add-scores-dialog-heading h2 {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 750;
+}
+
+.add-scores-dialog-heading .btn-close {
+    position: absolute;
+    top: 0;
+    right: 0;
+}
+
+.add-scores-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    max-width: 48rem;
+    margin-bottom: 1.25rem;
+}
+
+.add-scores-fields label {
+    display: grid;
+    gap: 0.4rem;
+    color: var(--performance-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.score-entry-list {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.score-entry {
+    display: grid;
+    grid-template-columns: 4.5rem minmax(5rem, 0.7fr) minmax(10rem, 1fr) 2.65rem;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+/* Keep each score, date, and remove button aligned within its own row. */
+.score-entry > .form-control {
+    min-width: 0;
+    min-height: 2.65rem;
+}
+
+/* Score and date fields use one blue focus indicator for mouse and keyboard input. */
+.performance-page .score-entry > .form-control:focus {
+    outline: none;
+    border-color: var(--performance-blue);
+    box-shadow: 0 0 0 0.2rem rgba(0, 87, 184, 0.2);
+}
+
+.score-entry-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.remove-score-entry {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.65rem;
+    min-width: 2.65rem;
+    min-height: 2.65rem;
+    padding: 0;
+}
+
+.add-scores-error {
+    margin: 1rem 0 0;
+    color: #b02a37;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.add-scores-footer {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1.25rem;
+}
+
+.add-scores-buttons {
+    display: flex;
+    width: 100%;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+@media (max-width: 700px) {
+    .add-scores-fields {
+        grid-template-columns: 1fr;
+    }
+
+    .score-entry {
+        grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr) 2.65rem;
+        gap: 0.4rem;
+    }
+
+    .score-entry-label {
+        grid-column: 1 / -1;
+    }
+
+    .add-scores-footer {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .add-scores-buttons {
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 420px) {
+    .add-scores-dialog {
+        padding: 0.85rem;
+    }
+}
+
+@media print {
+    .add-scores {
+        display: none;
+    }
+}
+
+/* AI-generated (Claude): Officer standing table (last 12 months, from the controller). */
+.standing-note {
+    color: var(--performance-muted);
+    font-size: 0.8rem;
+}
+
+.standing-cell {
+    white-space: nowrap;
+}
+
+.standing-average {
+    font-weight: 750;
+}
+
+.standing-detail {
+    display: block;
+    color: var(--performance-muted);
+    font-size: 0.75rem;
+}
