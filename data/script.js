@@ -2219,10 +2219,11 @@ if (document.getElementById('drillList')) {
             // Preserve a broken reference so Save reports it rather than silently replacing it.
             if (action && !choices.some((drill) => drill.drillName === action)) {
                 const unavailable = document.createElement('option');
-                unavailable.textContent = `Unavailable drill: ${action}`;
                 unavailable.value = action;
                 unavailable.disabled = true;
-                select.append(unavailable);
+                // AI-modified: render the saved drill name as text, not markup.
+                unavailable.append(document.createTextNode(`Unavailable drill: ${action}`));
+                select.add(unavailable);
             }
             select.value = action;
             select.addEventListener('change', () => { block.dataset.action = select.value; });
