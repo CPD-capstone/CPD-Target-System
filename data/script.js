@@ -217,7 +217,12 @@ connectionAlert.type = 'button';
 connectionAlert.className = 'connection-alert';
 connectionAlert.hidden = true;
 connectionAlert.setAttribute('aria-live', 'polite');
+// AI-generated (Claude): the banner's current state (null, 'poor' or 'none') and the state the
+// operator dismissed. A dismissal lasts until the state changes, not just until the next poll.
+let connectionState = null;
+let dismissedConnectionState = null;
 connectionAlert.addEventListener('click', () => {
+    dismissedConnectionState = connectionState;
     connectionAlert.hidden = true;
 });
 drillStatus.insertAdjacentElement('afterend', connectionAlert);
@@ -225,9 +230,12 @@ drillStatus.insertAdjacentElement('afterend', connectionAlert);
 const setConnectionStatus = (state, rssi = null) => {
     const isPoor = state === 'poor';
     const isNone = state === 'none';
+    // AI-generated (Claude): a new state clears an earlier dismissal so the banner shows again
+    connectionState = isPoor || isNone ? state : null;
+    if (connectionState !== dismissedConnectionState) dismissedConnectionState = null;
     const lastBanner = document.getElementById('controllerTestBanner') || drillStatus;
     lastBanner.insertAdjacentElement('afterend', connectionAlert);
-    connectionAlert.hidden = !isPoor && !isNone;
+    connectionAlert.hidden = !connectionState || connectionState === dismissedConnectionState;
     connectionAlert.classList.toggle('connection-alert-poor', isPoor);
     connectionAlert.classList.toggle('connection-alert-none', isNone);
     connectionAlert.replaceChildren();
@@ -314,25 +322,38 @@ let stageControlRequestPending = false;
 const controllerStatusListeners = [];
 let drillStatusTimer = null;
 
+// AI-generated (Claude): out of WiFi range, fetch() usually hangs instead of failing, which froze
+// polling and left a stale banner up. Each poll now times out, failed polls retry quickly, and
+// only the newest poll may update the page (an older, slower request can't overwrite it).
+const STATUS_POLL_TIMEOUT_MS = 3000;
+const STATUS_RETRY_MS = 1000;
+let drillStatusPollId = 0;
+
 const pollDrillStatus = async () => {
     clearTimeout(drillStatusTimer);
+    const pollId = ++drillStatusPollId;
+    const abort = new AbortController();
+    const abortTimer = setTimeout(() => abort.abort(), STATUS_POLL_TIMEOUT_MS);
+    let reached = false; // the controller answered (even with an error status)
+    let status = null;
     try {
-        const response = await fetchController('/api/drill/status', { cache: 'no-store' });
-        controllerStatus = response.ok ? await response.json() : null;
-        if (controllerStatus) {
-            if (controllerStatus.signal === 'weak' && Number.isFinite(controllerStatus.rssi)) {
-                setConnectionStatus('poor');
-            }
-            else if (controllerStatus.signal === 'weak'
-                || controllerStatus.signal === 'none' || controllerStatus.signal === 'unknown'
-                || !Number.isFinite(controllerStatus.rssi)) {
-                setConnectionStatus('none');
-            }
-            else if (controllerStatus.signal === 'good') setConnectionStatus(null);
-        }
+        const response = await controllerFetch('/api/drill/status', { cache: 'no-store', signal: abort.signal });
+        reached = true;
+        status = response.ok ? await response.json() : null;
     } catch {
+        status = null;
+    } finally {
+        clearTimeout(abortTimer); // kept running until the body is read, so a stalled body times out too
+    }
+    if (pollId !== drillStatusPollId) return; // a newer poll started; it owns the page and the timer
+
+    controllerStatus = status;
+    if (!reached) {
         setConnectionStatus('none');
-        controllerStatus = null;
+    } else if (status) {
+        // A successful reply means we are connected: only a measured weak signal shows a banner
+        // ("unknown" = the controller couldn't look up this phone's signal, not a lost connection)
+        setConnectionStatus(status.signal === 'weak' && Number.isFinite(status.rssi) ? 'poor' : null);
     }
     // An active drill takes precedence over a saved manual-mode preference (AI-assisted with Codex).
     if (manualMode && ['running', 'paused'].includes(controllerStatus?.state)) {
@@ -341,7 +362,8 @@ const pollDrillStatus = async () => {
     }
     controllerStatusListeners.forEach((listener) => listener(controllerStatus));
     const drillActive = controllerStatus && controllerStatus.state !== 'idle';
-    drillStatusTimer = setTimeout(pollDrillStatus, drillActive ? 500 : 3000);
+    // AI-modified (Claude): retry sooner while the controller can't be reached
+    drillStatusTimer = setTimeout(pollDrillStatus, !reached ? STATUS_RETRY_MS : drillActive ? 500 : 3000);
 };
 
 // AI-generated (Claude): POSTs (or PUTs, via method) to the controller and throws an Error with
