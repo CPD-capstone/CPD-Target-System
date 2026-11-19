@@ -2,8 +2,10 @@
 
 <img width="1983" height="793" alt="image" src="https://github.com/user-attachments/assets/66b43d6c-0ca7-4143-83f6-1cb8a4265fc6" />
 
+Members: Vidhula Oviya Vasanthan, Luke Sapp, Joey Borrelli, Isaac Brown, Connor Smith
 
-A web-based control and qualification-tracking system for the Cookeville Police Department range.
+Project Description:
+A web-based control and qualification-tracking system for the Cookeville Police Department's range.
 
 ## Control Targets
 
