@@ -2,7 +2,8 @@
 
 Members: Vidhula Oviya Vasanthan, Luke Sapp, Joey Borrelli, Isaac Brown, Connor Smith
 
-Project Description
+Project Description:
+
 A web-based control and qualification-tracking system for the Cookeville Police Department range.
 
 
