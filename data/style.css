@@ -537,6 +537,21 @@
     white-space: nowrap;
 }
 
+/* AI-generated (Claude): start delay note under the drill buttons, and its Settings target. */
+.start-delay-note {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4rem;
+    margin: 0.5rem 0 0;
+    color: #6c757d;
+    font-size: 0.85rem;
+}
+
+.settings-anchor {
+    scroll-margin-top: 1rem;
+}
+
 /* AI-generated (Claude): "Targets: 1-5 (5)  Change" line under the drill buttons. */
 .drill-target-summary:not([hidden]) {
     display: flex;

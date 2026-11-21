@@ -70,7 +70,7 @@ const faqGroups = [
             },
             {
                 question: 'How do I change the delay before a drill starts?',
-                answer: 'Open Settings and choose Instant, Set time, or Random under Drill start delay. A fixed delay can be set from 1 to 30 seconds; the setting is saved on that phone.'
+                answer: 'Open Settings and choose Instant, Set time, or Random under Drill start delay. A fixed delay can be set from 1 to 30 seconds; the setting is saved on that phone. The Targets page shows the current setting under the drill buttons; tap Change there to jump to it.'
             }
         ]
     },
@@ -420,6 +420,24 @@ const getStartDelaySetting = () => {
     }
     return { mode: 'fixed', seconds: 3 };
 };
+
+// AI-generated (Claude): plain-language description of the start delay, for the Targets page.
+const describeStartDelay = (setting = getStartDelaySetting()) => {
+    if (setting.mode === 'instant') return 'Start and Resume: instant, no countdown';
+    if (setting.mode === 'random') return 'Start and Resume: random 1 to 5 second countdown first';
+    return `Start and Resume: ${setting.seconds}-second countdown first`;
+};
+
+const startDelayNoteText = document.getElementById('startDelayNoteText');
+if (startDelayNoteText) {
+    startDelayNoteText.textContent = describeStartDelay();
+    // Another tab (e.g. Settings) changed it
+    window.addEventListener('storage', (event) => {
+        if (event.key === startDelayStorageKey) startDelayNoteText.textContent = describeStartDelay();
+    });
+    // Coming back to this page from Settings with the browser's Back button
+    window.addEventListener('pageshow', () => { startDelayNoteText.textContent = describeStartDelay(); });
+}
 
 const pickStartDelayMs = () => {
     const setting = getStartDelaySetting();

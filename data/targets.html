@@ -97,6 +97,13 @@
                 </button>
             </div>
             <p class="small text-muted mb-0" id="resetStageHint" aria-live="polite" hidden></p>
+            <!-- AI-generated (Claude): what Start / Resume do (Settings > Drill start delay, saved
+                 per phone), with a link to change it. script.js fills the text. -->
+            <p class="start-delay-note" id="startDelayNote">
+                <i class="bi bi-stopwatch" aria-hidden="true"></i>
+                <span id="startDelayNoteText">Start and Resume: 3-second countdown first</span>
+                <a href="settings.html#startDelay">Change</a>
+            </p>
             <!-- AI-generated (Claude): the targets confirmed in the picker for the selected drill
                  (drills that ask which targets to use). script.js fills it. -->
             <p class="drill-target-summary" id="drillTargetSummary" aria-live="polite" hidden>
@@ -316,7 +323,7 @@
     <!-- Bootstrap JS -->
     <script src="vendor/bootstrap.bundle.min.js"></script>
     <!-- Fetch the updated target controls when this page reloads. -->
-    <script src="script.js?v=ui-changes-12"></script>
+    <script src="script.js?v=ui-changes-13"></script>
 
 </body>
 </html>
