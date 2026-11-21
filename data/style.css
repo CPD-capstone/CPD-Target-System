@@ -588,6 +588,33 @@
     background: #f1f6fc;
 }
 
+/* AI-generated (Claude): Hide / Show row at the top of the description */
+.drill-description-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.drill-description-summary {
+    min-width: 0;
+    color: #495057;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+}
+
+.drill-description-toggle {
+    flex: none;
+    font-size: 0.85rem;
+}
+
+#drillDescriptionBody {
+    margin-top: 0.35rem;
+}
+
 .drill-description-title {
     margin-bottom: 0.25rem;
     color: #0057b8;

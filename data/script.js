@@ -911,6 +911,24 @@ const renderDescriptionText = (element, text, nextPart) => {
     }));
 };
 
+// AI-generated (Claude): whether the description panel is collapsed (per tab)
+const drillDescriptionStorageKey = 'cpd-description-collapsed';
+const drillDescriptionCollapsed = () => {
+    try {
+        return sessionStorage.getItem(drillDescriptionStorageKey) === 'true';
+    } catch {
+        return false;
+    }
+};
+document.getElementById('drillDescriptionToggle')?.addEventListener('click', () => {
+    try {
+        sessionStorage.setItem(drillDescriptionStorageKey, String(!drillDescriptionCollapsed()));
+    } catch {
+        // storage unavailable: the panel just stays as it is
+    }
+    updateDrillStatus();
+});
+
 const renderDrillDescription = (status, drillSelect) => {
     const panel = document.getElementById('drillDescription');
     if (!panel) return;
@@ -936,6 +954,15 @@ const renderDrillDescription = (status, drillSelect) => {
     const stageText = stage?.description || '';
     panel.hidden = !drillText && !stageText;
     if (panel.hidden) return;
+
+    // AI-generated (Claude): collapsed, only the header line ("Briefing: Stage 2") shows
+    const collapsed = drillDescriptionCollapsed();
+    const summaryName = stage ? shortStageName(name, stageName) : name;
+    document.getElementById('drillDescriptionSummary').textContent = `Briefing: ${summaryName}`;
+    document.getElementById('drillDescriptionBody').hidden = collapsed;
+    const toggle = document.getElementById('drillDescriptionToggle');
+    toggle.textContent = collapsed ? 'Show' : 'Hide';
+    toggle.setAttribute('aria-expanded', String(!collapsed));
 
     const title = document.getElementById('drillDescriptionTitle');
     const text = document.getElementById('drillDescriptionText');

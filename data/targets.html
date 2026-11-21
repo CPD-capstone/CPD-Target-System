@@ -113,11 +113,19 @@
             <!-- AI-generated (Claude): drill description for briefing the shooter. Shown with a drill
                  selected (before it starts) and while it is paused; for a full drill, the stage that
                  is about to run. script.js fills it. -->
-            <section class="drill-description" id="drillDescription" aria-labelledby="drillDescriptionTitle" hidden>
-                <h3 class="drill-description-title" id="drillDescriptionTitle"></h3>
-                <div class="drill-description-text" id="drillDescriptionText"></div>
-                <h3 class="drill-description-title mt-2" id="drillStageDescriptionTitle" hidden></h3>
-                <div class="drill-description-text" id="drillStageDescriptionText" hidden></div>
+            <!-- AI-modified (Claude): collapsible; collapsed it keeps one line naming what it
+                 describes. The choice lasts for the tab (sessionStorage). -->
+            <section class="drill-description" id="drillDescription" aria-label="Drill description" hidden>
+                <div class="drill-description-header">
+                    <span class="drill-description-summary" id="drillDescriptionSummary"></span>
+                    <button class="btn btn-link btn-sm p-0 drill-description-toggle" id="drillDescriptionToggle" type="button" aria-expanded="true" aria-controls="drillDescriptionBody">Hide</button>
+                </div>
+                <div id="drillDescriptionBody">
+                    <h3 class="drill-description-title" id="drillDescriptionTitle"></h3>
+                    <div class="drill-description-text" id="drillDescriptionText"></div>
+                    <h3 class="drill-description-title mt-2" id="drillStageDescriptionTitle" hidden></h3>
+                    <div class="drill-description-text" id="drillStageDescriptionText" hidden></div>
+                </div>
             </section>
             <!-- AI-generated (Claude): drill timer. Time left in the delay step being run, shown only
                  while a drill is running or paused. script.js drives it from /api/drill/status. -->
@@ -353,7 +361,7 @@
     <!-- Bootstrap JS -->
     <script src="vendor/bootstrap.bundle.min.js"></script>
     <!-- Fetch the updated target controls when this page reloads. -->
-    <script src="script.js?v=ui-changes-21"></script>
+    <script src="script.js?v=ui-changes-22"></script>
 
 </body>
 </html>
