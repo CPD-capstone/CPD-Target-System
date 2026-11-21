@@ -830,21 +830,15 @@ const updateDrillStatus = () => {
         if (previousStageButton) previousStageButton.hidden = stageCount < 2;
         if (nextStageButton) nextStageButton.hidden = stageCount < 2;
     }
-    const resetStageHint = document.getElementById('resetStageHint');
-    if (resetStageHint) {
-        resetStageHint.hidden = !showStageNav;
-        resetStageHint.textContent = status?.stageResetPending
-            ? `Hiding targets and moving to ${pendingStageJump || 'the new stage'}. Wait for Resume.`
-            : `Back, Redo and Skip hide the targets and wait at the start of that ${showPartNav ? 'stage or part' : 'stage'} until you press Resume.`;
-    }
     if (drillSelect) drillSelect.disabled = manualMode || drillActive || stopped || countingDown;
 
     // AI-generated (Claude): the drill buttons appear once a drill is selected (or one is running
     // or counting down). Stop also stays visible in manual mode: it is the only emergency stop.
     const showDrillButtons = (Boolean(drillSelect?.value) && !manualMode) || drillActive || countingDown;
-    [startDrillButton, pauseDrillButton].forEach((button) => {
-        if (button) button.hidden = !showDrillButtons;
-    });
+    // AI-modified (Claude): Start / Resume and Pause share one slot: Pause while the drill runs,
+    // Start (or Resume) otherwise.
+    if (startDrillButton) startDrillButton.hidden = !showDrillButtons || state === 'running';
+    if (pauseDrillButton) pauseDrillButton.hidden = !showDrillButtons || state !== 'running';
     renderDrillDescription(status, drillSelect);
     renderDrillTargetSummary();
 };
