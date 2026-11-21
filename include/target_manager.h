@@ -10,7 +10,9 @@
 // Step actions:  "present" -> selected targets face the shooter
 //                "hide"    -> selected targets turn away
 //                "delay"   -> wait timeMs
-//                "pause"   -> hold until resumeDrill() (operator continues the drill)
+//                "yield"   -> hold until resumeDrill() (hands control back to the operator, who
+//                             continues the drill). AI-modified (Claude): was "pause", which is
+//                             still accepted for drills saved before the rename.
 //                <drill name> -> run that drill's steps in place
 // A delay after "present" starts once every selected target is fully facing the shooter
 // (solenoid fired + the target flip delay: getFaceTravelMs(), default TARGET_FACE_TRAVEL_MS in hal.h). Timing is accurate to ~10 ms (HAL loop
@@ -28,7 +30,7 @@
 enum class DrillState : uint8_t {
     Idle,     // no drill running
     Running,  // executing steps
-    Paused    // waiting for resumeDrill(), at a "pause" step or after pauseDrill()
+    Paused    // waiting for resumeDrill(), at a "yield" step or after pauseDrill()
 };
 
 // AI-assisted (Claude): result/status types so the web API can tell the operator *why*
@@ -90,7 +92,7 @@ struct DrillStatus {
     char drillName[DRILL_NAME_MAX];
     uint16_t step;            // 1-based step being run (nested drills already inlined); 0 when idle
     uint16_t stepCount;       // total steps in the drill
-    const char* stepAction;   // "present" / "hide" / "delay" / "pause"; "" when idle
+    const char* stepAction;   // "present" / "hide" / "delay" / "yield"; "" when idle
     uint32_t targetMask;      // targets the drill uses, after excluding non-working ones
     DrillOutcome lastOutcome; // how the most recent drill ended
     bool stopped;             // emergency stop is latched (cleared by resetTargets())
@@ -136,7 +138,7 @@ DrillStartResult executeDrill(const String& drillName, uint32_t targetMask = 0);
 /// @return true if a running drill was told to pause, false if no drill is running (or already paused)
 bool pauseDrill();
 
-/// @brief continues a paused drill, whether it was paused by a "pause" step or by pauseDrill().
+/// @brief continues a paused drill, whether it stopped at a "yield" step or was paused by pauseDrill().
 ///        A delay that was interrupted continues with the time it had left.
 /// @return true if Resume was accepted; false if not paused, stopped, or reset/Resume is pending
 bool resumeDrill();

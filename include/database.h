@@ -116,9 +116,9 @@ bool getDrills(JsonDocument& out);
 /// @return true if the drill exists and was copied
 bool getDrill(const char* drillName, JsonDocument& out);
 
-/// @brief Adds a drill. Each step's action must be present/hide/pause/delay (delay needs a
+/// @brief Adds a drill. Each step's action must be present/hide/yield/delay (delay needs a
 ///        positive timeMs) or the name of another existing drill, without forming a loop.
-/// @param drillName unique, non-empty drill name other than present/hide/pause/delay
+/// @param drillName unique, non-empty drill name other than present/hide/yield/delay
 /// @param sequence array of { "step", "action", "timeMs"? } objects
 /// @param qualifications optional registered qualification names; omitted preserves legacy behavior
 /// @param description AI-generated (Claude): optional text shown to the range instructor before the
@@ -137,6 +137,17 @@ bool addDrill(const char* drillName, JsonArrayConst sequence, JsonArrayConst qua
 bool editDrill(const char* drillName, JsonArrayConst newSequence, JsonArrayConst qualifications = JsonArrayConst(),
                const char* description = nullptr);
 
+/// AI-generated (Claude): why deleteQualification() did or didn't delete
+enum class QualificationDeleteResult : uint8_t { Deleted, NotFound, BuiltIn, HasScores, SaveFailed };
+
+/// @brief AI-generated (Claude): deletes a custom qualification and removes it from every drill
+///        tagged with it. Refused for Pistol / Rifle / SWAT, and while any officer has a score
+///        recorded under it, so no score history is ever lost.
+/// @param name qualification name (case-insensitive)
+/// @param scoreCount set to the number of recorded scores when the result is HasScores, else 0
+/// @return Deleted, or why it wasn't
+QualificationDeleteResult deleteQualification(const char* name, int& scoreCount);
+
 /// @brief Reads qualification names, including defaults for older databases.
 /// @param out document to fill with the names array
 /// @return true if the database could be read
@@ -147,7 +158,7 @@ bool getQualifications(JsonDocument& out);
 /// @return true if the name is valid, unique, and saved
 bool addQualification(const char* name);
 
-/// @brief Checks whether a name is reserved for a step action (present/hide/pause/delay) and so
+/// @brief Checks whether a name is reserved for a step action (present/hide/yield/delay) and so
 ///        can't be used as a drill name.
 /// @param drillName name to check
 /// @return true if the name is reserved
@@ -155,7 +166,7 @@ bool isReservedDrillName(const char* drillName);
 
 /// @brief Renames a drill and updates every step in other drills that includes it by name.
 /// @param oldName current name of the drill
-/// @param newName new name; must be non-empty, unused, and not present/hide/pause/delay
+/// @param newName new name; must be non-empty, unused, and not present/hide/yield/delay
 /// @return true if the drill exists, the new name is valid, and the change was saved
 bool renameDrill(const char* oldName, const char* newName);
 

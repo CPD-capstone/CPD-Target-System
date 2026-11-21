@@ -628,7 +628,7 @@
   ],
 
   "drills": [
-    {"drillName": "Pistol Qual Stage 1", "builtIn": true,
+    {"drillName": "Pistol Qual Stage 1", "builtIn": true, "qualifications": ["Pistol"],
       "description": "Distance: 3-yard line (grassy area between the timber beams and the concrete)\nRounds/Time: 3 rounds in 4 seconds / SWAP TO SUPPORT HAND / 3 rounds in 4 seconds\nPart 1 (4 s): On command, the shooter draws and fires 3 rounds in the high thoracic cavity STRONG HAND ONLY. The shooter then slowly swaps the handgun to the support hand and stays in the low ready position.\nPart 2 (4 s): On command, the shooter fires 3 rounds in the high thoracic cavity from low ready SUPPORT HAND ONLY.\nUpon completing Stage 1, the shooter holsters.",
       "sequence": [
         {
@@ -646,7 +646,7 @@
         },
         {
           "step": 4,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 5,
@@ -663,7 +663,7 @@
         }
       ] 
     },  
-    { "drillName": "Pistol Qual Stage 2", "builtIn": true,
+    { "drillName": "Pistol Qual Stage 2", "builtIn": true, "qualifications": ["Pistol"],
       "description": "Distance: 5-yard line (back edge of the first concrete pad)\nRounds/Time: 3 rounds in 3 seconds / ADMIN RELOAD / 3 rounds in 5 seconds / 6 rounds in 4 seconds\nPart 1 (3 s): On command, the shooter draws and fires 3 rounds in the high thoracic cavity, then administratively reloads the handgun and slowly holsters.\nPart 2 (5 s): On command, the shooter draws and fires 2 rounds to the high thoracic cavity and 1 round to the head FAILURE DRILL. Upon completion the shooter stays in the low ready position.\nPart 3 (4 s): On command, the shooter fires 6 rounds in the high thoracic cavity from low ready.\nUpon completing Stage 2, the shooter holsters.",
       "sequence": [
         {
@@ -681,7 +681,7 @@
         },
         {
           "step": 4,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 5,
@@ -698,7 +698,7 @@
         },
         {
           "step": 8,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 9,
@@ -715,7 +715,7 @@
         }
       ]
     },
-    { "drillName": "Pistol Qual Stage 3", "builtIn": true,
+    { "drillName": "Pistol Qual Stage 3", "builtIn": true, "qualifications": ["Pistol"],
       "description": "Distance: 7-yard line (back edge of second concrete pad)\nRounds/Time: 5 rounds in 5 seconds / 8 rounds in 8 seconds with reload / 5 rounds in 4 seconds\nPart 1 (5 s): On command, the shooter draws and fires 5 rounds in the high thoracic cavity. Upon completion the shooter stays in the low ready position.\nPart 2 (8 s): On command, the shooter fires 8 rounds in the high thoracic cavity from low ready, to include a reload. Upon completion the shooter stays in the low ready position.\nPart 3 (4 s): On command, the shooter fires 5 rounds in the high thoracic cavity from low ready.\nUpon completing Stage 3, the shooter holsters.",
       "sequence": [
         {
@@ -733,7 +733,7 @@
         },
         {
           "step": 4,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 5,
@@ -750,7 +750,7 @@
         },
         {
           "step": 8,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 9,
@@ -767,7 +767,7 @@
         }
       ]
     },
-    { "drillName": "Pistol Qual Stage 4", "builtIn": true,
+    { "drillName": "Pistol Qual Stage 4", "builtIn": true, "qualifications": ["Pistol"],
       "description": "Distance: 15-yard line (back edge of third concrete pad)\nRounds/Time: 3 rounds in 6 seconds / 3 rounds in 5 seconds\nPart 1 (6 s): On command, the shooter draws and fires 3 rounds in the high thoracic cavity. Upon completion the shooter stays in the low ready position.\nPart 2 (5 s): On command, the shooter fires 3 rounds in the high thoracic cavity from low ready.\nUpon completion of Stage 4, the shooter holsters.",
       "sequence":[
         {
@@ -785,7 +785,7 @@
         },
         {
           "step": 4,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 5,
@@ -802,7 +802,7 @@
         }
       ]
     },
-    {"drillName": "Pistol Qual Stage 5", "builtIn": true,
+    {"drillName": "Pistol Qual Stage 5", "builtIn": true, "qualifications": ["Pistol"],
       "description": "Distance: 25-yard line (back edge of the fourth concrete pad)\nRounds/Time: 8 rounds in 20 seconds\nOn command, the shooter draws and fires 4 rounds standing and 4 rounds kneeling in the high thoracic cavity in 20 seconds.\nUpon completing Stage 5, the shooter performs a safety check, administratively unloads the weapon, and holsters an empty weapon.",
       "sequence":[
         {
@@ -820,7 +820,7 @@
         }
       ]
     },
-    { "drillName": "Pistol Qual Full Drill", "builtIn": true,
+    { "drillName": "Pistol Qual Full Drill", "builtIn": true, "qualifications": ["Pistol"],
       "description": "Ammunition: 50 rounds\nTarget: ANT4-CPD-P 23\"x35\"\nQualifying score: 75\n2 points for hits in the high thoracic cavity box or head circle\n1 point for hits in the body outside of the designated target area (HTC or head)\nAUTOMATIC DQ FOR TOTAL BODY MISS",
       "sequence":[
         {
@@ -829,7 +829,7 @@
         },
         {
           "step": 2,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 3,
@@ -837,7 +837,7 @@
         },
         {
           "step": 4,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 5,
@@ -845,7 +845,7 @@
         },
         {
           "step": 6,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 7,
@@ -853,7 +853,7 @@
         },
         {
           "step": 8,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 9,
@@ -862,7 +862,7 @@
       ]
     },
 
-    { "drillName": "Rifle Qual Stage 1", "builtIn": true,
+    { "drillName": "Rifle Qual Stage 1", "builtIn": true, "qualifications": ["Rifle"],
       "description": "Distance: 50-yard line\nRounds/Time: 20 rounds in 60 seconds\nStart at the High Ready Position with a loaded weapon, selector lever on safe.\nOn command, fire 4 rounds standing, 4 rounds kneeling, 4 rounds prone, 4 rounds kneeling, and 4 rounds standing in 60 seconds. All rounds are to the high thoracic cavity target area. The selector lever must be placed on safe prior to moving to and from the prone position. Upon completion, place the selector lever on safe, sling the weapon muzzle down and maintain positive control of the weapon and selector lever.",
       "sequence":[
         {
@@ -880,7 +880,7 @@
         }
       ]
     },
-    { "drillName": "Rifle Qual Stage 2", "builtIn": true,
+    { "drillName": "Rifle Qual Stage 2", "builtIn": true, "qualifications": ["Rifle"],
       "description": "Distance: 25-yard line\nRounds/Time: 10 rounds in 15 seconds (5 rounds RELOAD 5 rounds)\nStart at the High Ready or Low Ready Position with the selector lever on safe.\nOn command, fire 10 rounds standing with a reload in 15 seconds. All rounds are to the high thoracic cavity target area.\nUpon completion, place the selector lever on safe, sling the weapon muzzle down and maintain positive control of the weapon and selector lever.",
       "sequence":[
         {
@@ -898,7 +898,7 @@
         }
       ]
     },
-    { "drillName": "Rifle Qual Stage 3", "builtIn": true,
+    { "drillName": "Rifle Qual Stage 3", "builtIn": true, "qualifications": ["Rifle"],
       "description": "Distance: 15-yard line\nRounds/Time: 5 rounds in 6 seconds\nStart at the High Ready or Low Ready Position with the selector lever on safe.\nOn command, fire 5 rounds standing in 6 seconds. All rounds are to the high thoracic cavity target area.\nUpon completion, place the selector lever on safe, sling the weapon muzzle down and maintain positive control of the weapon and selector lever.",
       "sequence": [
         {
@@ -916,7 +916,7 @@
         }
       ]
     },
-    { "drillName": "Rifle Qual Stage 4", "builtIn": true,
+    { "drillName": "Rifle Qual Stage 4", "builtIn": true, "qualifications": ["Rifle"],
       "description": "Distance: 7-yard line\nRounds/Time: 5 rounds in 4 seconds / 5 rounds in 3 seconds\nStart at the High Ready Position with the selector lever on safe.\nPart 1 (4 s): On command, fire 5 rounds standing. All rounds are to the high thoracic cavity target area. Upon completion, place the selector lever on safe, sling the weapon muzzle down and maintain positive control of the weapon and selector lever. Go back to the Low Ready Position.\nPart 2 (3 s): On command, fire 5 rounds standing. All rounds are to the high thoracic cavity target area.\nUpon completion, place the selector lever on safe, sling the weapon muzzle down and maintain positive control of the weapon and selector lever.",
       "sequence":[
         {
@@ -934,7 +934,7 @@
         },
         {
           "step": 4,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 5,
@@ -951,7 +951,7 @@
         }
       ]
     },
-    { "drillName": "Rifle Qual Stage 5", "builtIn": true,
+    { "drillName": "Rifle Qual Stage 5", "builtIn": true, "qualifications": ["Rifle"],
       "description": "Distance: 5-yard line\nRounds/Time: 5 rounds in 3 seconds\nStart at the Low Ready Position with the selector lever on safe.\nOn command, fire 5 rounds standing in 3 seconds. All rounds are to the high thoracic cavity target area.\nUpon completion, perform a safety check and sling the weapon safe and empty.",
       "sequence":[
         {
@@ -969,7 +969,7 @@
         }
       ]
     },
-    { "drillName": "Rifle Qual Full Drill", "builtIn": true,
+    { "drillName": "Rifle Qual Full Drill", "builtIn": true, "qualifications": ["Rifle"],
       "description": "Ammunition: 50 rounds (2 25-round magazines)\nTarget: ANT4-CPD-P 23\"x35\"\nQualifying score: 75\n2 points for hits in the high thoracic cavity box or head circle\n1 point for hits in the body outside of the designated target area (HTC or head)\nAUTOMATIC DQ FOR TOTAL BODY MISS",
       "sequence":[
         {
@@ -978,7 +978,7 @@
         },
         {
           "step": 2,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 3,
@@ -986,7 +986,7 @@
         },
         {
           "step": 4,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 5,
@@ -994,7 +994,7 @@
         },
         {
           "step": 6,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 7,
@@ -1002,7 +1002,7 @@
         },
         {
           "step": 8,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 9,
@@ -1011,7 +1011,7 @@
       ]
     },
 
-    { "drillName": "SWAT Qual Stage 1", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 1", "builtIn": true, "qualifications": ["SWAT"],
       "description": "Distance: 50-yard line\nRounds/Time: 4 rounds in 10 seconds rifle\nOn command, 2 rounds standing, 2 rounds kneeling HTC",
       "sequence": [
         {
@@ -1029,7 +1029,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 2", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 2", "builtIn": true, "qualifications": ["SWAT"],
       "description": "Movement: Run from 50yd to 25yd\nRounds/Time: 4 rounds in 12 seconds rifle\nOn command, 2 rounds standing, 2 rounds kneeling HTC",
       "sequence": [
         {
@@ -1047,7 +1047,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 3", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 3", "builtIn": true, "qualifications": ["SWAT"],
       "description": "Distance: 25-yard line (Barricade)\nRounds/Time: 4 rounds in 12 seconds rifle\nOn command, 2 rounds left side standing, reload, 2 rounds right side standing HTC",
       "sequence": [
         {
@@ -1065,7 +1065,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 4", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 4", "builtIn": true, "qualifications": ["SWAT"],
       "description": "Movement: Run from 25yd to 15yd\nRounds/Time: 2 rounds in 6 seconds rifle\nOn command, 2 rounds standing HTC",
       "sequence": [
         {
@@ -1083,7 +1083,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 5", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 5", "builtIn": true, "qualifications": ["SWAT"],
       "description": "Distance: 15-yard line\nRounds/Time: 2 rounds in 3 seconds rifle\nOn command, right side 90-degree pivot, 2 rounds standing HTC",
       "sequence": [
         {
@@ -1101,7 +1101,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 6", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 6", "builtIn": true, "qualifications": ["SWAT"],
       "description": "Distance: 15-yard line\nRounds/Time: 2 rounds in 3 seconds rifle\nOn command, left side 90-degree pivot, 2 rounds standing HTC",
       "sequence": [
         {
@@ -1119,7 +1119,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 7", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 7", "builtIn": true, "qualifications": ["SWAT"],
       "description": "Movement: Run from 15yd to 7yd\nRounds/Time: 4 rounds in 8 seconds\nOn command, 2 rounds rifle, transition to pistol, 2 rounds HTC (admin reload rifle)",
       "sequence": [
         {
@@ -1137,7 +1137,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 8", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 8", "builtIn": true, "qualifications": ["SWAT"],
       "description": "Distance: 7-yard line\nRounds/Time: 4 rounds in 2 seconds rifle\nOn command, 4 rounds standing HTC",
       "sequence":[
         {
@@ -1155,7 +1155,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 9", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 9", "builtIn": true, "qualifications": ["SWAT"],
       "description": "Movement: Walk 7yd to 4yd\nRounds/Time: 2 rounds in 3 seconds rifle\nOn command, 2 rounds HTC",
       "sequence":[
         {
@@ -1173,7 +1173,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 10", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 10", "builtIn": true, "qualifications": ["SWAT"],
       "description": "Movement: Walk backwards 4yd to 7yd\nRounds/Time: 2 rounds in 2 seconds rifle\nOn command, 2 rounds HTC",
       "sequence":[
         {
@@ -1191,7 +1191,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 11", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 11", "builtIn": true, "qualifications": ["SWAT"],
       "description": "Distance: 7-yard line\nRounds/Time: 4 rounds in 5 seconds\nOn command, 2 rounds rifle HTC, transition to pistol, 2 rounds HTC (close bolt on empty chamber)",
       "sequence":[
         {
@@ -1209,7 +1209,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 12", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 12", "builtIn": true, "qualifications": ["SWAT"],
       "description": "Distance: 7-yard line\nRounds/Time: 2 rounds in 4 seconds\nOn command, attempt rifle fire, transition to pistol, 2 rounds HTC strong hand only",
       "sequence":[
         {
@@ -1227,7 +1227,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 13", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 13", "builtIn": true, "qualifications": ["SWAT"],
       "description": "Distance: 7-yard line\nRounds/Time: 2 rounds in 3 seconds\nOn command, rifle slung, pistol support hand only from low ready, 2 rounds HTC",
       "sequence":[
         {
@@ -1245,7 +1245,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 14", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 14", "builtIn": true, "qualifications": ["SWAT"],
       "description": "Distance: 7-yard line\nRounds/Time: 4 rounds in 8 seconds\nOn command, attempt rifle fire, transition to pistol, 2 rounds HTC, reload, 2 rounds HTC",
       "sequence":[
         {
@@ -1263,7 +1263,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 15", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 15", "builtIn": true, "qualifications": ["SWAT"],
       "description": "Movement: Walk 7yd to 4yd\nRounds/Time: 2 rounds in 4 seconds\nOn command, attempt rifle fire, transition to pistol, 2 rounds HTC",
       "sequence":[
         {
@@ -1281,7 +1281,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 16", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 16", "builtIn": true, "qualifications": ["SWAT"],
       "description": "Distance: 4-yard line\nRounds/Time: 4 rounds in 5 seconds\nOn command, attempt rifle fire, transition to pistol, 4 rounds HTC",
       "sequence":[
         {
@@ -1299,7 +1299,7 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 17", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 17", "builtIn": true, "qualifications": ["SWAT"],
       "description": "Distance: 4-yard line\nRounds/Time: 2 rounds in 3 seconds\nOn command, attempt rifle fire, transition to pistol, 2 rounds head",
       "sequence":[
             {
@@ -1318,7 +1318,7 @@
           ]
     },
     {
-      "drillName": "SWAT Qual Full Drill", "builtIn": true,
+      "drillName": "SWAT Qual Full Drill", "builtIn": true, "qualifications": ["SWAT"],
       "description": "Full kit (belt, plate carrier, helmet)\nAmmunition: Pistol 2 magazines of 10 rounds / Rifle 3 magazines of 10 rounds\nTarget: ANT4-CPD-P 23\"x35\"\nQualifying score: 90\n2 points for hits in the high thoracic cavity box or head circle\n1 point for hits in the body but outside of the designated target area (HTC or head)\nAUTOMATIC DQ FOR TOTAL BODY MISS",
       "sequence":[
         {
@@ -1327,7 +1327,7 @@
         },
         {
           "step": 2,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 3,
@@ -1335,7 +1335,7 @@
         },
         {
           "step": 4,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 5,
@@ -1343,7 +1343,7 @@
         },
         {
           "step": 6,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 7,
@@ -1351,7 +1351,7 @@
         },
         {
           "step": 8,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 9,
@@ -1359,7 +1359,7 @@
         },
         {
           "step": 10,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 11,
@@ -1367,7 +1367,7 @@
         },
         {
           "step": 12,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 13,
@@ -1375,7 +1375,7 @@
         },
         {
           "step": 14,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 15,
@@ -1383,7 +1383,7 @@
         },
         {
           "step": 16,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 17,
@@ -1391,7 +1391,7 @@
         },
         {
           "step": 18,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 19,
@@ -1399,7 +1399,7 @@
         },
         {
           "step": 20,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 21,
@@ -1407,7 +1407,7 @@
         },
         {
           "step": 22,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 23,
@@ -1415,7 +1415,7 @@
         },
         {
           "step": 24,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 25,
@@ -1423,7 +1423,7 @@
         },
         {
           "step": 26,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 27,
@@ -1431,7 +1431,7 @@
         },
         {
           "step": 28,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 29,
@@ -1439,7 +1439,7 @@
         },
         {
           "step": 30,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 31,
@@ -1447,7 +1447,7 @@
         },
         {
           "step": 32,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 33,

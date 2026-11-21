@@ -48,7 +48,7 @@ export async function createControllerTest() {
         .filter((target) => target.working !== false && (!requested?.length || requested.includes(target.id)))
         .map((target) => target.id);
     const stage = () => run.stages.filter((item) => item.first <= run.index
-        && (run.index < item.end || run.steps[run.index]?.action === 'pause')).pop();
+        && (run.index < item.end || run.steps[run.index]?.action === 'yield')).pop();
     // AI-generated (Claude): mirrors stageJumpTarget() and the part counts in target_manager.cpp.
     // AI-modified (Claude): returns the step index to jump to; part jumps stay inside the stage
     const jumpTarget = (jump) => {
@@ -57,14 +57,14 @@ export async function createControllerTest() {
         if (jump.endsWith('-part')) {
             const { partIndex, partCount } = partsOf(current);
             if (partCount < 2) return -1;
-            const betweenParts = run.index >= current.first && run.index < current.end && run.steps[run.index].action === 'pause';
+            const betweenParts = run.index >= current.first && run.index < current.end && run.steps[run.index].action === 'yield';
             const part = jump === 'current-part' ? partIndex : jump === 'previous-part' ? partIndex - 1
                 : partIndex + (betweenParts ? 2 : 1);
             if (part < 1 || part > partCount) return -1;
             let pauses = 0;
             for (let index = current.first; index < current.end; index++) {
                 if (pauses === part - 1) return index;
-                if (run.steps[index].action === 'pause') pauses++;
+                if (run.steps[index].action === 'yield') pauses++;
             }
             return -1;
         }
@@ -77,7 +77,7 @@ export async function createControllerTest() {
         if (!current || run.stagesAreParts) return { partIndex: 0, partCount: 0 };
         let before = 0, total = 0;
         for (let index = current.first; index < current.end; index++) {
-            if (run.steps[index].action !== 'pause') continue;
+            if (run.steps[index].action !== 'yield') continue;
             total++;
             if (index < run.index) before++;
         }
@@ -117,7 +117,7 @@ export async function createControllerTest() {
                 if (run.remaining > 0) break;
                 elapsed = -run.remaining;
                 run.remaining = null;
-            } else if (step.action === 'pause') {
+            } else if (step.action === 'yield') {
                 status.state = 'paused';
                 break;
             } else {
@@ -141,10 +141,11 @@ export async function createControllerTest() {
         const drill = database.drills.find((item) => item.drillName === name);
         if (!drill?.sequence?.length) refuse('Drill not found or empty.');
         for (const step of drill.sequence) {
-            if (['present', 'hide', 'pause', 'delay'].includes(step.action)) {
+            // AI-modified (Claude): "yield" (old name "pause", read as yield)
+            if (['present', 'hide', 'yield', 'pause', 'delay'].includes(step.action)) {
                 if (step.action === 'delay' && (!Number.isInteger(step.timeMs) || step.timeMs < 0)) refuse('Invalid delay.');
                 if (step.targets?.some((id) => !workingTargets().includes(id))) refuse('Drill contains a defective target.');
-                run.steps.push(step);
+                run.steps.push(step.action === 'pause' ? { ...step, action: 'yield' } : step);
             } else {
                 const first = run.steps.length;
                 expand(step.action, depth + 1);
@@ -154,21 +155,41 @@ export async function createControllerTest() {
     };
 
     // TEMPORARY TESTING BANNER AND NAVIGATION: KEEP THE BYPASS VISIBLE ON EVERY PAGE.
+    // AI-modified (Claude): a small pill fixed to the bottom-left corner instead of a full-width
+    // alert under the status bar, so the page looks as it will on the controller. Sits above the
+    // Stop bar when that is showing. (Its id is not controllerTestBanner on purpose: script.js
+    // would otherwise place the connection banner after it.)
+    const badgeStyle = document.createElement('style');
+    badgeStyle.textContent = `
+        .controller-test-badge { position: fixed; left: calc(0.75rem + env(safe-area-inset-left, 0px));
+            bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px)); z-index: 1042; display: flex;
+            align-items: center; gap: 0.5rem; padding: 0.3rem 0.65rem; border: 1px solid #e0b100;
+            border-radius: 2rem; background: #fff3cd; color: #664d03; font: 600 0.75rem/1.2 system-ui, sans-serif;
+            box-shadow: 0 0.15rem 0.5rem rgba(0, 0, 0, 0.15); opacity: 0.92; }
+        body.has-action-bar .controller-test-badge { bottom: calc(5.4rem + env(safe-area-inset-bottom, 0px)); }
+        .controller-test-badge button, .controller-test-badge a { padding: 0; border: 0; background: none;
+            color: #664d03; font: inherit; text-decoration: underline; }
+        @media print { .controller-test-badge { display: none; } }`;
+    document.head.append(badgeStyle);
     const banner = document.createElement('aside');
-    banner.className = 'alert alert-warning m-3';
-    banner.id = 'controllerTestBanner';
-    banner.textContent = 'TEMPORARY WEBPAGE TEST MODE — Controller bypassed. No hardware commands are sent. ';
+    banner.className = 'controller-test-badge';
+    banner.id = 'controllerTestBadge';
+    banner.title = 'Temporary webpage test mode: the controller is bypassed and no hardware commands are sent.';
+    const label = document.createElement('strong');
+    label.textContent = 'TEST MODE';
     const clear = document.createElement('button');
-    clear.className = 'btn btn-sm btn-outline-dark me-2';
-    clear.textContent = 'Clear test data';
+    clear.type = 'button';
+    clear.textContent = 'Clear';
+    clear.title = 'Clear test data (back to database.json)';
     clear.onclick = () => { sessionStorage.removeItem(storageKey); location.reload(); };
     const exit = document.createElement('a');
     const normalUrl = new URL(location.href);
     normalUrl.searchParams.delete('test');
     exit.href = normalUrl.href;
-    exit.textContent = 'Exit test mode';
-    banner.append(clear, exit);
-    (document.getElementById('drillStatus') || document.body.firstElementChild).after(banner);
+    exit.textContent = 'Exit';
+    exit.title = 'Exit test mode';
+    banner.append(label, clear, exit);
+    document.body.append(banner);
     document.querySelectorAll('a[href]').forEach((link) => {
         const url = new URL(link.href);
         if (link !== exit && url.origin === location.origin && url.pathname.endsWith('.html')) {
@@ -226,7 +247,7 @@ export async function createControllerTest() {
                 if (run.stagesAreParts) {
                     let first = 0;
                     run.steps.forEach((step, index) => {
-                        if (step.action !== 'pause') return;
+                        if (step.action !== 'yield') return;
                         if (index > first) run.stages.push({ name: '', first, end: index });
                         first = index + 1;
                     });
@@ -241,7 +262,7 @@ export async function createControllerTest() {
                 status.state = 'paused';
             } else if (route === '/api/drill/resume') {
                 if (status.state !== 'paused' || status.stageResetPending) refuse('No paused drill is ready to resume.');
-                if (!status.stageRestartReady && run.steps[run.index].action === 'pause') run.index++;
+                if (!status.stageRestartReady && run.steps[run.index].action === 'yield') run.index++;
                 status.stageRestartReady = false;
                 status.state = 'running';
             } else if (route === '/api/drill/jump') {
@@ -254,7 +275,7 @@ export async function createControllerTest() {
                     let pauses = 0;
                     for (let index = target.first; index < target.end; index++) {
                         if (pauses === body.part - 1) { step = index; break; }
-                        if (run.steps[index].action === 'pause') pauses++;
+                        if (run.steps[index].action === 'yield') pauses++;
                     }
                 }
                 if (step < 0) refuse('That stage or part does not exist in this drill');
@@ -337,6 +358,20 @@ export async function createControllerTest() {
                     if (index < 0) refuse('Officer not found');
                     database.Officers.splice(index, 1);
                 }
+            } else if (route === '/api/qualifications' && method === 'DELETE') {
+                // AI-generated (Claude): mirrors deleteQualification() in database.cpp
+                const name = (url.searchParams.get('name') || '').trim();
+                const names = database.qualifications || ['Pistol', 'Rifle', 'SWAT'];
+                const same = (other) => String(other).toLowerCase() === name.toLowerCase();
+                if (['pistol', 'rifle', 'swat'].includes(name.toLowerCase())) refuse('Pistol, Rifle and SWAT are built in and cannot be deleted');
+                if (!names.some(same)) refuse('Qualification not found');
+                const scores = database.Officers.reduce((total, officer) => total + Object.entries(officer.qualificationScores || {})
+                    .filter(([key]) => same(key)).reduce((sum, [, history]) => sum + (history?.length || 0), 0), 0);
+                if (scores) refuse(`${scores} ${scores === 1 ? 'score is' : 'scores are'} recorded under ${name}. It can only be deleted once it has no scores.`);
+                database.qualifications = names.filter((other) => !same(other));
+                database.drills.forEach((drill) => {
+                    if (Array.isArray(drill.qualifications)) drill.qualifications = drill.qualifications.filter((other) => !same(other));
+                });
             } else if (route === '/api/qualifications' && method === 'POST') {
                 const name = typeof body.name === 'string' ? body.name.trim() : '';
                 const names = database.qualifications || ['Pistol', 'Rifle', 'SWAT'];

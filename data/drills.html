@@ -22,6 +22,10 @@
     <link rel="stylesheet" href="vendor/bootstrap-icons.min.css">
     <link rel="stylesheet" href="vendor/barlow-condensed.css">
     <link rel="stylesheet" href="style.css">
+    <!-- AI-generated (Claude): Tactical theme (Settings > Theme, saved per phone). The script applies
+         the saved theme before the page draws, so it never flashes the normal colors first. -->
+    <link rel="stylesheet" href="tactical.css?v=2">
+    <script>try{if(localStorage.getItem('cpd-theme')==='tactical'){document.documentElement.classList.add('theme-tactical');document.documentElement.setAttribute('data-bs-theme','dark');}}catch(e){}</script>
 </head>
 <body>
     <!-- Drill status bar shared with the Targets page, so an active drill
@@ -47,7 +51,7 @@
         <div class="offcanvas-body">
             <div class="d-grid gap-2">
                 <!-- Same menu on every page, current page highlighted. -->
-                <a class="btn btn-outline-primary text-start" href="targets.html">Targets</a>
+                <a class="btn btn-outline-primary text-start" href="targets.html">Range Control</a>
                 <a class="btn btn-outline-primary text-start active" href="drills.html" aria-current="page">Drills</a>
                 <a class="btn btn-outline-primary text-start" href="Performance.html">Performance</a>
                 <!-- Start delay and WiFi password settings. -->
@@ -68,65 +72,56 @@
             </button>
         </div>
 
-        <!-- Filter between full drills, custom drills (made here) and the
-             built-in stages. -->
-        <div class="btn-group mb-4" role="group" aria-label="Filter drills">
-            <button class="btn btn-outline-primary drill-filter active" type="button" data-drill-filter="all" aria-pressed="true">All</button>
-            <button class="btn btn-outline-primary drill-filter" type="button" data-drill-filter="full" aria-pressed="false">Full drills</button>
-            <button class="btn btn-outline-primary drill-filter" type="button" data-drill-filter="custom" aria-pressed="false">Custom</button>
-            <button class="btn btn-outline-primary drill-filter" type="button" data-drill-filter="stages" aria-pressed="false">Stages</button>
-        </div>
-
-        <fieldset class="mb-4" aria-describedby="drillQualificationHint">
-            <legend class="fs-6 fw-semibold mb-2 d-flex align-items-center gap-2">
-                Qualifications
-                <button class="btn btn-link qualification-add-button" type="button" id="addQualificationButton" aria-label="Add qualification" title="Add qualification" disabled>
-                    <i class="bi bi-plus-lg border border-primary rounded-circle" aria-hidden="true"></i>
+        <!-- AI-modified (Claude): the only filter on this page. A qualification (Pistol, Rifle,
+             SWAT, or one added under Manage) groups its drills here and the scores officers earn
+             on the Performance page. Pick one chip to show its drills. Full drill / Stage /
+             Custom is a badge on each card, not a filter. script.js builds the chips. -->
+        <section class="mb-4" aria-labelledby="qualificationFilterTitle">
+            <div class="d-flex flex-wrap align-items-baseline justify-content-between gap-2 mb-2">
+                <h2 class="fs-6 fw-semibold mb-0" id="qualificationFilterTitle">Qualification</h2>
+                <button class="btn btn-link btn-sm p-0" type="button" id="manageQualificationsButton" disabled>
+                    <i class="bi bi-gear me-1" aria-hidden="true"></i>Manage qualifications
                 </button>
-            </legend>
-            <div class="d-flex flex-wrap gap-3" id="drillQualificationFilters">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="allDrillQualifications" checked>
-                    <label class="form-check-label" for="allDrillQualifications">All qualifications</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input drill-qualification-filter" type="checkbox" id="drillQualificationPistol" value="pistol" checked>
-                    <label class="form-check-label" for="drillQualificationPistol">Pistol</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input drill-qualification-filter" type="checkbox" id="drillQualificationRifle" value="rifle" checked>
-                    <label class="form-check-label" for="drillQualificationRifle">Rifle</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input drill-qualification-filter" type="checkbox" id="drillQualificationSwat" value="swat" checked>
-                    <label class="form-check-label" for="drillQualificationSwat">SWAT</label>
-                </div>
             </div>
-            <p class="form-text mb-0" id="drillQualificationHint">Show drills matching any selected qualification. All qualifications also includes custom drills without a qualification.</p>
-        </fieldset>
+            <div class="qualification-chips" id="qualificationChips" role="group" aria-labelledby="qualificationFilterTitle" aria-describedby="qualificationFilterHint"></div>
+            <p class="form-text mb-0" id="qualificationFilterHint">A qualification groups its drills here and the scores officers earn on the Performance page.</p>
+        </section>
 
         <div class="alert mb-4" id="drillListMessage" role="status" aria-live="polite" hidden></div>
         <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4" id="drillList" aria-live="polite"></div>
     </main>
 
+    <!-- AI-modified (Claude): manage qualifications (was add-only). Lists every qualification
+         with Delete for the custom ones (the controller refuses while officers have scores under
+         it) and an add form. -->
     <div class="modal fade" id="addQualificationModal" tabindex="-1" aria-labelledby="addQualificationTitle" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="addQualificationTitle">Add qualification</h5>
+                    <h5 class="modal-title" id="addQualificationTitle">Qualifications</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
+                    <p class="small text-secondary">
+                        A qualification groups drills (assign them in the drill editor) and the scores
+                        officers earn on the Performance page. Pistol, Rifle and SWAT are built in. A
+                        qualification can be deleted only while no scores are recorded under it.
+                    </p>
+                    <ul class="qualification-manage-list list-unstyled mb-3" id="qualificationManageList"></ul>
+                    <div class="alert py-2 small" id="qualificationManageMessage" role="status" hidden></div>
                     <form id="addQualificationForm" novalidate>
-                        <label class="form-label" for="qualificationName">Qualification name</label>
-                        <input class="form-control" id="qualificationName" maxlength="32" autocomplete="off" aria-describedby="qualificationNameHint qualificationNameError">
-                        <div class="invalid-feedback" id="qualificationNameError" role="alert"></div>
-                        <p class="form-text mb-0" id="qualificationNameHint">After adding a qualification, use Edit on a drill to assign it.</p>
+                        <label class="form-label" for="qualificationName">Add a qualification</label>
+                        <div class="d-flex gap-2 align-items-start">
+                            <div class="flex-grow-1">
+                                <input class="form-control" id="qualificationName" maxlength="32" autocomplete="off" placeholder="e.g. Shotgun" aria-describedby="qualificationNameError">
+                                <div class="invalid-feedback" id="qualificationNameError" role="alert"></div>
+                            </div>
+                            <button class="btn btn-primary flex-shrink-0" type="submit" id="saveQualificationButton">Add</button>
+                        </div>
                     </form>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
-                    <button class="btn btn-primary" type="submit" form="addQualificationForm" id="saveQualificationButton">Add qualification</button>
+                    <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Done</button>
                 </div>
             </div>
         </div>
@@ -152,12 +147,12 @@
                         <div class="mb-3">
                             <label for="drillEditorDescription" class="form-label">Description <span class="text-secondary fw-normal">(optional)</span></label>
                             <textarea class="form-control" id="drillEditorDescription" rows="4" maxlength="2000" placeholder="e.g. Distance: 7-yard line. On command, draw and fire 3 rounds in 4 seconds." aria-describedby="drillEditorDescriptionHint"></textarea>
-                            <p class="form-text mb-0" id="drillEditorDescriptionHint">Shown on the Targets page before the drill starts and while it is paused, so the instructor can brief the shooter.</p>
+                            <p class="form-text mb-0" id="drillEditorDescriptionHint">Shown on the Range Control page before the drill starts and while it is paused, so the instructor can brief the shooter.</p>
                         </div>
                         <fieldset class="mb-3">
                             <legend class="form-label fs-6 mb-1">Qualifications</legend>
                             <div class="d-flex flex-wrap gap-3" id="drillEditorQualifications"></div>
-                            <p class="form-text mb-0">Run drill blocks also inherit qualifications from their saved drills.</p>
+                            <p class="form-text mb-0">Which qualifications this drill belongs to (it is listed under each on the Drills and Range Control pages). A full drill also counts under its stages' qualifications.</p>
                         </fieldset>
                         <span class="form-label d-block mb-1">Blocks</span>
                         <p class="small text-secondary mb-2">Drag a block into the sequence, or tap it to add it to the end.</p>
@@ -165,7 +160,7 @@
                             <button type="button" class="seq-palette-block seq-palette-block--present" data-block="present"><i class="bi bi-eye-fill" aria-hidden="true"></i> Present</button>
                             <button type="button" class="seq-palette-block seq-palette-block--delay" data-block="delay"><i class="bi bi-stopwatch" aria-hidden="true"></i> Delay</button>
                             <button type="button" class="seq-palette-block seq-palette-block--hide" data-block="hide"><i class="bi bi-eye-slash-fill" aria-hidden="true"></i> Hide</button>
-                            <button type="button" class="seq-palette-block seq-palette-block--pause" data-block="pause"><i class="bi bi-pause-circle" aria-hidden="true"></i> Pause</button>
+                            <button type="button" class="seq-palette-block seq-palette-block--yield" data-block="yield" title="Hand control back to the operator until they press Start"><i class="bi bi-sign-yield" aria-hidden="true"></i> Yield</button>
                             <button type="button" class="seq-palette-block seq-palette-block--drill" data-block="run-drill"><i class="bi bi-collection" aria-hidden="true"></i> Run drill</button>
                         </div>
                         <div class="d-flex align-items-center justify-content-between gap-2 mt-3 mb-1">
@@ -215,5 +210,5 @@
     <script src="vendor/bootstrap.bundle.min.js"></script>
     <!-- SortableJS 1.15.2 (MIT), vendored gzipped, for touch-friendly drag and drop -->
     <script src="vendor/sortable.min.js"></script>
-    <script src="script.js?v=ui-changes-23"></script>
+    <script src="script.js?v=ui-changes-33"></script>
 </html>

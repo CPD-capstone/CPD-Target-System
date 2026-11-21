@@ -551,6 +551,25 @@
     white-space: nowrap;
 }
 
+/* AI-generated (Claude): Start / Resume (and Pause, which takes its place while a drill runs)
+   is the main action: a large button on its own full-width row under the drill picker */
+.drill-launch-bar #startDrillButton,
+.drill-launch-bar #pauseDrillButton {
+    display: inline-flex;
+    flex: 1 1 100%;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 3.5rem;
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.drill-launch-bar #startDrillButton .bi,
+.drill-launch-bar #pauseDrillButton .bi {
+    font-size: 1.5rem;
+}
+
 /* AI-generated (Claude): start delay note under the drill buttons, and its Settings target. */
 .start-delay-note {
     display: flex;
@@ -564,6 +583,37 @@
 
 .settings-anchor {
     scroll-margin-top: 1rem;
+}
+
+/* AI-generated (Claude): Settings card titles are toggles; the body opens below them */
+.settings-card-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: 100%;
+    min-height: 2.25rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+}
+
+.settings-card-chevron {
+    display: inline-block;
+    flex: none;
+    color: #6c757d;
+    transition: transform 0.15s ease;
+}
+
+.settings-card-toggle[aria-expanded="true"] .settings-card-chevron {
+    transform: rotate(180deg);
+}
+
+.settings-card-body {
+    margin-top: 0.75rem;
 }
 
 /* AI-generated (Claude): "Targets: 1-5 (5)  Change" line under the drill buttons. */
@@ -671,6 +721,28 @@
     margin-top: -0.75rem;
 }
 
+/* AI-generated (Claude): Performance page section headings with a Hide / Show button */
+.section-heading-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.section-collapse-toggle {
+    white-space: nowrap;
+}
+
+.section-collapse-toggle .bi {
+    display: inline-block; /* transforms don't apply to inline elements */
+    transition: transform 0.15s ease;
+}
+
+.section-collapse-toggle[aria-expanded="false"] .bi {
+    transform: rotate(180deg);
+}
+
 /* AI-generated (Claude): Stop / Reset bar pinned to the bottom of the Targets page. Above the
    page and the help button, below Bootstrap's offcanvas/modals (1045+). */
 .drill-action-bar {
@@ -696,6 +768,12 @@
 
 body.has-action-bar {
     padding-bottom: 5.5rem;
+}
+
+/* AI-generated (Claude): room under the last row of targets so it clears the bottom of the
+   screen and the floating help button (the Stop bar adds its own padding when shown). */
+.target-grid-area {
+    padding-bottom: 5rem;
 }
 
 body.has-action-bar .faq-help-button {
@@ -1034,6 +1112,41 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
     border-top: 1px solid #dee2e6;
 }
 
+/* AI-generated (Claude): the officer list scrolls on its own, about five officers tall */
+.officer-list {
+    max-height: 15.5rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0 0.75rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+}
+
+.officer-list .officer-row:last-child {
+    border-bottom: 0;
+}
+
+/* AI-generated (Claude): on phones Edit / Delete are icon-only so each officer fits on one line
+   (their aria-labels still say "Edit <name>" / "Delete <name>") */
+@media (max-width: 575.98px) {
+    .officer-row:not(:has(input)) {
+        flex-wrap: nowrap;
+    }
+
+    .officer-row:not(:has(input)) .officer-button-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+    }
+
+    .officer-row:not(:has(input)) .officer-row-badge {
+        white-space: nowrap;
+    }
+}
+
 .officer-row {
     display: flex;
     flex-wrap: wrap;
@@ -1083,6 +1196,47 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
 
 /* Drill sequence builder (Drills page editor). */
 /* Keep the plus visually small while giving fingers a full-size touch target. */
+/* AI-generated (Claude): Drills page qualification chips (the page's one filter) */
+.qualification-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.4rem;
+}
+
+.qualification-chips .btn {
+    min-height: 40px;
+    border-radius: 2rem;
+}
+
+.qualification-chip-count {
+    margin-left: 0.3rem;
+    opacity: 0.75;
+    font-size: 0.85em;
+}
+
+/* AI-generated (Claude): Manage qualifications list */
+.qualification-manage-list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.qualification-manage-name {
+    flex: 1 1 8rem;
+    min-width: 0;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.qualification-manage-meta {
+    color: #6c757d;
+    font-size: 0.8rem;
+}
+
 .qualification-add-button {
     display: inline-flex;
     align-items: center;
@@ -1131,8 +1285,14 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
 .seq-block--delay { --seq-color: #495057; --seq-tint: #e2e3e5; }
 .seq-palette-block--hide,
 .seq-block--hide { --seq-color: #dc3545; --seq-tint: #f8e8ea; }
-.seq-palette-block--pause,
-.seq-block--pause { --seq-color: #997404; --seq-tint: #fff3cd; }
+/* AI-modified (Claude): the Pause block is now Yield */
+/* AI-generated (Claude): reminder in Run drill blocks to add a Yield between drills */
+.seq-block-tip {
+    color: #8a5a00;
+}
+
+.seq-palette-block--yield,
+.seq-block--yield { --seq-color: #997404; --seq-tint: #fff3cd; }
 .seq-palette-block--drill,
 .seq-block--drill { --seq-color: #495057; --seq-tint: #f1f3f5; }
 

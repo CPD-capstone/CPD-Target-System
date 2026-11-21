@@ -162,7 +162,7 @@ static void handleEditDrill(AsyncWebServerRequest* request, JsonVariant& json) {
     if (renaming) {
         if (newName.isEmpty()) return sendError(request, 400, "drillName cannot be empty");
         if (isReservedDrillName(newName.c_str())) {
-            return sendError(request, 400, "drillName cannot be present, hide, pause or delay");
+            return sendError(request, 400, "drillName cannot be present, hide, yield, pause or delay");
         }
         if (getDrill(newName.c_str(), existing)) {
             return sendError(request, 409, "A drill with that name already exists");
@@ -630,6 +630,22 @@ void registerApiRoutes(AsyncWebServer& server) {
             return sendError(request, 400, "Enter a unique, short qualification name");
         }
         sendOk(request);
+    });
+    // AI-generated (Claude): DELETE /api/qualifications?name=<n>   (custom ones without scores)
+    server.on("/api/qualifications", HTTP_DELETE, [](AsyncWebServerRequest* request) {
+        String name;
+        if (!getQueryString(request, "name", name)) return sendError(request, 400, "name is required");
+        int scores = 0;
+        switch (deleteQualification(name.c_str(), scores)) {
+            case QualificationDeleteResult::Deleted:    return sendOk(request);
+            case QualificationDeleteResult::NotFound:   return sendError(request, 404, "Qualification not found");
+            case QualificationDeleteResult::BuiltIn:    return sendError(request, 409, "Pistol, Rifle and SWAT are built in and cannot be deleted");
+            case QualificationDeleteResult::HasScores:
+                return sendError(request, 409, (String(scores) + (scores == 1 ? " score is" : " scores are")
+                    + " recorded under " + name + ". It can only be deleted once it has no scores.").c_str());
+            case QualificationDeleteResult::SaveFailed: break;
+        }
+        sendError(request, 500, "Could not save the change");
     });
     server.on("/api/drills", HTTP_GET, handleGetDrills);
     onJsonBody(server, "/api/drills", HTTP_POST, handleAddDrill);

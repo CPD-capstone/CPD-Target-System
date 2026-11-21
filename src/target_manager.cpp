@@ -34,7 +34,7 @@
 // Anything in this unnamed namespace is private to target_manager.cpp
 namespace{
     // The four step types a drill is reduced to once nested drills are expanded
-    enum class StepType : uint8_t { Present, Hide, Delay, Pause };
+    enum class StepType : uint8_t { Present, Hide, Delay, Yield };
 
     // One entry in the flattened step list
     struct DrillStep {
@@ -140,7 +140,7 @@ namespace{
             case StepType::Present: return "present";
             case StepType::Hide:    return "hide";
             case StepType::Delay:   return "delay";
-            case StepType::Pause:   return "pause";
+            case StepType::Yield:   return "yield"; // AI-modified (Claude): was "pause"
         }
         return "";
     }
@@ -248,8 +248,10 @@ namespace{
                     randomCount = (uint8_t)count;
                 }
                 out.push_back({strcmp(action, "present") == 0 ? StepType::Present : StepType::Hide, 0, mask, randomCount});
-            }else if(strcmp(action, "pause") == 0){
-                out.push_back({StepType::Pause, 0, 0});
+            // AI-modified (Claude): "yield" (hand control back to the operator until Resume); the
+            // old name "pause" is still read so drills saved before the rename keep working
+            }else if(strcmp(action, "yield") == 0 || strcmp(action, "pause") == 0){
+                out.push_back({StepType::Yield, 0, 0});
             }else if(strcmp(action, "delay") == 0){
                 // A delay must have a whole, non-negative timeMs; reject the drill otherwise
                 // rather than guess a time during a qualification
@@ -490,7 +492,7 @@ namespace{
         for(size_t n = 0; n < activeStages.size(); n++){
             const DrillStage& stage = activeStages[n];
             if(stage.first > index) break;
-            if(index < stage.end || activeSteps[index].type == StepType::Pause){
+            if(index < stage.end || activeSteps[index].type == StepType::Yield){
                 stageIndex = n;
             }
         }
@@ -501,7 +503,7 @@ namespace{
             const DrillStage& stage = activeStages[stageIndex];
             uint16_t pausesBefore = 0, pauses = 0;
             for(size_t n = stage.first; n < stage.end; n++){
-                if(activeSteps[n].type != StepType::Pause) continue;
+                if(activeSteps[n].type != StepType::Yield) continue;
                 pauses++;
                 if(n < index) pausesBefore++;
             }
@@ -610,7 +612,7 @@ namespace{
                     result = waitMs(step.timeMs, true);
                     break;
 
-                case StepType::Pause:
+                case StepType::Yield:
                     // Wait for the operator to press Resume
                     result = pauseUntilResumed();
                     break;
@@ -716,7 +718,7 @@ namespace{
         uint16_t finalHold = 0;
         if(!stages.empty() && stages.back().end == steps.size()){
             steps.push_back({StepType::Hide, 0, 0, 0});  // mask 0 = all of the drill's targets
-            steps.push_back({StepType::Pause, 0, 0, 0});
+            steps.push_back({StepType::Yield, 0, 0, 0});
             finalHold = steps.size();                    // 1-based step number of that pause
         }
         // AI-generated (Claude): a drill without stages is navigated by parts instead: the runs of
@@ -726,7 +728,7 @@ namespace{
         if(partsOnly){
             size_t first = 0;
             for(size_t n = 0; n <= steps.size(); n++){
-                if(n < steps.size() && steps[n].type != StepType::Pause) continue;
+                if(n < steps.size() && steps[n].type != StepType::Yield) continue;
                 if(n > first){
                     DrillStage part = {};
                     part.first = first;
@@ -880,7 +882,7 @@ namespace {
         int pauses = 0;
         for(size_t n = stage.first; n < stage.end; n++){
             if(pauses == part - 1) return (int)n;
-            if(activeSteps[n].type == StepType::Pause) pauses++;
+            if(activeSteps[n].type == StepType::Yield) pauses++;
         }
         return -1;
     }
@@ -904,7 +906,7 @@ namespace {
         // At a pause inside the stage (between parts), "next part" skips the part Resume would start
         size_t index = currentStep ? currentStep - 1 : 0;
         bool betweenParts = index >= stage.first && index < stage.end
-                            && activeSteps[index].type == StepType::Pause;
+                            && activeSteps[index].type == StepType::Yield;
         int part = jump == StageJump::CurrentPart ? currentPart
                  : jump == StageJump::PreviousPart ? currentPart - 1
                  : currentPart + (betweenParts ? 2 : 1);

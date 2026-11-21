@@ -13,7 +13,7 @@
     <meta name="apple-mobile-web-app-title" content="CPD Range">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="theme-color" content="#0057b8">
-    <title>Targets</title>
+    <title>Range Control</title>
     <!-- AI-modified (Claude): Bootstrap, Bootstrap Icons and the banner font are served from
          data/vendor/ (LittleFS) instead of a CDN, because phones on the "CPD Range Control"
          access point have no internet. The .css/.js files are stored gzipped; serveStatic()
@@ -22,6 +22,10 @@
     <link rel="stylesheet" href="vendor/bootstrap-icons.min.css">
     <link rel="stylesheet" href="vendor/barlow-condensed.css">
     <link rel="stylesheet" href="style.css">
+    <!-- AI-generated (Claude): Tactical theme (Settings > Theme, saved per phone). The script applies
+         the saved theme before the page draws, so it never flashes the normal colors first. -->
+    <link rel="stylesheet" href="tactical.css?v=2">
+    <script>try{if(localStorage.getItem('cpd-theme')==='tactical'){document.documentElement.classList.add('theme-tactical');document.documentElement.setAttribute('data-bs-theme','dark');}}catch(e){}</script>
 </head>
 <body class="target-page">
     <!--Header area with text (moved above sidebar) -->
@@ -68,6 +72,14 @@
                     <span id="startCountdownNumber">3.00</span>&nbsp;s
                 </span>
             </div>
+            <!-- AI-generated (Claude): what Start / Resume do (Settings > Drill start delay, saved
+                 per phone), with a link to change it. script.js fills the text. AI-modified (Claude): right under
+                 the Start / Resume button it describes. -->
+            <p class="start-delay-note" id="startDelayNote">
+                <i class="bi bi-stopwatch" aria-hidden="true"></i>
+                <span id="startDelayNoteText">Start and Resume: 3-second delay first</span>
+                <a href="settings.html#startDelay">Change</a>
+            </p>
             <!-- AI-generated (Claude): compact stage control while a drill is running or paused:
                  ‹ previous stage | current stage (tap for the jump list) | next stage › | Redo,
                  and below it one chip per part of the current stage (tap to jump to that part).
@@ -96,13 +108,6 @@
                     <span class="part-chips-buttons" id="partChipButtons"></span>
                 </div>
             </div>
-            <!-- AI-generated (Claude): what Start / Resume do (Settings > Drill start delay, saved
-                 per phone), with a link to change it. script.js fills the text. -->
-            <p class="start-delay-note" id="startDelayNote">
-                <i class="bi bi-stopwatch" aria-hidden="true"></i>
-                <span id="startDelayNoteText">Start and Resume: 3-second delay first</span>
-                <a href="settings.html#startDelay">Change</a>
-            </p>
             <!-- AI-generated (Claude): the targets confirmed in the picker for the selected drill
                  (drills that ask which targets to use). script.js fills it. -->
             <p class="drill-target-summary" id="drillTargetSummary" aria-live="polite" hidden>
@@ -208,7 +213,7 @@
         <div class="offcanvas-body">
             <div class="d-grid gap-2">
                 <!-- AI-modified (Claude): same menu on every page, current page highlighted. -->
-                <a class="btn btn-outline-primary text-start active" href="targets.html" aria-current="page">Targets</a>
+                <a class="btn btn-outline-primary text-start active" href="targets.html" aria-current="page">Range Control</a>
                 <a class="btn btn-outline-primary text-start" href="drills.html">Drills</a>
                 <a class="btn btn-outline-primary text-start" href="Performance.html">Performance</a>
                 <!-- AI-generated (Claude): start delay and WiFi password settings. -->
@@ -217,7 +222,8 @@
         </div>
     </div>
 
-    <div class="container-fluid mt-3">
+    <!-- AI-modified (Claude): target-grid-area adds room below the last row (style.css). -->
+    <div class="container-fluid mt-3 target-grid-area">
         <!-- Keep two targets per row on phones, including landscape screens. -->
         <div class="row row-cols-2 row-cols-lg-3 row-cols-xl-4 g-2 row-gap-5" id="targetGrid"></div>
         <p class="text-secondary text-center m-3" id="targetFilterEmpty" role="status" hidden>No targets match the current filters.</p>
@@ -344,7 +350,7 @@
     </div>
 
     <!-- AI-generated (Claude): Stop pinned to the bottom of the screen whenever it can act (a drill
-         running or paused, a start delay counting down, or manual mode): it is the only emergency
+         running or paused, or a start delay counting down; not in manual mode): it is the only emergency
          stop, so it is always in the same place. After a Stop the same spot holds Reset, which
          clears the stop and hides every target. script.js shows one or the other. -->
     <div class="drill-action-bar" id="drillActionBar" hidden>
@@ -361,7 +367,7 @@
     <!-- Bootstrap JS -->
     <script src="vendor/bootstrap.bundle.min.js"></script>
     <!-- Fetch the updated target controls when this page reloads. -->
-    <script src="script.js?v=ui-changes-23"></script>
+    <script src="script.js?v=ui-changes-33"></script>
 
 </body>
 </html>

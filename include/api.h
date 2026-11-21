@@ -7,6 +7,8 @@
 // (database + target_manager). Routes, all JSON:
 //
 // REST API between UI and backend
+//   DELETE /api/qualifications?name=<n>   -> deleteQualification (custom only, refused while it has
+//          scores; untags its drills) (AI-generated, Claude)
 //   GET    /api/drills                     -> drills array
 //   POST   /api/drills                     {drillName, sequence, description?}  -> addDrill
 //   PUT    /api/drills?name=<drillName>    {sequence?, drillName?, description?} -> editDrill / renameDrill

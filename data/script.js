@@ -13,7 +13,7 @@ const faqGroups = [
             },
             {
                 question: 'Where can I find the main features?',
-                answer: 'Use the menu button to move between Targets, Drills, Performance, and Settings.'
+                answer: 'Use the menu button to move between Range Control, Drills, Performance, and Settings.'
             }
         ]
     },
@@ -22,7 +22,7 @@ const faqGroups = [
         questions: [
             {
                 question: 'How do I start a training drill?',
-                answer: 'On Targets, choose a drill from the Run a drill selector. If the drill asks which targets to use, check them and press Confirm targets; the targets are listed under the drill buttons (tap Change to pick again). Press Start drill when the instructor confirms the range is ready. Follow all range safety procedures.'
+                answer: 'On Range Control, choose a drill from the Run a drill selector. If the drill asks which targets to use, check them and press Confirm targets; the targets are listed under the drill buttons (tap Change to pick again). Press Start drill when the instructor confirms the range is ready. Follow all range safety procedures.'
             },
             {
                 question: 'Can I pause or stop a drill?',
@@ -30,11 +30,15 @@ const faqGroups = [
             },
             {
                 question: 'Can I go back, redo, or skip a stage?',
-                answer: 'Yes. While a drill is running or paused, a stage control appears under the drill buttons: the arrows go back or skip a stage, Redo restarts the current stage, and the numbered Part buttons jump to a part of it. Tap the stage name for a list of every stage and part to jump straight to any of them. Back, Redo, and Skip hide the targets and wait at the start of that stage or part until you press Resume. The targets hide and the drill waits at the start of that stage until you press Resume. Drills without stages move by part instead (a part is the steps between two pauses). The status bar shows the stage and part you are on.'
+                answer: 'Yes. While a drill is running or paused, a stage control appears under the drill buttons: the arrows go back or skip a stage, Redo restarts the current stage, and the numbered Part buttons jump to a part of it. Tap the stage name for a list of every stage and part to jump straight to any of them. Back, Redo, and Skip hide the targets and wait at the start of that stage or part until you press Resume. The targets hide and the drill waits at the start of that stage until you press Resume. Drills without stages move by part instead (a part is the steps between two yields). The status bar shows the stage and part you are on.'
+            },
+            {
+                question: 'What is a qualification?',
+                answer: 'A qualification (Pistol, Rifle, SWAT, or one you add) groups its drills on the Drills and Range Control pages and the scores officers earn on the Performance page. Use the chips on the Drills page to show one qualification\u2019s drills, and Manage qualifications to add one or delete a custom one (only while no scores are recorded under it). Put a drill in a qualification by checking it in the drill editor.'
             },
             {
                 question: 'How do I create a drill?',
-                answer: 'Open Drills and select Create Drill. Enter a name, then tap or drag Present, Delay, Hide, or Pause blocks into the sequence. Configure each block, arrange the steps, and select Save drill.'
+                answer: 'Open Drills and select Create Drill. Enter a name, then tap or drag Present, Delay, Hide, or Yield blocks into the sequence. Configure each block, arrange the steps, and select Save drill.'
             },
             {
                 question: 'How do I change the order or remove a drill step?',
@@ -42,11 +46,11 @@ const faqGroups = [
             },
             {
                 question: 'Can I add a description to a drill?',
-                answer: 'Yes. In the drill editor, type a Description. It appears on the Targets page when the drill is selected and while it is paused, so the instructor can brief the shooter. The qualification stages come with the descriptions from the department qualification sheets, with each timed section labelled Part 1, Part 2 and so on. A full drill\u2019s own description (such as a qualification\u2019s ammunition, target and scoring rules) shows on its card on the Drills page; Targets shows its stages.'
+                answer: 'Yes. In the drill editor, type a Description. It appears on the Range Control page when the drill is selected and while it is paused, so the instructor can brief the shooter. The qualification stages come with the descriptions from the department qualification sheets, with each timed section labelled Part 1, Part 2 and so on. A full drill\u2019s own description (such as a qualification\u2019s ammunition, target and scoring rules) shows on its card on the Drills page; Targets shows its stages.'
             },
             {
                 question: 'Can I customize a drill?',
-                answer: 'Yes. In the drill editor, Present and Hide steps can use all targets or a custom target selection; Present also supports choosing a random number of targets. Delay sets the wait time, and Pause waits for the operator to resume.'
+                answer: 'Yes. In the drill editor, Present and Hide steps can use all targets or a custom target selection; Present also supports choosing a random number of targets. Delay sets the wait time, and Yield hands control back to the operator until they press Start to continue.'
             },
             {
                 question: 'How do I edit or delete a drill?',
@@ -54,27 +58,31 @@ const faqGroups = [
             },
             {
                 question: 'How do I control targets manually?',
-                answer: 'On Targets, turn on Manual mode, then use the target controls. Manual controls are locked while manual mode is off. Follow range procedures before moving targets.'
+                answer: 'On Range Control, turn on Manual mode, then use the target controls. Manual controls are locked while manual mode is off. Follow range procedures before moving targets.'
             },
             {
                 question: 'Can I disable a malfunctioning target?',
-                answer: 'Authorized personnel can open Settings, find Defective targets, and check the target that is unavailable. It will be excluded from drills and manual commands and shown as unavailable on Targets. Clear the mark only after it has been checked and approved for use.'
+                answer: 'Authorized personnel can open Settings, find Defective targets, and check the target that is unavailable. It will be excluded from drills and manual commands and shown as unavailable on Range Control. Clear the mark only after it has been checked and approved for use.'
             },
             {
                 question: 'Can I see which targets are available?',
-                answer: 'The Targets page shows target status. Unavailable targets are marked visually; use Hide defective in the View controls to hide them from the grid without changing their status.'
+                answer: 'The Range Control page shows target status. Unavailable targets are marked visually; use Hide defective in the View controls to hide them from the grid without changing their status.'
             },
             {
                 question: 'How do I switch between grid and list view?',
-                answer: 'On Targets, tap View to open the View section, then use the Grid view and List view buttons. Your display choice is saved on that device. Filter targets in the same section shows only the target numbers you enter, such as 1, 3, 5-8.'
+                answer: 'On Range Control, tap View to open the View section, then use the Grid view and List view buttons. Your display choice is saved on that device. Filter targets in the same section shows only the target numbers you enter, such as 1, 3, 5-8.'
             },
             {
                 question: 'What is the target flip delay?',
                 answer: 'It is how long a target takes to turn and face the shooter. Drill timers start counting after it, so the shooter gets the full time once the target is facing. Set it in Settings under Target flip delay after timing a real target; it is saved on the controller for every phone.'
             },
             {
+                question: 'Can I change how the pages look?',
+                answer: 'Yes. Open Settings and choose a Theme: Normal (light, blue) or Tactical (dark, olive green and coyote tan). The choice is saved on that phone only.'
+            },
+            {
                 question: 'How do I change the delay before a drill starts?',
-                answer: 'Open Settings and choose Instant, Set time, or Random under Drill start delay. A fixed delay can be set from 1 to 30 seconds; the setting is saved on that phone. The Targets page shows the current setting under the drill buttons; tap Change there to jump to it.'
+                answer: 'Open Settings and choose Instant, Set time, or Random under Drill start delay. A fixed delay can be set from 1 to 30 seconds; the setting is saved on that phone. The Range Control page shows the current setting under the drill buttons; tap Change there to jump to it.'
             }
         ]
     },
@@ -516,7 +524,8 @@ document.addEventListener('visibilitychange', () => {
 
 // AI-generated (Claude): a "full drill" is a composite whose sequence runs other drills by
 // name (e.g. "Pistol Qual Full Drill"); everything else is a single stage.
-const basicDrillActions = new Set(['present', 'hide', 'pause', 'delay']);
+// AI-modified (Claude): "yield" is the new name of "pause" (kept so older drills still read as steps)
+const basicDrillActions = new Set(['present', 'hide', 'yield', 'pause', 'delay']);
 const isFullDrill = (drill) => (Array.isArray(drill?.sequence) ? drill.sequence : [])
     .some((step) => typeof step?.action === 'string' && !basicDrillActions.has(step.action));
 
@@ -527,6 +536,31 @@ const getDrillCategory = (drillId, drill) => {
     return drill?.builtIn === true ? 'stages' : 'custom';
 };
 
+// AI-generated (Claude): a drill's qualifications (lower-case names): its own "qualifications",
+// plus those of the stages it runs (a full drill counts under its stages' qualifications). Built-in
+// drills on a controller whose database predates explicit tags fall back to their name prefix.
+const drillQualificationList = (drill, allDrills, visited = new Set()) => {
+    const name = drill?.name || drill?.drillName;
+    const found = new Set();
+    if (!drill || visited.has(name)) return found;
+    visited.add(name);
+    if (Array.isArray(drill.qualifications)) {
+        drill.qualifications.forEach((qualification) => found.add(String(qualification).toLowerCase()));
+    } else if (drill.builtIn === true) {
+        const prefix = /^(pistol|rifle|swat) qual\b/i.exec(name || '');
+        if (prefix) found.add(prefix[1].toLowerCase());
+    }
+    (Array.isArray(drill.sequence) ? drill.sequence : []).forEach((step) => {
+        if (basicDrillActions.has(step?.action)) return;
+        const stage = allDrills.find((other) => (other.name || other.drillName) === step?.action);
+        drillQualificationList(stage, allDrills, visited).forEach((qualification) => found.add(qualification));
+    });
+    return found;
+};
+
+// AI-generated (Claude): qualification names for the Targets page's drill groups
+let targetPageQualifications = ['Pistol', 'Rifle', 'SWAT'];
+
 // AI-modified (Claude): drills come only from the controller (database.json); the phone-only
 // drill library in localStorage is gone. Every drill is listed (no five-drill limit).
 const getTargetDrillLibrary = (databaseDrills = []) => {
@@ -536,6 +570,7 @@ const getTargetDrillLibrary = (databaseDrills = []) => {
             name: drill.drillName.trim(),
             sequence: Array.isArray(drill.sequence) ? drill.sequence : [],
             builtIn: drill.builtIn === true,
+            qualifications: Array.isArray(drill.qualifications) ? drill.qualifications : undefined,
             // AI-generated (Claude): briefing text shown before the drill and at its pauses
             description: typeof drill.description === 'string' ? drill.description.trim() : ''
         }]);
@@ -576,7 +611,7 @@ const saveTargetCardStatus = (targetCard) => {
 const maxDrillNesting = 4; // MAX_NESTING_DEPTH in target_manager.cpp
 
 // AI-generated (Claude): stage navigation labels. The controller reports the current stage (or,
-// for a drill without stages, the current part: the steps between its pause steps); the other
+// for a drill without stages, the current part: the steps between its yield steps); the other
 // stages' names come from the drill's own sequence, the same order the controller flattens it.
 // pendingStageJump names the stage a Back / Redo / Skip is moving to while the controller hides
 // the targets.
@@ -626,13 +661,13 @@ const stageJumpTargets = (status) => {
     };
 };
 
-// AI-generated (Claude): parts in a stage drill (its pause steps + 1, nested drills included),
+// AI-generated (Claude): parts in a stage drill (its yield steps + 1, nested drills included),
 // mirroring how target_manager.cpp splits a stage into parts.
 const countDrillPauses = (name, depth = 1) => {
     const drill = findDrillByName(name);
     if (!drill || depth > maxDrillNesting) return 0;
     return (Array.isArray(drill.sequence) ? drill.sequence : []).reduce((total, step) => (
-        step?.action === 'pause' ? total + 1
+        step?.action === 'yield' || step?.action === 'pause' ? total + 1
             : basicDrillActions.has(step?.action) ? total : total + countDrillPauses(step?.action, depth + 1)
     ), 0);
 };
@@ -642,7 +677,7 @@ const stagePartCount = (stageName) => countDrillPauses(stageName) + 1;
 // when the stage is finished (between stages).
 const nextPartOfStage = (status) => {
     if (!status || status.betweenStages) return 0;
-    if (status.state === 'paused' && status.stepAction === 'pause' && !status.stageRestartReady) return status.partIndex + 1;
+    if (status.state === 'paused' && status.stepAction === 'yield' && !status.stageRestartReady) return status.partIndex + 1;
     return status.partIndex;
 };
 
@@ -672,9 +707,11 @@ const describeDrillProgress = (status) => {
     if (status.betweenStages && current >= 0) {
         return `${stageLabel(status, current)} done · Next: ${stageLabel(status, current + 1)}`;
     }
-    if (status.stepAction === 'pause' && partOfStage) {
+    if (status.stepAction === 'yield' && partOfStage) {
         return `${stageLabel(status, current)} · Part ${status.partIndex} done · Next: Part ${status.partIndex + 1}`;
     }
+    // AI-modified (Claude): at a yield step the drill is waiting for the operator, not paused
+    if (status.stepAction === 'yield') return withWhere('Waiting for you');
     return withWhere('Paused');
 };
 
@@ -767,7 +804,7 @@ const updateDrillStatus = () => {
         button.disabled = !manualTargetsAvailable() || button.classList.contains('is-defective');
     });
 
-    // Start doubles as Resume while the controller is paused (operator pause or a "pause" step).
+    // Start doubles as Resume while the controller is paused (operator pause or a "yield" step).
     // AI-modified (Claude): the label says what Resume starts next.
     const jumpTargets = stageJumpTargets(status);
     if (startDrillLabel) {
@@ -779,9 +816,9 @@ const updateDrillStatus = () => {
                 label = `Start part ${status.partIndex}`; // AI-generated (Claude): after a part jump
             } else if (status.stageRestartReady && count > 1) label = `Start ${stageLabel(status, jumpTargets.current)}`;
             else if (status.betweenStages && jumpTargets.current + 1 < count) label = `Start ${stageLabel(status, jumpTargets.current + 1)}`;
-            else if (status.stepAction === 'pause' && !status.stagesAreParts && status.partCount > 1 && !status.betweenStages) {
+            else if (status.stepAction === 'yield' && !status.stagesAreParts && status.partCount > 1 && !status.betweenStages) {
                 label = `Start part ${status.partIndex + 1}`;
-            } else label = 'Resume drill';
+            } else label = status.stepAction === 'yield' ? 'Continue drill' : 'Resume drill';
         }
         startDrillLabel.textContent = label;
     }
@@ -799,12 +836,14 @@ const updateDrillStatus = () => {
         pauseDrillButton.classList.toggle('btn-primary', !pauseDrillButton.disabled);
         pauseDrillButton.classList.toggle('btn-outline-secondary', pauseDrillButton.disabled);
     }
-    // Keep Stop reachable in manual mode and when a status poll loses the connection.
+    // Keep Stop reachable when a status poll loses the connection.
     // AI-modified (Claude): Stop and Reset live in the bar pinned to the bottom of the screen,
     // shown only while one of them can act. A lost connection keeps Stop up only if a drill was
     // active when it dropped (so the bar doesn't flash on every page load before the first poll).
+    // Not shown in manual mode (by request): targets only move there when tapped, and Exit manual
+    // mode hides them all.
     if (status) lastKnownDrillActive = drillActive;
-    const stopAvailable = !stopped && (drillActive || countingDown || manualMode || (!status && lastKnownDrillActive));
+    const stopAvailable = !stopped && (drillActive || countingDown || (!status && lastKnownDrillActive));
     if (stopDrillButton) {
         stopDrillButton.disabled = !stopAvailable;
         stopDrillButton.hidden = !stopAvailable;
@@ -877,7 +916,7 @@ const updateDrillStatus = () => {
     if (drillSelect) drillSelect.disabled = manualMode || drillActive || stopped || countingDown;
 
     // AI-generated (Claude): the drill buttons appear once a drill is selected (or one is running
-    // or counting down). Stop also stays visible in manual mode: it is the only emergency stop.
+    // or counting down).
     const showDrillButtons = (Boolean(drillSelect?.value) && !manualMode) || drillActive || countingDown;
     // AI-modified (Claude): Start / Resume and Pause share one slot: Pause while the drill runs,
     // Start (or Resume) otherwise.
@@ -989,7 +1028,7 @@ const renderDrillDescription = (status, drillSelect) => {
     // A full drill's stage: part 1 when it starts fresh, else the part after a pause inside it
     let stageNextPart = 1;
     if (state === 'paused' && !startsNewStage && status.partIndex) {
-        stageNextPart = status.stepAction === 'pause' && !status.stageRestartReady ? status.partIndex + 1 : status.partIndex;
+        stageNextPart = status.stepAction === 'yield' && !status.stageRestartReady ? status.partIndex + 1 : status.partIndex;
     }
     renderDescriptionText(stageBody, stageText, stageNextPart);
     stageTitle.hidden = stageBody.hidden = !stageText;
@@ -1039,7 +1078,7 @@ if (drillTimer) {
             timerValue.textContent = '--';
             timerValueDisplay.hidden = paused;
             timerLabel.textContent = paused
-                ? 'Paused · waiting for Resume'
+                ? (status.stepAction === 'yield' ? 'Waiting for you to continue' : 'Paused · waiting for Resume')
                 : status.stepAction === 'present' ? 'Targets turning' : 'Next step';
         }
     };
@@ -1092,22 +1131,25 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
     const bootstrapModal = typeof bootstrap === 'undefined' ? null : bootstrap.Modal;
 
     if (drillSelect) {
-        // AI-modified (Claude): options are grouped into full drills, stages and custom drills.
+        // AI-modified (Claude): options are grouped by qualification (a drill is listed under its
+        // first one; drills with none under Other), full drills first in each group.
         const drillEntries = Object.entries(targetAssignmentDrills)
             .filter(([, drill]) => drill && typeof (drill.name || drill.drillName) === 'string');
-        const drillGroups = [
-            { label: 'Full drills', category: 'full' },
-            { label: 'Custom', category: 'custom' },
-            { label: 'Stages', category: 'stages' }
-        ]
-            .map(({ label, category }) => ({
-                label,
-                entries: drillEntries.filter(([drillId, drill]) => getDrillCategory(drillId, drill) === category)
-            }))
-            .filter(({ entries }) => entries.length)
-            .map(({ label, entries }) => {
+        const groupOrder = [...targetPageQualifications];
+        const byGroup = new Map();
+        drillEntries.forEach(([drillId, drill]) => {
+            const own = drillQualificationList(drill, Object.values(targetAssignmentDrills));
+            const group = groupOrder.find((name) => own.has(name.toLowerCase())) || 'Other';
+            if (!byGroup.has(group)) byGroup.set(group, []);
+            byGroup.get(group).push([drillId, drill]);
+        });
+        const drillGroups = [...groupOrder, 'Other']
+            .filter((name) => byGroup.has(name))
+            .map((name) => {
                 const group = document.createElement('optgroup');
-                group.label = label;
+                group.label = name;
+                const entries = byGroup.get(name)
+                    .sort(([, first], [, second]) => Number(isFullDrill(second)) - Number(isFullDrill(first)));
                 group.append(...entries.map(([drillId, drill]) => new Option(drill.name || drill.drillName, drillId)));
                 return group;
             });
@@ -1223,7 +1265,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
 
         startDrillButton.addEventListener('click', async () => {
             if (manualMode || stageControlRequestPending || controllerStatus?.stageResetPending) return;
-            // While the controller is paused (operator pause or a "pause" step) this is Resume.
+            // While the controller is paused (operator pause or a "yield" step) this is Resume.
             if (controllerStatus?.state === 'paused') {
                 return sendPausedDrillCommand('/api/drill/resume', `Resuming ${controllerStatus.drillName || 'drill'}`);
             }
@@ -1884,11 +1926,17 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
 if (targetGrid) {
     Promise.all([
         fetchController('/api/targets', { cache: 'no-store' }),
-        fetchController('/api/drills', { cache: 'no-store' })
+        fetchController('/api/drills', { cache: 'no-store' }),
+        // AI-generated (Claude): qualification order for the drill groups (best effort)
+        fetchController('/api/qualifications', { cache: 'no-store' })
+            .then((response) => (response.ok ? response.json() : null)).catch(() => null)
     ])
-        .then(async ([targetsResponse, drillsResponse]) => {
+        .then(async ([targetsResponse, drillsResponse, qualifications]) => {
             if (!targetsResponse.ok || !drillsResponse.ok) {
                 throw new Error('The controller did not return target data.');
+            }
+            if (Array.isArray(qualifications) && qualifications.every((name) => typeof name === 'string')) {
+                targetPageQualifications = qualifications;
             }
             const [targets, drills] = await Promise.all([
                 targetsResponse.json(),
@@ -1915,6 +1963,27 @@ if (targetGrid) {
             }
         });
 }
+
+// AI-generated (Claude): Hide / Show buttons on collapsible sections (Performance: Officer standing
+// and Results). The button names its section with aria-controls; each phone remembers whether a
+// section was left collapsed (localStorage, data-collapse-key). Open by default.
+document.querySelectorAll('.section-collapse-toggle').forEach((button) => {
+    const body = document.getElementById(button.getAttribute('aria-controls'));
+    if (!body) return;
+    const key = button.dataset.collapseKey;
+    const label = button.getAttribute('aria-label').replace(/^(Hide|Show) /, '');
+    const setOpen = (open) => {
+        body.hidden = !open;
+        button.setAttribute('aria-expanded', String(open));
+        button.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} ${label}`);
+        button.querySelector('.section-collapse-label').textContent = open ? 'Hide' : 'Show';
+        try { localStorage.setItem(key, String(open)); } catch { /* not remembered */ }
+    };
+    let saved = null;
+    try { saved = localStorage.getItem(key); } catch { /* storage blocked */ }
+    setOpen(saved !== 'false');
+    button.addEventListener('click', () => setOpen(body.hidden));
+});
 
 // Performance dashboard reads qualification histories from the device database.
 if (document.getElementById('performanceRows')) {
@@ -2586,10 +2655,13 @@ if (document.getElementById('drillList')) {
     let drills = [];              // [{drillName, sequence}] as stored on the controller
     let editingName = null;       // name of the drill being edited; null while creating one
     let pendingDeleteName = null;
-    let activeDrillFilter = 'all';
-    let qualificationFilters = Array.from(document.querySelectorAll('.drill-qualification-filter'));
-    const allQualifications = document.getElementById('allDrillQualifications');
-    const qualificationContainer = document.getElementById('drillQualificationFilters');
+    // AI-modified (Claude): one qualification filter (chips): 'all', 'none' (drills with no
+    // qualification) or a lower-case qualification name. Kept for the tab.
+    const qualificationFilterStorageKey = 'cpd-drill-qualification-filter';
+    let activeQualification = (() => {
+        try { return sessionStorage.getItem(qualificationFilterStorageKey) || 'all'; } catch { return 'all'; }
+    })();
+    const qualificationChips = document.getElementById('qualificationChips');
     const qualificationModalElement = document.getElementById('addQualificationModal');
     const qualificationModal = bootstrap.Modal.getOrCreateInstance(qualificationModalElement);
     const qualificationName = document.getElementById('qualificationName');
@@ -2611,22 +2683,48 @@ if (document.getElementById('drillList')) {
         return wrapper;
     };
 
-    const updateQualificationState = () => {
-        const count = qualificationFilters.filter((item) => item.checked).length;
-        allQualifications.checked = count === qualificationFilters.length;
-        allQualifications.indeterminate = count > 0 && count < qualificationFilters.length;
-    };
-
+    // AI-generated (Claude): the chip row: All, each qualification, and No qualification, each with
+    // how many drills it holds. Exactly one is selected.
     const renderQualificationChoices = () => {
-        const selected = new Set(qualificationFilters.filter((item) => item.checked).map((item) => item.value));
-        const includeAll = allQualifications.checked;
-        qualificationContainer.querySelectorAll('.drill-qualification-filter').forEach((input) => input.parentElement.remove());
-        qualificationNames.forEach((name, index) => qualificationContainer.append(qualificationCheckbox(
-            name, `drillQualification${index}`, includeAll || selected.has(name.toLowerCase()), 'drill-qualification-filter'
-        )));
-        qualificationFilters = Array.from(qualificationContainer.querySelectorAll('.drill-qualification-filter'));
-        updateQualificationState();
+        const counts = new Map();
+        let untagged = 0;
+        drills.forEach((drill) => {
+            const own = getDrillQualifications(drill);
+            if (!own.size) untagged++;
+            own.forEach((name) => counts.set(name, (counts.get(name) || 0) + 1));
+        });
+        const known = new Set(qualificationNames.map((name) => name.toLowerCase()));
+        if (activeQualification !== 'all' && activeQualification !== 'none' && !known.has(activeQualification)) {
+            activeQualification = 'all';
+        }
+        const chip = (value, label, count) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            const active = value === activeQualification;
+            button.className = `btn btn-sm ${active ? 'btn-primary' : 'btn-outline-primary'}`;
+            button.dataset.qualification = value;
+            button.setAttribute('aria-pressed', String(active));
+            button.append(label);
+            const badge = document.createElement('span');
+            badge.className = 'qualification-chip-count';
+            badge.textContent = String(count);
+            button.append(badge);
+            return button;
+        };
+        qualificationChips.replaceChildren(
+            chip('all', 'All', drills.length),
+            ...qualificationNames.map((name) => chip(name.toLowerCase(), name, counts.get(name.toLowerCase()) || 0)),
+            chip('none', 'No qualification', untagged)
+        );
     };
+    qualificationChips.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-qualification]');
+        if (!button) return;
+        activeQualification = button.dataset.qualification;
+        try { sessionStorage.setItem(qualificationFilterStorageKey, activeQualification); } catch { /* not kept */ }
+        renderQualificationChoices();
+        renderDrills();
+    });
 
     const loadQualifications = async () => {
         const response = await fetchController('/api/qualifications', { cache: 'no-store' });
@@ -2644,7 +2742,7 @@ if (document.getElementById('drillList')) {
         present: { title: 'Present', icon: 'bi-eye-fill' },
         delay: { title: 'Delay', icon: 'bi-stopwatch' },
         hide: { title: 'Hide', icon: 'bi-eye-slash-fill' },
-        pause: { title: 'Pause', icon: 'bi-pause-circle' }
+        yield: { title: 'Yield', icon: 'bi-sign-yield' } // AI-modified (Claude): was Pause
     };
 
     const showListMessage = (text, kind = 'warning') => {
@@ -2676,7 +2774,8 @@ if (document.getElementById('drillList')) {
 
     // One <li> per step. step is a database step ({action, timeMs?, targets?}).
     const createBlock = (step) => {
-        const action = String(step?.action || '');
+        // AI-modified (Claude): an old "pause" step opens (and saves) as a Yield block
+        const action = step?.action === 'pause' ? 'yield' : String(step?.action || '');
         const isBasic = Object.hasOwn(blockInfo, action);
         const info = isBasic ? blockInfo[action] : { title: 'Run drill', icon: 'bi-collection' };
         const uid = `seq${blockCounter += 1}`;
@@ -2741,13 +2840,14 @@ if (document.getElementById('drillList')) {
                     <input class="form-control seq-delay-input" type="number" id="${uid}-seconds" min="0.01" max="3600" step="0.01" inputmode="decimal" value="${seconds}" aria-label="Delay in seconds">
                     <span class="input-group-text">seconds</span>
                 </div>`;
-        } else if (action === 'pause') {
-            body.innerHTML = '<p class="seq-block-note">Waits until the operator presses Resume.</p>';
+        } else if (action === 'yield') {
+            body.innerHTML = '<p class="seq-block-note">Hands control back to the operator: the drill waits here (targets stay as they are) until they press Start to continue. Use it between parts or stages.</p>';
         } else {
             body.innerHTML = `
                 <label class="form-label small mb-1" for="${uid}-drill">Saved drill</label>
                 <select class="form-select form-select-sm seq-drill-select" id="${uid}-drill"></select>
-                <p class="seq-block-note mt-2">Runs the saved drill. Changes to it apply the next time this full drill starts.</p>`;
+                <p class="seq-block-note mt-2">Runs the saved drill. Changes to it apply the next time this full drill starts.</p>
+                <p class="seq-block-note seq-block-tip mt-1"><i class="bi bi-sign-yield" aria-hidden="true"></i> Add a Yield after this block if the saved drill doesn't end with one. Otherwise the next drill or stage starts right away, without waiting for the operator.</p>`;
             const select = body.querySelector('.seq-drill-select');
             const choices = drills.filter((drill) => drill.drillName !== editingName);
             select.append(new Option(choices.length ? 'Select a saved drill' : 'No other saved drills', ''));
@@ -3041,44 +3141,42 @@ if (document.getElementById('drillList')) {
     };
 
     // Save only direct assignments; inherited qualifications must follow later stage edits.
+    // AI-modified (Claude): the drill's own tags (the editor's checkboxes). Built-in drills on an
+    // older database without tags fall back to their name prefix.
     const getOwnDrillQualifications = (drill) => {
         const matches = new Set();
         if (Array.isArray(drill.qualifications)) {
             drill.qualifications.forEach((name) => matches.add(String(name).toLowerCase()));
-        } else {
-            qualificationFilters.forEach((filter) => {
-                const prefix = `${filter.value} qual`;
-                const name = drill.drillName.toLowerCase();
-                if (name === prefix || name.startsWith(`${prefix} `)) matches.add(filter.value);
-            });
+        } else if (drill.builtIn === true) {
+            const prefix = /^(pistol|rifle|swat) qual\b/i.exec(drill.drillName);
+            if (prefix) matches.add(prefix[1].toLowerCase());
         }
         return matches;
     };
 
-    const getDrillQualifications = (drill, visited = new Set()) => {
-        if (visited.has(drill.drillName)) return new Set();
-        visited.add(drill.drillName);
-        const matches = getOwnDrillQualifications(drill);
-        (Array.isArray(drill.sequence) ? drill.sequence : []).forEach((step) => {
-            if (basicDrillActions.has(step?.action)) return;
-            const referenced = drills.find((other) => other.drillName === step?.action);
-            if (referenced) getDrillQualifications(referenced, visited).forEach((value) => matches.add(value));
-        });
-        return matches;
+    // AI-modified (Claude): own tags plus those of the stages a full drill runs
+    const getDrillQualifications = (drill) => drillQualificationList(drill, drills);
+
+    // "Pistol · Rifle" for a card's badge, in the qualification list's order
+    const qualificationLabel = (drill) => {
+        const own = getDrillQualifications(drill);
+        return qualificationNames.filter((name) => own.has(name.toLowerCase())).join(' · ');
     };
 
     const renderDrills = () => {
-        const selected = qualificationFilters.filter((filter) => filter.checked).map((filter) => filter.value);
-        const visible = drills.filter((drill) => (
-            (activeDrillFilter === 'all' || getDrillCategory(null, drill) === activeDrillFilter)
-            && (selected.length === qualificationFilters.length
-                || selected.some((value) => getDrillQualifications(drill).has(value)))
-        ));
+        // AI-modified (Claude): the one filter is the qualification chip row
+        const visible = drills.filter((drill) => {
+            if (activeQualification === 'all') return true;
+            const own = getDrillQualifications(drill);
+            return activeQualification === 'none' ? own.size === 0 : own.has(activeQualification);
+        });
         if (!visible.length) {
             const column = document.createElement('div');
             column.className = 'col-12';
             column.innerHTML = '<div class="alert alert-info mb-0"></div>';
-            column.firstChild.textContent = drills.length ? 'No drills match these filters.' : 'No drills yet. Tap Create Drill to build one.';
+            column.firstChild.textContent = drills.length
+                ? (activeQualification === 'none' ? 'Every drill has a qualification.' : 'No drills in this qualification yet. Edit a drill and check it under Qualifications.')
+                : 'No drills yet. Tap Create Drill to build one.';
             drillList.replaceChildren(column);
             return;
         }
@@ -3091,7 +3189,7 @@ if (document.getElementById('drillList')) {
             column.innerHTML = `
                 <article class="drill-ticket h-100">
                     <div class="drill-ticket-heading">
-                        <span class="drill-ticket-label">${{ full: 'Full drill', custom: 'Custom', stages: 'Stage' }[category]}</span>
+                        <span class="drill-ticket-label"></span>
                         <i class="bi ${full ? 'bi-collection' : 'bi-crosshair'} text-primary" aria-hidden="true"></i>
                     </div>
                     <h2 class="h4 mb-4 drill-ticket-name"></h2>
@@ -3107,6 +3205,9 @@ if (document.getElementById('drillList')) {
                     </div>
                 </article>`;
             column.querySelector('.drill-ticket-name').textContent = drill.drillName;
+            // AI-modified (Claude): "PISTOL · FULL DRILL": qualification(s), then the drill's kind
+            const kind = { full: 'Full drill', custom: 'Custom', stages: 'Stage' }[category];
+            column.querySelector('.drill-ticket-label').textContent = [qualificationLabel(drill), kind].filter(Boolean).join(' · ');
             // AI-generated (Claude): first lines of the description
             const descriptionPreview = column.querySelector('.drill-ticket-description');
             descriptionPreview.textContent = typeof drill.description === 'string' ? drill.description.trim() : '';
@@ -3151,6 +3252,7 @@ if (document.getElementById('drillList')) {
             drills = [];
             showListMessage('Could not load drills from the controller. Check that you are on the CPD Range Control WiFi.', 'danger');
         }
+        renderQualificationChoices(); // AI-modified (Claude): chip counts follow the drills
         renderDrills();
     };
 
@@ -3168,37 +3270,78 @@ if (document.getElementById('drillList')) {
         loadDrills();
     });
 
-    // All / Full drills / Custom / Stages filter buttons
-    document.querySelectorAll('.drill-filter').forEach((button) => {
-        button.addEventListener('click', () => {
-            activeDrillFilter = button.dataset.drillFilter;
-            document.querySelectorAll('.drill-filter').forEach((other) => {
-                const isActive = other === button;
-                other.classList.toggle('active', isActive);
-                other.setAttribute('aria-pressed', String(isActive));
+    // AI-generated (Claude): Manage qualifications: every qualification with how many drills use
+    // it; custom ones have Delete (asks first; the controller refuses while scores exist)
+    const manageList = document.getElementById('qualificationManageList');
+    const manageMessage = document.getElementById('qualificationManageMessage');
+    const builtInQualifications = new Set(['pistol', 'rifle', 'swat']);
+    const showManageMessage = (text, kind) => {
+        manageMessage.textContent = text;
+        manageMessage.className = `alert py-2 small alert-${kind}`;
+        manageMessage.hidden = !text;
+    };
+    const renderManageList = () => {
+        manageList.replaceChildren(...qualificationNames.map((name) => {
+            const row = document.createElement('li');
+            const label = document.createElement('span');
+            label.className = 'qualification-manage-name';
+            label.textContent = name;
+            const used = drills.filter((drill) => getOwnDrillQualifications(drill).has(name.toLowerCase())).length;
+            const meta = document.createElement('span');
+            meta.className = 'qualification-manage-meta';
+            meta.textContent = `${used} ${used === 1 ? 'drill' : 'drills'}`;
+            row.append(label, meta);
+            if (builtInQualifications.has(name.toLowerCase())) {
+                const builtIn = document.createElement('span');
+                builtIn.className = 'badge text-bg-light';
+                builtIn.textContent = 'Built in';
+                row.append(builtIn);
+                return row;
+            }
+            const deleteButton = document.createElement('button');
+            deleteButton.type = 'button';
+            deleteButton.className = 'btn btn-sm btn-outline-danger';
+            deleteButton.innerHTML = '<i class="bi bi-trash3" aria-hidden="true"></i> Delete';
+            deleteButton.setAttribute('aria-label', `Delete ${name}`);
+            deleteButton.addEventListener('click', () => {
+                // Second step: confirm in place
+                const confirm = document.createElement('button');
+                confirm.type = 'button';
+                confirm.className = 'btn btn-sm btn-danger';
+                confirm.textContent = `Delete ${name}`;
+                const cancel = document.createElement('button');
+                cancel.type = 'button';
+                cancel.className = 'btn btn-sm btn-outline-secondary';
+                cancel.textContent = 'Cancel';
+                cancel.addEventListener('click', renderManageList);
+                confirm.addEventListener('click', async () => {
+                    confirm.disabled = cancel.disabled = true;
+                    try {
+                        await postToController(`/api/qualifications?name=${encodeURIComponent(name)}`, undefined, 'DELETE');
+                        showManageMessage(used ? `${name} deleted and removed from ${used} ${used === 1 ? 'drill' : 'drills'}.` : `${name} deleted.`, 'success');
+                        await loadQualifications();
+                        await loadDrills();
+                    } catch (error) {
+                        showManageMessage(error.message, 'warning');
+                    }
+                    renderManageList();
+                });
+                deleteButton.replaceWith(confirm, cancel);
+                confirm.focus();
             });
-            renderDrills();
-        });
-    });
+            row.append(deleteButton);
+            return row;
+        }));
+    };
 
-    qualificationContainer.addEventListener('change', (event) => {
-        if (!event.target.matches('.drill-qualification-filter')) return;
-        updateQualificationState();
-        renderDrills();
-    });
-    allQualifications.addEventListener('change', () => {
-        qualificationFilters.forEach((filter) => { filter.checked = allQualifications.checked; });
-        allQualifications.indeterminate = false;
-        renderDrills();
-    });
-
-    document.getElementById('addQualificationButton').addEventListener('click', () => {
+    document.getElementById('manageQualificationsButton').addEventListener('click', () => {
         document.getElementById('addQualificationForm').reset();
         qualificationName.classList.remove('is-invalid');
         qualificationName.removeAttribute('aria-invalid');
+        showManageMessage('', 'info');
+        renderManageList();
         qualificationModal.show();
     });
-    qualificationModalElement.addEventListener('shown.bs.modal', () => qualificationName.focus());
     document.getElementById('addQualificationForm').addEventListener('submit', async (event) => {
         event.preventDefault();
         const name = qualificationName.value.trim().replace(/\s+/g, ' ');
@@ -3213,8 +3356,11 @@ if (document.getElementById('drillList')) {
             await postToController('/api/qualifications', { name });
             await loadQualifications();
             renderDrills();
-            qualificationModal.hide();
-            showListMessage(`${name} qualification added. Edit a drill to assign it.`, 'success');
+            // AI-modified (Claude): stay in Manage so several can be added or removed
+            document.getElementById('addQualificationForm').reset();
+            qualificationName.classList.remove('is-invalid');
+            renderManageList();
+            showManageMessage(`${name} added. Edit a drill and check ${name} under Qualifications to put it there.`, 'success');
         } catch (error) {
             qualificationError.textContent = error.message;
             qualificationName.classList.add('is-invalid');
@@ -3226,8 +3372,65 @@ if (document.getElementById('drillList')) {
     });
 
     loadQualifications().then(() => {
-        document.getElementById('addQualificationButton').disabled = false;
+        document.getElementById('manageQualificationsButton').disabled = false;
     }).catch((error) => showListMessage(error.message, 'warning')).finally(loadDrills);
+}
+
+// AI-generated (Claude): Settings cards collapse; all start collapsed. A card opened in this tab
+// stays open (sessionStorage), and the card named in the address (e.g. settings.html#startDelay
+// from Range Control's "Change" link) opens on its own.
+document.querySelectorAll('.settings-card-toggle').forEach((button) => {
+    const body = document.getElementById(button.getAttribute('aria-controls'));
+    const card = button.closest('section');
+    if (!body || !card) return;
+    const key = `cpd-settings-open-${body.id}`;
+    const setOpen = (open, remember = true) => {
+        body.hidden = !open;
+        button.setAttribute('aria-expanded', String(open));
+        if (remember) {
+            try { sessionStorage.setItem(key, String(open)); } catch { /* not remembered */ }
+        }
+    };
+    const linked = () => Boolean(card.id) && location.hash === `#${card.id}`;
+    let saved = null;
+    try { saved = sessionStorage.getItem(key); } catch { /* storage blocked */ }
+    setOpen(saved === 'true' || linked(), false);
+    if (linked()) card.scrollIntoView({ block: 'start' });
+    button.addEventListener('click', () => setOpen(body.hidden));
+    window.addEventListener('hashchange', () => {
+        if (linked()) {
+            setOpen(true);
+            card.scrollIntoView({ block: 'start' });
+        }
+    });
+});
+
+// AI-generated (Claude): Theme (Settings): "normal" or "tactical", saved per phone. The page head
+// applies it before drawing; this switches it live when the setting changes (including from
+// another tab) and keeps the phone's browser bar color in step.
+const themeStorageKey = 'cpd-theme';
+const applyTheme = (theme) => {
+    const tactical = theme === 'tactical';
+    document.documentElement.classList.toggle('theme-tactical', tactical);
+    if (tactical) document.documentElement.setAttribute('data-bs-theme', 'dark');
+    else document.documentElement.removeAttribute('data-bs-theme');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', tactical ? '#171914' : '#0057b8');
+};
+const savedTheme = () => {
+    try { return localStorage.getItem(themeStorageKey) === 'tactical' ? 'tactical' : 'normal'; } catch { return 'normal'; }
+};
+applyTheme(savedTheme());
+window.addEventListener('storage', (event) => {
+    if (event.key === themeStorageKey) applyTheme(savedTheme());
+});
+const themeForm = document.getElementById('themeForm');
+if (themeForm) {
+    themeForm.querySelector(`input[value="${savedTheme()}"]`).checked = true;
+    themeForm.addEventListener('change', (event) => {
+        const theme = event.target.value === 'tactical' ? 'tactical' : 'normal';
+        try { localStorage.setItem(themeStorageKey, theme); } catch { /* not saved */ }
+        applyTheme(theme);
+    });
 }
 
 // AI-generated (Claude): Settings page (settings.html).
@@ -3435,12 +3638,17 @@ if (officerList) {
         officersMessage.hidden = false;
     };
 
+    // AI-modified (Claude): the label is in a span so phones can show icon-only buttons
+    // (style.css); the buttons that need it carry an aria-label naming the officer.
     const button = (label, className, icon) => {
         const element = document.createElement('button');
         element.type = 'button';
         element.className = `btn btn-sm ${className}`;
         element.innerHTML = `<i class="bi ${icon}" aria-hidden="true"></i> `;
-        element.append(label);
+        const text = document.createElement('span');
+        text.className = 'officer-button-label';
+        text.textContent = label;
+        element.append(text);
         return element;
     };
 

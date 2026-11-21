@@ -14,7 +14,8 @@ static JsonArray qualificationNames(JsonDocument& doc);
  *   "qualifications": [ "Pistol", "Rifle", "SWAT", ...custom names ]
  *   "drills":   [ { "drillName": str,
  *                   "sequence": [ { "step": int, "action": str, "timeMs"?: int } ] } ]
- *                 action is "present" | "hide" | "pause" | "delay" (delay requires timeMs),
+ *                 action is "present" | "hide" | "yield" | "delay" (delay requires timeMs),
+ *                 (AI-modified (Claude): "yield" was "pause"; the old name is still accepted)
  *                 OR the drillName of another drill (the "... Full Drill" entries compose stages)
  *   "targets":  [ { "id": 1..20, "working": bool } ]
  *
@@ -152,9 +153,10 @@ bool isDateString(const char* date) {
     return true;
 }
 
+// AI-modified (Claude): "yield" is the new name for "pause" (still accepted for older drills)
 static bool isBasicAction(const char* action) {
     return strcmp(action, "present") == 0 || strcmp(action, "hide") == 0 ||
-           strcmp(action, "pause") == 0 || strcmp(action, "delay") == 0;
+           strcmp(action, "yield") == 0 || strcmp(action, "pause") == 0 || strcmp(action, "delay") == 0;
 }
 
 //True if drill `fromName` includes drill `targetName` as a step, directly or through nested drills.
@@ -541,6 +543,53 @@ bool addQualification(const char* name) {
     for (const char* existing : names) if (trimmed.equalsIgnoreCase(existing)) return false;
     names.add(trimmed);
     return saveDatabase(doc);
+}
+
+// AI-generated (Claude): delete a custom qualification (see database.h)
+QualificationDeleteResult deleteQualification(const char* name, int& scoreCount) {
+    scoreCount = 0;
+    String target = name ? name : "";
+    target.trim();
+    for (const char* builtIn : {"Pistol", "Rifle", "SWAT"}) {
+        if (target.equalsIgnoreCase(builtIn)) return QualificationDeleteResult::BuiltIn;
+    }
+    JsonDocument doc;
+    if (!loadDatabase(doc)) return QualificationDeleteResult::SaveFailed;
+    JsonArray names = qualificationNames(doc);
+    int index = -1;
+    for (size_t i = 0; i < names.size(); i++) {
+        if (target.equalsIgnoreCase(names[i].as<const char*>())) index = (int)i;
+    }
+    if (index < 0) return QualificationDeleteResult::NotFound;
+
+    // Scores recorded under it (custom histories are keyed by name in qualificationScores)
+    for (JsonObject officer : doc["Officers"].as<JsonArray>()) {
+        for (JsonPair history : officer["qualificationScores"].as<JsonObject>()) {
+            if (target.equalsIgnoreCase(history.key().c_str())) {
+                scoreCount += history.value().as<JsonArray>().size();
+            }
+        }
+    }
+    if (scoreCount > 0) return QualificationDeleteResult::HasScores;
+
+    names.remove(index);
+    // Untag drills; a drill left with no qualification simply has none
+    for (JsonObject drill : doc["drills"].as<JsonArray>()) {
+        JsonArray tags = drill["qualifications"].as<JsonArray>();
+        for (int i = (int)tags.size() - 1; i >= 0; i--) {
+            if (target.equalsIgnoreCase(tags[i].as<const char*>())) tags.remove(i);
+        }
+    }
+    // Drop empty histories so re-adding the same name starts clean
+    for (JsonObject officer : doc["Officers"].as<JsonArray>()) {
+        JsonObject histories = officer["qualificationScores"].as<JsonObject>();
+        String key;
+        for (JsonPair history : histories) {
+            if (target.equalsIgnoreCase(history.key().c_str())) key = history.key().c_str();
+        }
+        if (key.length()) histories.remove(key);
+    }
+    return saveDatabase(doc) ? QualificationDeleteResult::Deleted : QualificationDeleteResult::SaveFailed;
 }
 
 static bool validQualifications(JsonDocument& doc, JsonArrayConst selected) {
