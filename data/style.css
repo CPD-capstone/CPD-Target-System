@@ -604,6 +604,16 @@
     -webkit-line-clamp: 3;
 }
 
+.drill-ticket-description.is-expanded {
+    display: block;
+    margin-bottom: 0.25rem;
+    -webkit-line-clamp: unset;
+}
+
+.drill-ticket-description:not(.is-expanded) + .drill-ticket-description-toggle:not([hidden]) {
+    margin-top: -0.75rem;
+}
+
 /* AI-generated (Claude): Back / Redo / Skip row under the drill buttons. Three equal columns
    so the stage names line up; the labels wrap rather than widen the page on phones. */
 .stage-nav:not([hidden]) {

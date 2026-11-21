@@ -42,7 +42,7 @@ const faqGroups = [
             },
             {
                 question: 'Can I add a description to a drill?',
-                answer: 'Yes. In the drill editor, type a Description. It appears on the Targets page when the drill is selected and while it is paused, so the instructor can brief the shooter. The qualification stages come with the descriptions from the department qualification sheets.'
+                answer: 'Yes. In the drill editor, type a Description. It appears on the Targets page when the drill is selected and while it is paused, so the instructor can brief the shooter. The qualification stages come with the descriptions from the department qualification sheets, with each timed section labelled Part 1, Part 2 and so on. A full drill\u2019s own description (such as a qualification\u2019s ammunition, target and scoring rules) shows on its card on the Drills page; Targets shows its stages.'
             },
             {
                 question: 'Can I customize a drill?',
@@ -836,7 +836,9 @@ const renderDrillDescription = (status, drillSelect) => {
     const name = drill ? (drill.name || drill.drillName) : '';
     const stageName = stageIndex >= 0 ? drillStageNames(name)[stageIndex] : '';
     const stage = stageName ? findDrillByName(stageName) : null;
-    const drillText = drill?.description || '';
+    // AI-modified (Claude): a full drill's own description holds the qualification's overall rules
+    // (ammunition, target, scoring). It stays on the Drills page; Targets shows only the stages.
+    const drillText = drill && !isFullDrill(drill) ? drill.description || '' : '';
     const stageText = stage?.description || '';
     panel.hidden = !drillText && !stageText;
     if (panel.hidden) return;
@@ -2886,6 +2888,7 @@ if (document.getElementById('drillList')) {
                     </div>
                     <h2 class="h4 mb-4 drill-ticket-name"></h2>
                     <p class="drill-ticket-description" hidden></p>
+                    <button class="btn btn-link btn-sm p-0 mb-3 align-self-start drill-ticket-description-toggle" type="button" aria-expanded="false" hidden>Show more</button>
                     <dl class="drill-details">
                         <div><dt>${full ? 'Stages' : 'Steps'}</dt><dd>${full ? stages : steps}</dd></div>
                         <div><dt>Delay time</dt><dd>${full ? 'set by its stages' : `${delaySeconds} s`}</dd></div>
@@ -2900,6 +2903,17 @@ if (document.getElementById('drillList')) {
             const descriptionPreview = column.querySelector('.drill-ticket-description');
             descriptionPreview.textContent = typeof drill.description === 'string' ? drill.description.trim() : '';
             descriptionPreview.hidden = !descriptionPreview.textContent;
+            // AI-generated (Claude): Show more / Show less when the preview is cut off
+            const descriptionToggle = column.querySelector('.drill-ticket-description-toggle');
+            requestAnimationFrame(() => {
+                descriptionToggle.hidden = descriptionPreview.hidden
+                    || descriptionPreview.scrollHeight <= descriptionPreview.clientHeight + 1;
+            });
+            descriptionToggle.addEventListener('click', () => {
+                const expanded = descriptionPreview.classList.toggle('is-expanded');
+                descriptionToggle.textContent = expanded ? 'Show less' : 'Show more';
+                descriptionToggle.setAttribute('aria-expanded', String(expanded));
+            });
             column.querySelector('[data-drill-action="edit"]').addEventListener('click', () => openEditor(drill));
             column.querySelector('[data-drill-action="delete"]').addEventListener('click', () => {
                 // The controller refuses to delete a stage a full drill still uses; say which one

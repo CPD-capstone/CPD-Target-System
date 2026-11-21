@@ -821,7 +821,7 @@
       ]
     },
     { "drillName": "Pistol Qual Full Drill", "builtIn": true,
-      "description": "Handgun Qualification (revised 4/2026)\nAmmunition: 50 rounds\nTarget: ANT4-CPD-P 23\"x35\"\nQualifying score: 75\n2 points for hits in the high thoracic cavity box or head circle\n1 point for hits in the body outside of the designated target area (HTC or head)\nAUTOMATIC DQ FOR TOTAL BODY MISS",
+      "description": "Ammunition: 50 rounds\nTarget: ANT4-CPD-P 23\"x35\"\nQualifying score: 75\n2 points for hits in the high thoracic cavity box or head circle\n1 point for hits in the body outside of the designated target area (HTC or head)\nAUTOMATIC DQ FOR TOTAL BODY MISS",
       "sequence":[
         {
           "step": 1,
@@ -970,7 +970,7 @@
       ]
     },
     { "drillName": "Rifle Qual Full Drill", "builtIn": true,
-      "description": "Rifle Qualification (revised 4/2026)\nAmmunition: 50 rounds (2 25-round magazines)\nTarget: ANT4-CPD-P 23\"x35\"\nQualifying score: 75\n2 points for hits in the high thoracic cavity box or head circle\n1 point for hits in the body outside of the designated target area (HTC or head)\nAUTOMATIC DQ FOR TOTAL BODY MISS",
+      "description": "Ammunition: 50 rounds (2 25-round magazines)\nTarget: ANT4-CPD-P 23\"x35\"\nQualifying score: 75\n2 points for hits in the high thoracic cavity box or head circle\n1 point for hits in the body outside of the designated target area (HTC or head)\nAUTOMATIC DQ FOR TOTAL BODY MISS",
       "sequence":[
         {
           "step": 1,
@@ -1319,7 +1319,7 @@
     },
     {
       "drillName": "SWAT Qual Full Drill", "builtIn": true,
-      "description": "SWAT Qualification (revised 4/2026)\nFull kit (belt, plate carrier, helmet)\nAmmunition: Pistol 2 magazines of 10 rounds / Rifle 3 magazines of 10 rounds\nTarget: ANT4-CPD-P 23\"x35\"\nQualifying score: 90\n2 points for hits in the high thoracic cavity box or head circle\n1 point for hits in the body but outside of the designated target area (HTC or head)\nAUTOMATIC DQ FOR TOTAL BODY MISS",
+      "description": "Full kit (belt, plate carrier, helmet)\nAmmunition: Pistol 2 magazines of 10 rounds / Rifle 3 magazines of 10 rounds\nTarget: ANT4-CPD-P 23\"x35\"\nQualifying score: 90\n2 points for hits in the high thoracic cavity box or head circle\n1 point for hits in the body but outside of the designated target area (HTC or head)\nAUTOMATIC DQ FOR TOTAL BODY MISS",
       "sequence":[
         {
           "step": 1,
