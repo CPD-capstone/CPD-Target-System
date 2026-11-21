@@ -58,7 +58,7 @@ const faqGroups = [
             },
             {
                 question: 'How do I switch between grid and list view?',
-                answer: 'On Targets, use the Grid view and List view buttons in the View section. Your display choice is saved on that device.'
+                answer: 'On Targets, use the Grid view and List view buttons in the View section. Your display choice is saved on that device. Filter targets in the same section shows only the target numbers you enter, such as 1, 3, 5-8.'
             },
             {
                 question: 'How do I change the delay before a drill starts?',
@@ -617,7 +617,7 @@ const updateDrillStatus = () => {
     // AI-generated (Claude): the All / Odd / Even / Random buttons only appear once manual mode is on.
     const manualToggleGroup = document.querySelector('.target-filter-group');
     if (manualToggleGroup) manualToggleGroup.hidden = !manualMode;
-    document.querySelectorAll('.target-toggle, #targetNumberFilterButton').forEach((button) => {
+    document.querySelectorAll('.target-toggle').forEach((button) => {
         button.disabled = !manualTargetsAvailable();
     });
     document.querySelectorAll('.target-card').forEach((button) => {
@@ -1140,7 +1140,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         numberFilterButton?.setAttribute('aria-pressed', String(filteredNumbers !== null));
         if (numberFilterStatus) numberFilterStatus.hidden = filteredNumbers === null;
         if (numberFilterSummary) {
-            numberFilterSummary.textContent = `Showing ${visibleCount} of ${targetColumns.length} targets. Numbers: ${numberFilterText}. View only: All, Odd, Even, and Random also control targets hidden by this filter.`;
+            numberFilterSummary.textContent = `Showing ${visibleCount} of ${targetColumns.length} targets (${numberFilterText}). Drills and the manual group buttons still use hidden targets.`;
         }
         const emptyMessage = document.getElementById('targetFilterEmpty');
         if (emptyMessage) emptyMessage.hidden = visibleCount !== 0;
@@ -1152,11 +1152,8 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         numberFilterInput.removeAttribute('aria-invalid');
         numberFilterError.textContent = '';
     };
-    numberFilterModal?.addEventListener('show.bs.modal', (event) => {
-        if (!manualTargetsAvailable()) {
-            event.preventDefault();
-            return;
-        }
+    // AI-modified (Claude): the filter is a View control now, usable with manual mode off.
+    numberFilterModal?.addEventListener('show.bs.modal', () => {
         numberFilterInput.value = numberFilterText;
         clearNumberFilterError();
     });
@@ -1167,10 +1164,6 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
     numberFilterInput?.addEventListener('input', clearNumberFilterError);
     document.getElementById('targetNumberFilterForm')?.addEventListener('submit', (event) => {
         event.preventDefault();
-        if (!manualTargetsAvailable()) {
-            bootstrapModal?.getInstance(numberFilterModal)?.hide();
-            return;
-        }
         const text = numberFilterInput.value.trim();
         const selected = new Set();
         const parts = text.replace(/\s*[-–—]\s*/g, '-').split(/[,\s]+/).filter(Boolean);
@@ -1216,7 +1209,6 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         numberFilterText = '';
         applyTargetFilters();
     });
-    if (numberFilterButton) numberFilterButton.disabled = !manualTargetsAvailable();
     applyTargetFilters();
 
     // AI-assisted target display preference; include this change in the PR's AI-use disclosure.
