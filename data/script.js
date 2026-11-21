@@ -323,10 +323,13 @@ const targetViewStorageKey = 'cpd-target-view';
 const manualModeStorageKey = 'cpd-manual-mode';
 let manualMode = localStorage.getItem(manualModeStorageKey) === 'true';
 
-// AI-generated (Claude): status bar colors: blue = idle, red = drill running, amber = manual.
+// AI-generated (Claude): status bar colors: blue = idle, amber = manual.
+// AI-modified (Claude): dark = drill running or paused; red only for a latched Stop or a hardware
+// fault, so red always means danger (like the Stop button).
 const setStatusBarStyle = (state) => {
     drillStatus.classList.toggle('bg-primary', state === 'idle');
-    drillStatus.classList.toggle('bg-danger', state === 'active');
+    drillStatus.classList.toggle('bg-dark', state === 'active');
+    drillStatus.classList.toggle('bg-danger', state === 'alert');
     drillStatus.classList.toggle('bg-warning', state === 'manual');
     drillStatus.classList.toggle('text-white', state !== 'manual');
     drillStatus.classList.toggle('text-dark', state === 'manual');
@@ -689,15 +692,15 @@ const updateDrillStatus = () => {
     const stopped = Boolean(status?.stopped);
     const drillName = status?.drillName || 'Drill';
 
-    // Status bar colors: blue = idle, red = drill running / stopped / fault, amber = manual.
+    // Status bar colors: blue = idle, dark = drill running / paused, red = stopped / fault, amber = manual.
     if (!status) {
         setStatusBarStyle('idle');
         setDrillStatusText('Target controller not connected');
     } else if (!status.hardwareReady) {
-        setStatusBarStyle('active');
+        setStatusBarStyle('alert');
         setDrillStatusText('Target hardware not ready');
     } else if (stopped) {
-        setStatusBarStyle('active');
+        setStatusBarStyle('alert');
         setDrillStatusText('Stopped · targets frozen', 'Press Reset to hide them');
     } else if (state === 'paused' || state === 'running') {
         // AI-modified (Claude): names the stage and part, and what Resume will do next.

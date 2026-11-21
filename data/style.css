@@ -610,12 +610,13 @@
 .drill-description-line.is-next-part {
     margin: 0.15rem -0.35rem;
     padding: 0.15rem 0.35rem;
+    border-left: 3px solid #0057b8;
     border-radius: 0.25rem;
-    background: #fff3cd;
+    background: #dce8f7;
 }
 
 .drill-description-next {
-    color: #8a5a00;
+    color: #0057b8;
     text-transform: uppercase;
     font-size: 0.75rem;
     letter-spacing: 0.04em;
@@ -966,10 +967,11 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
     color: #ffffff;
 }
 
+/* AI-modified (Claude): soft blue instead of yellow, so strong colors stay for Stop and alerts */
 .drill-timer.is-paused {
-    border: 1px solid #ffda6a;
-    background: #ffe69c;
-    color: #664d03;
+    border: 1px solid #b6cce6;
+    background: #e8f0fa;
+    color: #1f3a5f;
 }
 
 .drill-timer.is-paused .drill-timer-value {
