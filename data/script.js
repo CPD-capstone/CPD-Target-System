@@ -1038,6 +1038,34 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         // another drill is chosen. {drillId, targets}
         let confirmedTargets = null;
 
+        // AI-generated (Claude): the selected drill and its confirmed targets survive going to
+        // another page and back (e.g. Settings to change the start delay). Kept per tab in
+        // sessionStorage, by drill name since option values are list positions.
+        const drillSelectionStorageKey = 'cpd-drill-selection';
+        const saveDrillSelection = () => {
+            const option = drillSelect.selectedOptions[0];
+            try {
+                sessionStorage.setItem(drillSelectionStorageKey, JSON.stringify({
+                    drillName: drillSelect.value ? option.text : '',
+                    targets: confirmedTargets?.drillId === drillSelect.value ? confirmedTargets.targets : null
+                }));
+            } catch {
+                // storage unavailable: the selection just won't carry over
+            }
+        };
+        try {
+            const saved = JSON.parse(sessionStorage.getItem(drillSelectionStorageKey) || 'null');
+            const option = saved?.drillName && Array.from(drillSelect.options).find((item) => item.value && item.text === saved.drillName);
+            if (option) {
+                drillSelect.value = option.value;
+                if (Array.isArray(saved.targets) && saved.targets.length) {
+                    confirmedTargets = { drillId: option.value, targets: saved.targets.map(Number).filter(Number.isInteger) };
+                }
+            }
+        } catch {
+            // unreadable: start with nothing selected
+        }
+
         // "1, 2, 3, 5, 7, 8" -> "1-3, 5, 7-8"
         const formatTargetList = (numbers) => {
             const sorted = [...numbers].sort((first, second) => first - second);
@@ -1080,6 +1108,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             // AI-modified (Claude): a drill that asks which targets to use opens the picker as soon
             // as it is selected; Start drill then runs on the confirmed targets.
             confirmedTargets = null;
+            saveDrillSelection();
             updateDrillStatus();
             if (drillAsksForTargets(drillSelect.value)) openDrillTargetPicker(drillSelect.value);
         });
@@ -1229,6 +1258,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             // AI-modified (Claude): Confirm only records the targets and returns to the page, where
             // the summary line shows them and Start drill runs the drill.
             confirmedTargets = { drillId: pickerDrillId, targets: selectedTargets };
+            saveDrillSelection();
             drillLaunchMessage.hidden = true;
             // Close fully even if the picker is still opening (AI-assisted with Codex).
             const hidePicker = () => bootstrapModal.getInstance(pickerModalElement)?.hide();
