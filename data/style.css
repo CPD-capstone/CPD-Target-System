@@ -643,6 +643,11 @@
     overflow-wrap: anywhere;
 }
 
+/* AI-generated (Claude): part buttons sit right under the stage buttons */
+.part-nav:not([hidden]) {
+    margin-top: 0.35rem;
+}
+
 #targetGrid [data-target-number] {
     position: relative;
 }

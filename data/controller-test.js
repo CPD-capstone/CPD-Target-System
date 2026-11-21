@@ -50,13 +50,28 @@ export async function createControllerTest() {
     const stage = () => run.stages.filter((item) => item.first <= run.index
         && (run.index < item.end || run.steps[run.index]?.action === 'pause')).pop();
     // AI-generated (Claude): mirrors stageJumpTarget() and the part counts in target_manager.cpp.
+    // AI-modified (Claude): returns the step index to jump to; part jumps stay inside the stage
     const jumpTarget = (jump) => {
         const current = stage();
         if (!current) return -1;
+        if (jump.endsWith('-part')) {
+            const { partIndex, partCount } = partsOf(current);
+            if (partCount < 2) return -1;
+            const betweenParts = run.index >= current.first && run.index < current.end && run.steps[run.index].action === 'pause';
+            const part = jump === 'current-part' ? partIndex : jump === 'previous-part' ? partIndex - 1
+                : partIndex + (betweenParts ? 2 : 1);
+            if (part < 1 || part > partCount) return -1;
+            let pauses = 0;
+            for (let index = current.first; index < current.end; index++) {
+                if (pauses === part - 1) return index;
+                if (run.steps[index].action === 'pause') pauses++;
+            }
+            return -1;
+        }
         const index = run.stages.indexOf(current);
         const target = jump === 'current' ? index : jump === 'previous' ? index - 1
             : index + (run.index >= current.end ? 2 : 1);
-        return target >= 0 && target < run.stages.length ? target : -1;
+        return target >= 0 && target < run.stages.length ? run.stages[target].first : -1;
     };
     const partsOf = (current) => {
         if (!current || run.stagesAreParts) return { partIndex: 0, partCount: 0 };
@@ -84,7 +99,7 @@ export async function createControllerTest() {
         run.at = now;
         if (status.stageResetPending && now >= run.resetUntil) {
             move(status.targets, false);
-            run.index = run.stages[run.jumpTo].first;
+            run.index = run.jumpTo;
             run.remaining = null;
             status.stageResetPending = false;
             status.stageRestartReady = true;
@@ -191,6 +206,9 @@ export async function createControllerTest() {
                         canResetStage: active && !status.stageResetPending && jumpTarget('current') >= 0,
                         canGoBack: active && !status.stageResetPending && jumpTarget('previous') >= 0,
                         canSkip: active && !status.stageResetPending && jumpTarget('next') >= 0,
+                        canRedoPart: active && !status.stageResetPending && jumpTarget('current-part') >= 0,
+                        canGoBackPart: active && !status.stageResetPending && jumpTarget('previous-part') >= 0,
+                        canSkipPart: active && !status.stageResetPending && jumpTarget('next-part') >= 0,
                         stageCount: active ? run.stages.length : 0, stagesAreParts: Boolean(run.stagesAreParts),
                         ...partsOf(active ? current : null), finalStageComplete: false,
                         ...testSignal });
@@ -224,13 +242,15 @@ export async function createControllerTest() {
                 if (!status.stageRestartReady && run.steps[run.index].action === 'pause') run.index++;
                 status.stageRestartReady = false;
                 status.state = 'running';
-            } else if (['/api/drill/reset-stage', '/api/drill/previous-stage', '/api/drill/next-stage'].includes(route)) {
-                // AI-modified (Claude): Back / Redo / Skip, while running or paused
-                const jump = route.endsWith('reset-stage') ? 'current' : route.endsWith('previous-stage') ? 'previous' : 'next';
+            } else if (['/api/drill/reset-stage', '/api/drill/previous-stage', '/api/drill/next-stage',
+                '/api/drill/reset-part', '/api/drill/previous-part', '/api/drill/next-part'].includes(route)) {
+                // AI-modified (Claude): Back / Redo / Skip a stage or a part, while running or paused
+                const jump = { 'reset-stage': 'current', 'previous-stage': 'previous', 'next-stage': 'next',
+                    'reset-part': 'current-part', 'previous-part': 'previous-part', 'next-part': 'next-part' }[route.split('/').pop()];
                 if (status.state === 'idle' || status.stageResetPending) refuse('No drill is running, or a stage change is pending.');
                 const target = jumpTarget(jump);
                 if (target < 0) refuse('There is no stage to move to.');
-                if (!(jump === 'current' && status.stageRestartReady)) {
+                if (!(status.stageRestartReady && target === run.index)) {
                     status.state = 'paused';
                     status.stageRestartReady = false;
                     status.stageResetPending = true;

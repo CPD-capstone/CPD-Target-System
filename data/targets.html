@@ -96,6 +96,22 @@
                     <i class="bi bi-skip-forward-fill" aria-hidden="true"></i>
                 </button>
             </div>
+            <!-- AI-generated (Claude): the same for the parts of a full drill's current stage (the
+                 sections between its pauses). Shown when that stage has more than one part. -->
+            <div class="stage-nav part-nav" id="partNav" role="group" aria-label="Change part of this stage" aria-describedby="resetStageHint" hidden>
+                <button class="btn btn-outline-secondary" id="previousPartButton" type="button" disabled>
+                    <i class="bi bi-skip-start-fill" aria-hidden="true"></i>
+                    <span id="previousPartLabel">Back a part</span>
+                </button>
+                <button class="btn btn-outline-secondary" id="resetPartButton" type="button" disabled>
+                    <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+                    <span id="resetPartLabel">Redo part</span>
+                </button>
+                <button class="btn btn-outline-secondary" id="nextPartButton" type="button" disabled>
+                    <span id="nextPartLabel">Skip a part</span>
+                    <i class="bi bi-skip-end-fill" aria-hidden="true"></i>
+                </button>
+            </div>
             <p class="small text-muted mb-0" id="resetStageHint" aria-live="polite" hidden></p>
             <!-- AI-generated (Claude): what Start / Resume do (Settings > Drill start delay, saved
                  per phone), with a link to change it. script.js fills the text. -->
@@ -323,7 +339,7 @@
     <!-- Bootstrap JS -->
     <script src="vendor/bootstrap.bundle.min.js"></script>
     <!-- Fetch the updated target controls when this page reloads. -->
-    <script src="script.js?v=ui-changes-15"></script>
+    <script src="script.js?v=ui-changes-16"></script>
 
 </body>
 </html>

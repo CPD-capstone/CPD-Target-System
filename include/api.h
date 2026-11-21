@@ -43,6 +43,8 @@
 //   POST   /api/drill/reset-stage                       -> resetDrillStage (AI-assisted with Codex)
 //   POST   /api/drill/previous-stage                    -> jumpToStage(Previous) (AI-generated, Claude)
 //   POST   /api/drill/next-stage                        -> jumpToStage(Next)     (AI-generated, Claude)
+//   POST   /api/drill/previous-part | reset-part | next-part -> jumpToStage(PreviousPart | CurrentPart |
+//          NextPart): the same within the parts of a full drill's current stage (AI-generated, Claude)
 //   AI-modified (Claude): the three stage moves work while a drill is running or paused; the drill
 //   hides its targets and waits at the start of that stage for resume. A drill without stages
 //   moves by parts (the runs of steps between its pause steps).

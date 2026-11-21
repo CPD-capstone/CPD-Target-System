@@ -89,11 +89,11 @@ namespace{
     std::vector<DrillStage> activeStages;
     int currentStageIndex = -1;
     PauseControl pauseControl = PauseControl::Waiting;
-    // AI-generated (Claude): stage navigation. pendingStageIndex = where the queued jump goes
-    // (valid while pauseControl is ResetPending); stagesAreParts = activeStages holds the parts of
+    // AI-generated (Claude): stage navigation. pendingJumpStep = the step index the queued jump goes
+    // to (valid while pauseControl is ResetPending); stagesAreParts = activeStages holds the parts of
     // a drill that has no stages; currentPart/currentPartCount describe the current stage's parts.
     // rewinding = the runner is hiding targets for a jump, so waitMs() ignores further jump wakes.
-    int pendingStageIndex = -1;
+    int pendingJumpStep = -1;
     bool stagesAreParts = false;
     uint16_t currentPart = 0;
     uint16_t currentPartCount = 0;
@@ -510,18 +510,18 @@ namespace{
     }
 
     /// @brief Hide targets before replay, keeping any emergency hold intact (AI-assisted with Codex).
-    /// AI-modified (Claude): moves to the stage jumpToStage() chose (pendingStageIndex), which may
-    /// be the current, previous or next one, and also handles a jump requested while running. A
-    /// further jump while it waits for Resume is applied in the same loop.
+    /// AI-modified (Claude): moves to the step jumpToStage() chose (pendingJumpStep: the start of the
+    /// current, previous or next stage, or of a part of the current stage), and also handles a jump
+    /// requested while running. A further jump while it waits for Resume is applied in the same loop.
     bool rewindStage(size_t& index){
         for(;;){
             if(stopLatched) return false;
             // Report Paused from the start so an operator Pause can't interrupt the move
             portENTER_CRITICAL(&runnerLock);
             drillState = DrillState::Paused;
-            int target = pendingStageIndex;
+            int target = pendingJumpStep;
             portEXIT_CRITICAL(&runnerLock);
-            if(target < 0 || target >= (int)activeStages.size()) return false;
+            if(target < 0 || target >= (int)activeSteps.size()) return false;
             if(!hal_sendCommand(activeMask, false)){
                 drillFailed = true;
                 return false;
@@ -535,7 +535,7 @@ namespace{
                 drillFailed = true;
                 return false;
             }
-            index = activeStages[target].first;
+            index = target;
             publishStep(index);
             portENTER_CRITICAL(&runnerLock);
             pauseControl = PauseControl::ReplayReady;
@@ -664,7 +664,7 @@ namespace{
             // Clear replay state before releasing the runner (AI-assisted with Codex).
             currentStageIndex = -1;
             pauseControl = PauseControl::Waiting;
-            pendingStageIndex = -1;
+            pendingJumpStep = -1;
             currentPart = currentPartCount = 0;
             lastOutcome = outcome;
             runnerBusy = false;
@@ -861,17 +861,37 @@ StageResetResult resetDrillStage(){
 }
 
 namespace {
-    /// @brief AI-generated (Claude): the stage index a jump would move to, or -1 if there is none.
-    ///        Call under runnerLock.
+    /// @brief AI-generated (Claude): the step index a jump would move to (the first step of the
+    ///        target stage or part), or -1 if there is none. Call under runnerLock.
     int stageJumpTarget(StageJump jump){
         int current = currentStageIndex;
         if(current < 0 || current >= (int)activeStages.size()) return -1;
-        // Between stages (at the pause after one), "next" skips the stage Resume would start
-        bool between = currentStep > activeStages[current].end;
-        int target = jump == StageJump::Current ? current
-                   : jump == StageJump::Previous ? current - 1
-                   : current + (between ? 2 : 1);
-        return target >= 0 && target < (int)activeStages.size() ? target : -1;
+        const DrillStage& stage = activeStages[current];
+        if(jump == StageJump::Current || jump == StageJump::Previous || jump == StageJump::Next){
+            // Between stages (at the pause after one), "next" skips the stage Resume would start
+            bool between = currentStep > stage.end;
+            int target = jump == StageJump::Current ? current
+                       : jump == StageJump::Previous ? current - 1
+                       : current + (between ? 2 : 1);
+            return target >= 0 && target < (int)activeStages.size() ? (int)activeStages[target].first : -1;
+        }
+        // Parts of a full drill's current stage (a drill without stages already moves by part)
+        if(stagesAreParts || currentPartCount < 2) return -1;
+        // At a pause inside the stage (between parts), "next part" skips the part Resume would start
+        size_t index = currentStep ? currentStep - 1 : 0;
+        bool betweenParts = index >= stage.first && index < stage.end
+                            && activeSteps[index].type == StepType::Pause;
+        int part = jump == StageJump::CurrentPart ? currentPart
+                 : jump == StageJump::PreviousPart ? currentPart - 1
+                 : currentPart + (betweenParts ? 2 : 1);
+        if(part < 1 || part > currentPartCount) return -1;
+        // Part n starts after the stage's (n-1)th pause step
+        int pauses = 0;
+        for(size_t n = stage.first; n < stage.end; n++){
+            if(pauses == part - 1) return (int)n;
+            if(activeSteps[n].type == StepType::Pause) pauses++;
+        }
+        return -1;
     }
 }
 
@@ -885,11 +905,11 @@ StageResetResult jumpToStage(StageJump jump){
     else if(drillState == DrillState::Idle) result = StageResetResult::NoDrill;
     else if(hasPendingControl()) result = StageResetResult::Busy;
     else if((target = stageJumpTarget(jump)) < 0) result = StageResetResult::NoStage;
-    // Redo is idempotent once the stage is rewound and waiting for Resume
+    // Already rewound to that step and waiting for Resume: nothing to do (e.g. Redo pressed twice)
     bool notify = result == StageResetResult::Accepted
-                  && !(jump == StageJump::Current && pauseControl == PauseControl::ReplayReady);
+                  && !(pauseControl == PauseControl::ReplayReady && target == (int)currentStep - 1);
     if(notify){
-        pendingStageIndex = target;
+        pendingJumpStep = target;
         pauseControl = PauseControl::ResetPending;
     }
     portEXIT_CRITICAL(&runnerLock);
@@ -995,6 +1015,9 @@ DrillStatus getDrillStatus(){
     status.canResetStage = canMove && stageJumpTarget(StageJump::Current) >= 0;
     status.canGoBack = canMove && stageJumpTarget(StageJump::Previous) >= 0;
     status.canSkip = canMove && stageJumpTarget(StageJump::Next) >= 0;
+    status.canRedoPart = canMove && stageJumpTarget(StageJump::CurrentPart) >= 0;
+    status.canGoBackPart = canMove && stageJumpTarget(StageJump::PreviousPart) >= 0;
+    status.canSkipPart = canMove && stageJumpTarget(StageJump::NextPart) >= 0;
     status.stageCount = drillState == DrillState::Idle ? 0 : activeStages.size();
     status.stagesAreParts = stagesAreParts;
     status.partIndex = currentPart;
