@@ -798,6 +798,25 @@ const findDrillByName = (name) => Object.values(targetAssignmentDrills)
 // AI-generated (Claude): set by the Targets page; redraws the confirmed-targets line.
 let renderDrillTargetSummary = () => {};
 
+// AI-generated (Claude): writes a description one line per row and marks the "Part n" line that
+// runs next (nextPart, 1-based; 0 = none) so the instructor can see which section is coming up.
+const renderDescriptionText = (element, text, nextPart) => {
+    element.replaceChildren(...String(text).split('\n').map((line) => {
+        const row = document.createElement('span');
+        row.className = 'drill-description-line';
+        const part = /^Part (\d+)\b/.exec(line);
+        if (part && Number(part[1]) === nextPart) {
+            row.classList.add('is-next-part');
+            const tag = document.createElement('strong');
+            tag.className = 'drill-description-next';
+            tag.textContent = 'Next';
+            row.append(tag, ' ');
+        }
+        row.append(line);
+        return row;
+    }));
+};
+
 const renderDrillDescription = (status, drillSelect) => {
     const panel = document.getElementById('drillDescription');
     if (!panel) return;
@@ -825,7 +844,12 @@ const renderDrillDescription = (status, drillSelect) => {
     const title = document.getElementById('drillDescriptionTitle');
     const text = document.getElementById('drillDescriptionText');
     title.textContent = name;
-    text.textContent = drillText;
+    // The drill's own parts (a drill without stages): the part Resume runs next
+    let drillNextPart = 1;
+    if (state === 'paused' && status.stagesAreParts) {
+        drillNextPart = (status.stageIndex || 0) + (status.betweenStages && !status.stageRestartReady ? 1 : 0);
+    }
+    renderDescriptionText(text, drillText, drillNextPart);
     title.hidden = text.hidden = !drillText;
     const stageTitle = document.getElementById('drillStageDescriptionTitle');
     const stageBody = document.getElementById('drillStageDescriptionText');
@@ -834,7 +858,12 @@ const renderDrillDescription = (status, drillSelect) => {
     const startsNewStage = state === 'paused' && (status.betweenStages || status.stageRestartReady);
     const stagePrefix = state === 'idle' ? 'First up: ' : startsNewStage ? 'Next up: ' : '';
     stageTitle.textContent = stage ? `${stagePrefix}${shortStageName(name, stageName)}` : '';
-    stageBody.textContent = stageText;
+    // A full drill's stage: part 1 when it starts fresh, else the part after a pause inside it
+    let stageNextPart = 1;
+    if (state === 'paused' && !startsNewStage && status.partIndex) {
+        stageNextPart = status.stepAction === 'pause' ? status.partIndex + 1 : status.partIndex;
+    }
+    renderDescriptionText(stageBody, stageText, stageNextPart);
     stageTitle.hidden = stageBody.hidden = !stageText;
     stageTitle.classList.toggle('mt-2', Boolean(drillText));
 };

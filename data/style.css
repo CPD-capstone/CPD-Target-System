@@ -570,8 +570,26 @@
     color: #212529;
     font-size: 0.95rem;
     line-height: 1.45;
-    white-space: pre-line;
     overflow-wrap: anywhere;
+}
+
+.drill-description-line {
+    display: block;
+}
+
+/* AI-generated (Claude): the "Part n" section that runs next */
+.drill-description-line.is-next-part {
+    margin: 0.15rem -0.35rem;
+    padding: 0.15rem 0.35rem;
+    border-radius: 0.25rem;
+    background: #fff3cd;
+}
+
+.drill-description-next {
+    color: #8a5a00;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
 }
 
 /* AI-generated (Claude): description preview on the Drills page cards. */
