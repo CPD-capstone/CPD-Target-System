@@ -1071,6 +1071,11 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
     margin-bottom: 0.75rem;
 }
 
+/* AI-generated (Claude): Settings > Target flip delay */
+.target-flip-input {
+    max-width: 12rem;
+}
+
 .start-delay-seconds {
     max-width: 12rem;
     margin-left: 1.5rem;

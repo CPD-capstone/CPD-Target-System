@@ -1,4 +1,5 @@
 #include "target_manager.h"
+#include <Preferences.h> // AI-generated (Claude): target flip delay setting
 #include "hal.h"
 #include <LittleFS.h>
 #include <ArduinoJson.h>
@@ -126,6 +127,12 @@ namespace{
     // and cleared only by resetTargets(). While set, executeDrill() and setTargets() refuse,
     // and a drill that ends does not send its usual final hide.
     volatile bool stopLatched = false;
+
+    // AI-generated (Claude): target flip delay in use (see setFaceTravelMs()); written by the web
+    // server task, read by the runner at each present step
+    volatile uint32_t faceTravelMs = TARGET_FACE_TRAVEL_MS;
+    constexpr const char* DRILL_PREFS_NAMESPACE = "drill_config";
+    constexpr const char* FACE_TRAVEL_KEY = "face_ms";
 
     /// @brief action name of a step type, as written in database.json
     const char* stepActionName(StepType type){
@@ -444,8 +451,9 @@ namespace{
         }
 
         // Phase 2: the valves have switched; now give the targets time to rotate fully flat.
-        // With TARGET_FACE_TRAVEL_MS = 0 this returns immediately.
-        return waitMs(TARGET_FACE_TRAVEL_MS);
+        // With a flip delay of 0 this returns immediately.
+        // AI-modified (Claude): the delay is set in Settings (getFaceTravelMs()), not fixed.
+        return waitMs(faceTravelMs);
     }
 
     /// @brief AI-generated (Claude): the targets a present/hide step moves: its own list limited to
@@ -1006,6 +1014,32 @@ TargetCommandResult resetTargets(){
     runnerBusy = false;
     portEXIT_CRITICAL(&runnerLock);
     return result;
+}
+
+// AI-generated (Claude): target flip delay, saved in NVS like the WiFi password
+void loadDrillSettings(){
+    Preferences prefs;
+    // Read-only open fails when nothing was ever saved: keep the default
+    if(prefs.begin(DRILL_PREFS_NAMESPACE, true)){
+        uint32_t saved = prefs.getUInt(FACE_TRAVEL_KEY, TARGET_FACE_TRAVEL_MS);
+        prefs.end();
+        faceTravelMs = saved <= FACE_TRAVEL_MAX_MS ? saved : TARGET_FACE_TRAVEL_MS;
+    }
+    Serial.printf("Target flip delay: %lu ms\r\n", (unsigned long)faceTravelMs);
+}
+
+uint32_t getFaceTravelMs(){
+    return faceTravelMs;
+}
+
+bool setFaceTravelMs(uint32_t ms){
+    if(ms > FACE_TRAVEL_MAX_MS) return false;
+    Preferences prefs;
+    if(!prefs.begin(DRILL_PREFS_NAMESPACE, false)) return false;
+    bool saved = prefs.putUInt(FACE_TRAVEL_KEY, ms) == sizeof(uint32_t);
+    prefs.end();
+    if(saved) faceTravelMs = ms;
+    return saved;
 }
 
 DrillState getDrillState(){

@@ -13,7 +13,7 @@
 //                "pause"   -> hold until resumeDrill() (operator continues the drill)
 //                <drill name> -> run that drill's steps in place
 // A delay after "present" starts once every selected target is fully facing the shooter
-// (solenoid fired + TARGET_FACE_TRAVEL_MS in hal.h). Timing is accurate to ~10 ms (HAL loop
+// (solenoid fired + the target flip delay: getFaceTravelMs(), default TARGET_FACE_TRAVEL_MS in hal.h). Timing is accurate to ~10 ms (HAL loop
 // period). The HAL enforces a 500 ms per-target cooldown (MECHANICAL_BUFFER), so a target
 // flipped again sooner than that is held until its cooldown expires.
 //
@@ -185,6 +185,26 @@ DrillState getDrillState();
 
 /// @brief full snapshot of the drill runner (name, progress, last outcome, stop latch), for status display
 DrillStatus getDrillStatus();
+
+// AI-generated (Claude): target flip delay (Settings page) --------------------------------------------
+
+/// longest target flip delay accepted, in ms
+constexpr uint32_t FACE_TRAVEL_MAX_MS = 5000;
+
+/// @brief loads the saved target flip delay from NVS (namespace "drill_config", key "face_ms");
+///        TARGET_FACE_TRAVEL_MS (hal.h) if none is saved. Call once in setup().
+void loadDrillSettings();
+
+/// @brief the target flip delay in use: how long after a present step's targets have fired the
+///        runner waits for them to turn fully flat before the next delay starts counting
+/// @return milliseconds
+uint32_t getFaceTravelMs();
+
+/// @brief changes the target flip delay and saves it in NVS (it survives reboots and uploadfs).
+///        Takes effect at the next present step, including in a drill that is running.
+/// @param ms 0 to FACE_TRAVEL_MAX_MS
+/// @return false if out of range or it could not be saved (the old value stays in use)
+bool setFaceTravelMs(uint32_t ms);
 
 /// @brief manually presents or hides targets outside a drill. Refused while a drill is running
 ///        so it can't fight the runner, and while the emergency stop is latched.

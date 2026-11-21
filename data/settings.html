@@ -83,6 +83,31 @@
             </div>
         </section>
 
+        <!-- AI-generated (Claude): target flip delay (TARGET_FACE_TRAVEL_MS), saved on the controller. -->
+        <section class="card mb-4" aria-labelledby="targetFlipTitle">
+            <div class="card-body">
+                <h2 class="h5 card-title" id="targetFlipTitle">Target flip delay</h2>
+                <p class="text-secondary small">
+                    How long a target takes to turn from edge-on to fully facing the shooter. Drill
+                    timers start counting only after this, so a 4-second string gives the shooter the
+                    full 4 seconds. Time a real target turning and enter it here. Saved on the
+                    controller, so it applies to every phone.
+                </p>
+                <form id="targetFlipForm" novalidate>
+                    <label class="form-label small mb-1" for="targetFlipMs">Delay</label>
+                    <div class="d-flex flex-wrap gap-2 align-items-start">
+                        <div class="input-group target-flip-input">
+                            <input class="form-control" type="number" id="targetFlipMs" min="0" max="5000" step="10" inputmode="numeric" disabled aria-describedby="targetFlipHint">
+                            <span class="input-group-text">ms</span>
+                        </div>
+                        <button class="btn btn-primary" type="submit" id="targetFlipSave" disabled>Save</button>
+                    </div>
+                    <p class="form-text mb-0" id="targetFlipHint">0 to 5000 milliseconds (1000 ms = 1 second). 0 starts timers the moment the targets are told to turn.</p>
+                    <p class="small mt-2 mb-0" id="targetFlipMessage" role="status" hidden></p>
+                </form>
+            </div>
+        </section>
+
         <section class="card mb-4" aria-labelledby="defectiveTargetsTitle">
             <div class="card-body">
                 <h2 class="h5 card-title" id="defectiveTargetsTitle">Defective targets</h2>
@@ -182,6 +207,6 @@
     </main>
 
     <script src="vendor/bootstrap.bundle.min.js"></script>
-    <script src="script.js?v=ui-changes-22"></script>
+    <script src="script.js?v=ui-changes-23"></script>
 </body>
 </html>

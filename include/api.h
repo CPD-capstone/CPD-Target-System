@@ -43,6 +43,8 @@
 //   POST   /api/drill/reset-stage                       -> resetDrillStage (AI-assisted with Codex)
 //   POST   /api/drill/previous-stage                    -> jumpToStage(Previous) (AI-generated, Claude)
 //   POST   /api/drill/next-stage                        -> jumpToStage(Next)     (AI-generated, Claude)
+//   GET    /api/settings/target-flip   -> {faceTravelMs, maxMs, defaultMs}   (AI-generated, Claude)
+//   PUT    /api/settings/target-flip   {faceTravelMs}  -> setFaceTravelMs (0-5000 ms, saved in NVS)
 //   POST   /api/drill/jump  {stage, part?}  -> jumpToStagePart: a given stage and part, 1-based (AI-generated, Claude)
 //   POST   /api/drill/previous-part | reset-part | next-part -> jumpToStage(PreviousPart | CurrentPart |
 //          NextPart): the same within the parts of a full drill's current stage (AI-generated, Claude)

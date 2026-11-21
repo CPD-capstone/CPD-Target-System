@@ -548,6 +548,26 @@ static void handleTargetState(AsyncWebServerRequest* request) {
 
 // WiFi -------------------------------------------------------------------------------------------
 
+// AI-generated (Claude): GET /api/settings/target-flip -> {faceTravelMs, maxMs, defaultMs}
+static void handleGetTargetFlip(AsyncWebServerRequest* request) {
+    JsonDocument doc;
+    doc["faceTravelMs"] = getFaceTravelMs();
+    doc["maxMs"] = FACE_TRAVEL_MAX_MS;
+    doc["defaultMs"] = TARGET_FACE_TRAVEL_MS;
+    sendJson(request, 200, doc);
+}
+
+// AI-generated (Claude): PUT /api/settings/target-flip  {faceTravelMs}   saved in NVS
+static void handleSetTargetFlip(AsyncWebServerRequest* request, JsonVariant& json) {
+    if (!json["faceTravelMs"].is<uint32_t>() || json["faceTravelMs"].as<uint32_t>() > FACE_TRAVEL_MAX_MS) {
+        return sendError(request, 400, "faceTravelMs must be a whole number from 0 to 5000");
+    }
+    if (!setFaceTravelMs(json["faceTravelMs"].as<uint32_t>())) {
+        return sendError(request, 500, "Could not save the target flip delay");
+    }
+    sendOk(request);
+}
+
 // AI-generated (Claude): POST /api/wifi/password  {currentPassword, newPassword}
 // Replies first; the access point restarts with the new password about a second later, so every
 // phone (including this one) has to rejoin with it.
@@ -629,6 +649,10 @@ void registerApiRoutes(AsyncWebServer& server) {
 
     // WiFi (AI-generated, Claude)
     onJsonBody(server, "/api/wifi/password", HTTP_POST, handleChangeWiFiPassword);
+
+    // Target flip delay (AI-generated, Claude)
+    server.on("/api/settings/target-flip", HTTP_GET, handleGetTargetFlip);
+    onJsonBody(server, "/api/settings/target-flip", HTTP_PUT, handleSetTargetFlip);
 
     // Anything else under /api gets a JSON 404 instead of falling through to onNotFound (which
     // serves targets.html). This also catches JSON routes called without the JSON Content-Type.

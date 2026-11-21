@@ -69,6 +69,10 @@ const faqGroups = [
                 answer: 'On Targets, tap View to open the View section, then use the Grid view and List view buttons. Your display choice is saved on that device. Filter targets in the same section shows only the target numbers you enter, such as 1, 3, 5-8.'
             },
             {
+                question: 'What is the target flip delay?',
+                answer: 'It is how long a target takes to turn and face the shooter. Drill timers start counting after it, so the shooter gets the full time once the target is facing. Set it in Settings under Target flip delay after timing a real target; it is saved on the controller for every phone.'
+            },
+            {
                 question: 'How do I change the delay before a drill starts?',
                 answer: 'Open Settings and choose Instant, Set time, or Random under Drill start delay. A fixed delay can be set from 1 to 30 seconds; the setting is saved on that phone. The Targets page shows the current setting under the drill buttons; tap Change there to jump to it.'
             }
@@ -3257,6 +3261,47 @@ if (startDelayForm) {
     startDelayForm.addEventListener('submit', (event) => {
         event.preventDefault(); // Enter in the seconds box
         saveStartDelay();
+    });
+}
+
+// AI-generated (Claude): Target flip delay: read from and saved on the controller.
+const targetFlipForm = document.getElementById('targetFlipForm');
+if (targetFlipForm) {
+    const input = document.getElementById('targetFlipMs');
+    const saveButton = document.getElementById('targetFlipSave');
+    const message = document.getElementById('targetFlipMessage');
+    const showFlipMessage = (text, ok) => {
+        message.textContent = text;
+        message.className = `small mt-2 mb-0 ${ok ? 'text-success' : 'text-danger'}`;
+        message.hidden = false;
+    };
+    fetchController('/api/settings/target-flip', { cache: 'no-store' })
+        .then(async (response) => {
+            if (!response.ok) throw new Error('bad response');
+            const setting = await response.json();
+            input.value = String(setting.faceTravelMs);
+            input.max = String(setting.maxMs ?? 5000);
+            input.disabled = saveButton.disabled = false;
+        })
+        .catch(() => showFlipMessage('Could not load the target flip delay from the controller. Check that you are on the CPD Range Control WiFi.', false));
+
+    targetFlipForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const ms = Number(input.value);
+        const max = Number(input.max) || 5000;
+        if (input.value.trim() === '' || !Number.isInteger(ms) || ms < 0 || ms > max) {
+            showFlipMessage(`Enter a whole number of milliseconds from 0 to ${max}.`, false);
+            input.focus();
+            return;
+        }
+        saveButton.disabled = true;
+        try {
+            await postToController('/api/settings/target-flip', { faceTravelMs: ms }, 'PUT');
+            showFlipMessage(`Saved: ${ms} ms (${(ms / 1000).toFixed(2)} s). Applies from the next time targets turn.`, true);
+        } catch (error) {
+            showFlipMessage(error.message, false);
+        }
+        saveButton.disabled = false;
     });
 }
 

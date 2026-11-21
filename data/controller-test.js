@@ -193,6 +193,8 @@ export async function createControllerTest() {
                 if (route === '/api/drills') return json(database.drills);
                 if (route === '/api/qualifications') return json(database.qualifications || ['Pistol', 'Rifle', 'SWAT']);
                 if (route === '/api/targets/state') return json({ facing: status.facing });
+                // AI-generated (Claude): target flip delay (kept with the test data)
+                if (route === '/api/settings/target-flip') return json({ faceTravelMs: database.faceTravelMs ?? 0, maxMs: 5000, defaultMs: 0 });
                 if (route === '/api/officers') return json(officersWithStats(url.searchParams.get('today') || new Date().toISOString().slice(0, 10)));
                 if (route === '/api/drill/status') {
                     const active = status.state !== 'idle';
@@ -309,6 +311,9 @@ export async function createControllerTest() {
                     const histories = officer.qualificationScores || {};
                     officer.qualificationScores = { ...histories, [name]: [entry, ...(Object.hasOwn(histories, name) ? histories[name] : [])] };
                 }
+            } else if (route === '/api/settings/target-flip' && method === 'PUT') {
+                if (!Number.isInteger(body.faceTravelMs) || body.faceTravelMs < 0 || body.faceTravelMs > 5000) refuse('faceTravelMs must be a whole number from 0 to 5000');
+                database.faceTravelMs = body.faceTravelMs;
             } else if (route === '/api/officers') {
                 // AI-generated (Claude): add / edit (name, badge) / delete officers in test mode
                 const badge = Number(url.searchParams.get('badge'));
