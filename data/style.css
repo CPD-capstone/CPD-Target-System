@@ -674,23 +674,87 @@ body.has-action-bar .faq-help-button {
     bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
 }
 
-/* AI-generated (Claude): Back / Redo / Skip row under the drill buttons. Three equal columns
-   so the stage names line up; the labels wrap rather than widen the page on phones. */
-.stage-nav:not([hidden]) {
+/* AI-generated (Claude): compact stage control: ‹ | current stage | › | Redo, then part chips. */
+.stage-control {
+    margin-top: 0.6rem;
+}
+
+.stage-control-row {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-    gap: 0.5rem;
-    margin-top: 0.5rem;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    gap: 0.4rem;
 }
 
-.stage-nav .btn {
+.stage-control-row .btn {
     min-height: 44px;
-    overflow-wrap: anywhere;
 }
 
-/* AI-generated (Claude): part buttons sit right under the stage buttons */
-.part-nav:not([hidden]) {
-    margin-top: 0.35rem;
+.stage-arrow {
+    min-width: 44px;
+    font-size: 1.15rem;
+}
+
+.stage-current {
+    overflow: hidden;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stage-current:disabled {
+    color: #212529;
+    opacity: 1;
+}
+
+.part-chips:not([hidden]) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.45rem;
+}
+
+.part-chips-label {
+    color: #6c757d;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.part-chips-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.part-chip {
+    min-width: 44px;
+    min-height: 40px;
+    font-weight: 700;
+}
+
+.part-chip.is-done {
+    color: #6c757d;
+}
+
+/* AI-generated (Claude): jump list (stage rows with part buttons) */
+.stage-jump-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.stage-jump-row .stage-jump-stage {
+    flex: 1 1 9rem;
+    text-align: left;
+}
+
+.stage-jump-row.is-current .stage-jump-stage {
+    font-weight: 700;
 }
 
 #targetGrid [data-target-number] {

@@ -861,6 +861,22 @@ StageResetResult resetDrillStage(){
 }
 
 namespace {
+    /// @brief AI-generated (Claude): first step of part `part` (1-based, split at pause steps) of
+    ///        stage `stageIndex` (0-based), or -1 if there is no such stage or part. Under runnerLock.
+    int stepOfStagePart(int stageIndex, int part){
+        if(stageIndex < 0 || stageIndex >= (int)activeStages.size() || part < 1) return -1;
+        const DrillStage& stage = activeStages[stageIndex];
+        if(part == 1) return (int)stage.first;
+        if(stagesAreParts) return -1; // a part of a drill without stages has no parts itself
+        // Part n starts after the stage's (n-1)th pause step
+        int pauses = 0;
+        for(size_t n = stage.first; n < stage.end; n++){
+            if(pauses == part - 1) return (int)n;
+            if(activeSteps[n].type == StepType::Pause) pauses++;
+        }
+        return -1;
+    }
+
     /// @brief AI-generated (Claude): the step index a jump would move to (the first step of the
     ///        target stage or part), or -1 if there is none. Call under runnerLock.
     int stageJumpTarget(StageJump jump){
@@ -885,36 +901,42 @@ namespace {
                  : jump == StageJump::PreviousPart ? currentPart - 1
                  : currentPart + (betweenParts ? 2 : 1);
         if(part < 1 || part > currentPartCount) return -1;
-        // Part n starts after the stage's (n-1)th pause step
-        int pauses = 0;
-        for(size_t n = stage.first; n < stage.end; n++){
-            if(pauses == part - 1) return (int)n;
-            if(activeSteps[n].type == StepType::Pause) pauses++;
+        return stepOfStagePart(current, part);
+    }
+
+    /// @brief AI-generated (Claude): checks the runner and queues a jump to the step `pick()` returns
+    ///        (called under runnerLock; -1 = no such stage/part). Shared by both jump functions.
+    template <typename PickStep>
+    StageResetResult queueJump(PickStep pick){
+        if(!hal_isReady()) return StageResetResult::HalNotReady;
+        portENTER_CRITICAL(&runnerLock);
+        StageResetResult result = StageResetResult::Accepted;
+        int target = -1;
+        if(stopLatched) result = StageResetResult::Stopped;
+        else if(drillState == DrillState::Idle) result = StageResetResult::NoDrill;
+        else if(hasPendingControl()) result = StageResetResult::Busy;
+        else if((target = pick()) < 0) result = StageResetResult::NoStage;
+        // Already rewound to that step and waiting for Resume: nothing to do (e.g. Redo pressed twice)
+        bool notify = result == StageResetResult::Accepted
+                      && !(pauseControl == PauseControl::ReplayReady && target == (int)currentStep - 1);
+        if(notify){
+            pendingJumpStep = target;
+            pauseControl = PauseControl::ResetPending;
         }
-        return -1;
+        portEXIT_CRITICAL(&runnerLock);
+        if(notify) xTaskNotify(drillTaskHandle, NOTIFY_RESET_STAGE, eSetBits);
+        return result;
     }
 }
 
 // AI-generated (Claude): Back / Redo / Skip. The runner does the moving (see rewindStage()).
 StageResetResult jumpToStage(StageJump jump){
-    if(!hal_isReady()) return StageResetResult::HalNotReady;
-    portENTER_CRITICAL(&runnerLock);
-    StageResetResult result = StageResetResult::Accepted;
-    int target = -1;
-    if(stopLatched) result = StageResetResult::Stopped;
-    else if(drillState == DrillState::Idle) result = StageResetResult::NoDrill;
-    else if(hasPendingControl()) result = StageResetResult::Busy;
-    else if((target = stageJumpTarget(jump)) < 0) result = StageResetResult::NoStage;
-    // Already rewound to that step and waiting for Resume: nothing to do (e.g. Redo pressed twice)
-    bool notify = result == StageResetResult::Accepted
-                  && !(pauseControl == PauseControl::ReplayReady && target == (int)currentStep - 1);
-    if(notify){
-        pendingJumpStep = target;
-        pauseControl = PauseControl::ResetPending;
-    }
-    portEXIT_CRITICAL(&runnerLock);
-    if(notify) xTaskNotify(drillTaskHandle, NOTIFY_RESET_STAGE, eSetBits);
-    return result;
+    return queueJump([jump]{ return stageJumpTarget(jump); });
+}
+
+// AI-generated (Claude): jump to a given stage and part (1-based)
+StageResetResult jumpToStagePart(int stage, int part){
+    return queueJump([stage, part]{ return stepOfStagePart(stage - 1, part); });
 }
 
 // AI-modified (Claude): emergency stop -- freezes targets instead of hiding them

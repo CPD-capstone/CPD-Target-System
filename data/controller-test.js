@@ -242,6 +242,24 @@ export async function createControllerTest() {
                 if (!status.stageRestartReady && run.steps[run.index].action === 'pause') run.index++;
                 status.stageRestartReady = false;
                 status.state = 'running';
+            } else if (route === '/api/drill/jump') {
+                // AI-generated (Claude): a given stage and part (1-based), while running or paused
+                if (status.state === 'idle' || status.stageResetPending) refuse('No drill is running, or a stage change is pending.');
+                const target = run.stages[body.stage - 1];
+                let step = -1;
+                if (target && (body.part ?? 1) === 1) step = target.first;
+                else if (target && !run.stagesAreParts) {
+                    let pauses = 0;
+                    for (let index = target.first; index < target.end; index++) {
+                        if (pauses === body.part - 1) { step = index; break; }
+                        if (run.steps[index].action === 'pause') pauses++;
+                    }
+                }
+                if (step < 0) refuse('That stage or part does not exist in this drill');
+                if (!(status.stageRestartReady && step === run.index)) {
+                    Object.assign(status, { state: 'paused', stageRestartReady: false, stageResetPending: true });
+                    Object.assign(run, { jumpTo: step, remaining: null, resetUntil: Date.now() + 600 });
+                }
             } else if (['/api/drill/reset-stage', '/api/drill/previous-stage', '/api/drill/next-stage',
                 '/api/drill/reset-part', '/api/drill/previous-part', '/api/drill/next-part'].includes(route)) {
                 // AI-modified (Claude): Back / Redo / Skip a stage or a part, while running or paused

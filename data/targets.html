@@ -68,38 +68,33 @@
                     <span id="startCountdownNumber">3.00</span>&nbsp;s
                 </span>
             </div>
-            <!-- AI-generated (Claude): stage navigation while a drill is running or paused. Each
-                 button names the stage (or part) it moves to; script.js fills the labels from
-                 /api/drill/status. Redo is the existing reset-stage (AI-assisted with Codex). -->
-            <div class="stage-nav" id="stageNav" role="group" aria-label="Change stage" hidden>
-                <button class="btn btn-outline-secondary" id="previousStageButton" type="button" disabled>
-                    <i class="bi bi-skip-backward-fill" aria-hidden="true"></i>
-                    <span id="previousStageLabel">Back a stage</span>
-                </button>
-                <button class="btn btn-outline-secondary" id="resetStageButton" type="button" disabled>
-                    <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
-                    <span id="resetStageLabel">Redo stage</span>
-                </button>
-                <button class="btn btn-outline-secondary" id="nextStageButton" type="button" disabled>
-                    <span id="nextStageLabel">Skip a stage</span>
-                    <i class="bi bi-skip-forward-fill" aria-hidden="true"></i>
-                </button>
-            </div>
-            <!-- AI-generated (Claude): the same for the parts of a full drill's current stage (the
-                 sections between its pauses). Shown when that stage has more than one part. -->
-            <div class="stage-nav part-nav" id="partNav" role="group" aria-label="Change part of this stage" hidden>
-                <button class="btn btn-outline-secondary" id="previousPartButton" type="button" disabled>
-                    <i class="bi bi-skip-start-fill" aria-hidden="true"></i>
-                    <span id="previousPartLabel">Back a part</span>
-                </button>
-                <button class="btn btn-outline-secondary" id="resetPartButton" type="button" disabled>
-                    <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
-                    <span id="resetPartLabel">Redo part</span>
-                </button>
-                <button class="btn btn-outline-secondary" id="nextPartButton" type="button" disabled>
-                    <span id="nextPartLabel">Skip a part</span>
-                    <i class="bi bi-skip-end-fill" aria-hidden="true"></i>
-                </button>
+            <!-- AI-generated (Claude): compact stage control while a drill is running or paused:
+                 ‹ previous stage | current stage (tap for the jump list) | next stage › | Redo,
+                 and below it one chip per part of the current stage (tap to jump to that part).
+                 Every move hides the targets and waits at the start of that stage or part for
+                 Resume. script.js fills it from /api/drill/status. A drill without stages moves
+                 by part with the arrows instead. Redo is reset-stage (AI-assisted with Codex). -->
+            <div class="stage-control" id="stageControl" hidden>
+                <div class="stage-control-row" role="group" aria-label="Change stage">
+                    <button class="btn btn-outline-secondary stage-arrow" id="previousStageButton" type="button" aria-label="Back a stage" disabled>
+                        <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary stage-current" id="stageJumpListButton" type="button" aria-haspopup="dialog" title="Jump to any stage or part" disabled>
+                        <span id="stageCurrentLabel">Stage</span>
+                        <i class="bi bi-list-ul ms-1" aria-hidden="true"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary stage-arrow" id="nextStageButton" type="button" aria-label="Skip a stage" disabled>
+                        <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary" id="resetStageButton" type="button" disabled>
+                        <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+                        <span id="resetStageLabel">Redo</span>
+                    </button>
+                </div>
+                <div class="part-chips" id="partChips" role="group" aria-label="Parts of this stage" hidden>
+                    <span class="part-chips-label">Part</span>
+                    <span class="part-chips-buttons" id="partChipButtons"></span>
+                </div>
             </div>
             <!-- AI-generated (Claude): what Start / Resume do (Settings > Drill start delay, saved
                  per phone), with a link to change it. script.js fills the text. -->
@@ -279,6 +274,22 @@
         </div>
     </div>
 
+    <!-- AI-generated (Claude): jump to any stage, or any part of a stage, of the running drill. -->
+    <div class="modal fade" id="stageJumpModal" tabindex="-1" aria-labelledby="stageJumpModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="stageJumpModalTitle">Jump to</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted">The targets hide and the drill waits at the start of the stage or part you pick until you press Resume.</p>
+                    <ol class="stage-jump-list list-unstyled mb-0" id="stageJumpList"></ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- AI-generated (Claude): confirms ending the running drill before entering manual mode. -->
     <!-- AI-generated (Claude): asks before Stop ends a paused drill (it hides the drill's targets
          and the drill has to be started again from the beginning). -->
@@ -342,7 +353,7 @@
     <!-- Bootstrap JS -->
     <script src="vendor/bootstrap.bundle.min.js"></script>
     <!-- Fetch the updated target controls when this page reloads. -->
-    <script src="script.js?v=ui-changes-19"></script>
+    <script src="script.js?v=ui-changes-20"></script>
 
 </body>
 </html>

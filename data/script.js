@@ -30,7 +30,7 @@ const faqGroups = [
             },
             {
                 question: 'Can I go back, redo, or skip a stage?',
-                answer: 'Yes. While a drill is running or paused, Back, Redo, and Skip appear under the drill buttons, each naming the stage it goes to. When a stage has several parts, a second row moves between its parts the same way. The targets hide and the drill waits at the start of that stage until you press Resume. Drills without stages move by part instead (a part is the steps between two pauses). The status bar shows the stage and part you are on.'
+                answer: 'Yes. While a drill is running or paused, a stage control appears under the drill buttons: the arrows go back or skip a stage, Redo restarts the current stage, and the numbered Part buttons jump to a part of it. Tap the stage name for a list of every stage and part to jump straight to any of them. Back, Redo, and Skip hide the targets and wait at the start of that stage or part until you press Resume. The targets hide and the drill waits at the start of that stage until you press Resume. Drills without stages move by part instead (a part is the steps between two pauses). The status bar shows the stage and part you are on.'
             },
             {
                 question: 'How do I create a drill?',
@@ -619,13 +619,24 @@ const stageJumpTargets = (status) => {
     };
 };
 
-// AI-generated (Claude): the same for the parts of a full drill's current stage (1-based part
-// numbers), mirroring the part branch of stageJumpTarget(). At a pause inside the stage, "next"
-// skips the part Resume would start.
-const partJumpTargets = (status) => {
-    const part = status?.partIndex || 0;
-    const betweenParts = status?.stepAction === 'pause' && !status.betweenStages && !status.stagesAreParts;
-    return { previous: part - 1, current: part, next: part + (betweenParts ? 2 : 1) };
+// AI-generated (Claude): parts in a stage drill (its pause steps + 1, nested drills included),
+// mirroring how target_manager.cpp splits a stage into parts.
+const countDrillPauses = (name, depth = 1) => {
+    const drill = findDrillByName(name);
+    if (!drill || depth > maxDrillNesting) return 0;
+    return (Array.isArray(drill.sequence) ? drill.sequence : []).reduce((total, step) => (
+        step?.action === 'pause' ? total + 1
+            : basicDrillActions.has(step?.action) ? total : total + countDrillPauses(step?.action, depth + 1)
+    ), 0);
+};
+const stagePartCount = (stageName) => countDrillPauses(stageName) + 1;
+
+// AI-generated (Claude): the part of the current stage that runs next (highlighted chip), or 0
+// when the stage is finished (between stages).
+const nextPartOfStage = (status) => {
+    if (!status || status.betweenStages) return 0;
+    if (status.state === 'paused' && status.stepAction === 'pause' && !status.stageRestartReady) return status.partIndex + 1;
+    return status.partIndex;
 };
 
 // The status bar text for a running or paused drill.
@@ -714,7 +725,6 @@ const updateDrillStatus = () => {
     const resetStageButton = document.getElementById('resetStageButton');
     const previousStageButton = document.getElementById('previousStageButton');
     const nextStageButton = document.getElementById('nextStageButton');
-    const stageNav = document.getElementById('stageNav');
     const drillSelect = document.getElementById('drillSelect');
 
     // AI-generated (Claude): manual mode button, and target taps unlocked only in manual mode.
@@ -798,45 +808,64 @@ const updateDrillStatus = () => {
         drillActionBar.hidden = !stopAvailable && !stopped;
         document.body.classList.toggle('has-action-bar', !drillActionBar.hidden);
     }
-    // AI-generated (Claude): Back / Redo / Skip, shown while a drill is running or paused. Each
-    // button names the stage (or part) it goes to; the controller hides the targets and waits at
-    // the start of that stage for Resume.
+    // AI-modified (Claude): compact stage control, shown while a drill is running or paused:
+    // ‹ / › move a stage (a part, for a drill without stages), the middle button names the current
+    // stage and opens the jump list, Redo restarts the stage, and the chips jump to a part of it.
+    // Every move hides the targets and waits at the start of that stage or part for Resume.
     const stageCount = status?.stageCount || 0;
     const showStageNav = drillActive && !stopped && stageCount >= 1 && Boolean(status?.hardwareReady);
-    if (stageNav) stageNav.hidden = !showStageNav;
-    const setStageButton = (button, labelId, enabled, text, enabledClass = 'btn-warning') => {
-        if (!button) return;
-        button.disabled = stageControlsLocked || !enabled;
-        document.getElementById(labelId).textContent = text;
-        button.classList.toggle(enabledClass, !button.disabled);
-        button.classList.toggle('btn-outline-secondary', button.disabled);
-    };
-    // AI-generated (Claude): Back / Redo / Skip a part, for a full drill stage with several parts
-    const partNav = document.getElementById('partNav');
-    const showPartNav = showStageNav && !status.stagesAreParts && status.partCount > 1;
-    if (partNav) partNav.hidden = !showPartNav;
-    if (showPartNav) {
-        const parts = partJumpTargets(status);
-        setStageButton(document.getElementById('previousPartButton'), 'previousPartLabel', status.canGoBackPart,
-            status.canGoBackPart ? `Back to Part ${parts.previous}` : 'Back a part', 'btn-outline-dark');
-        setStageButton(document.getElementById('resetPartButton'), 'resetPartLabel', status.canRedoPart,
-            status.canRedoPart ? `Redo Part ${parts.current}` : 'Redo part', 'btn-outline-dark');
-        setStageButton(document.getElementById('nextPartButton'), 'nextPartLabel', status.canSkipPart,
-            status.canSkipPart ? `Skip to Part ${parts.next}` : 'Skip a part', 'btn-outline-dark');
-    }
-    if (showStageNav) {
+    const stageControl = document.getElementById('stageControl');
+    if (stageControl) stageControl.hidden = !showStageNav;
+    if (showStageNav && stageControl) {
         const sections = status.stagesAreParts ? 'part' : 'stage';
-        setStageButton(previousStageButton, 'previousStageLabel', status.canGoBack,
-            status.canGoBack ? `Back to ${stageLabel(status, jumpTargets.previous)}` : `Back a ${sections}`);
-        setStageButton(resetStageButton, 'resetStageLabel', status.canResetStage,
-            status.stagesAreParts && stageCount === 1
-                ? 'Restart drill'
-                : status.canResetStage ? `Redo ${stageLabel(status, jumpTargets.current)}` : `Redo ${sections}`);
-        setStageButton(nextStageButton, 'nextStageLabel', status.canSkip,
-            status.canSkip ? `Skip to ${stageLabel(status, jumpTargets.next)}` : `Skip a ${sections}`);
-        // One stage (or part): nothing to go back or skip to
-        if (previousStageButton) previousStageButton.hidden = stageCount < 2;
-        if (nextStageButton) nextStageButton.hidden = stageCount < 2;
+        const current = jumpTargets.current;
+        document.getElementById('stageCurrentLabel').textContent = current >= 0
+            ? stageLabelWithCount(status, current) : status.drillName;
+        const setArrow = (button, enabled, label) => {
+            button.disabled = stageControlsLocked || !enabled;
+            button.setAttribute('aria-label', label);
+            button.title = label;
+            button.hidden = stageCount < 2; // one stage (or part): nothing to go back or skip to
+        };
+        setArrow(previousStageButton, status.canGoBack,
+            status.canGoBack ? `Back to ${stageLabel(status, jumpTargets.previous)}` : `No earlier ${sections}`);
+        setArrow(nextStageButton, status.canSkip,
+            status.canSkip ? `Skip to ${stageLabel(status, jumpTargets.next)}` : `No later ${sections}`);
+        resetStageButton.disabled = stageControlsLocked || !status.canResetStage;
+        document.getElementById('resetStageLabel').textContent = status.stagesAreParts && stageCount === 1 ? 'Restart' : 'Redo';
+        resetStageButton.title = current >= 0 ? `Redo ${stageLabel(status, current)}` : `Redo ${sections}`;
+        const showChips = !status.stagesAreParts && status.partCount > 1 && current >= 0;
+        const listButton = document.getElementById('stageJumpListButton');
+        listButton.disabled = stageControlsLocked || (stageCount < 2 && !showChips);
+
+        // Part chips for the current stage: done parts muted, the part that runs next filled
+        const chips = document.getElementById('partChips');
+        chips.hidden = !showChips;
+        if (showChips) {
+            const chipBox = document.getElementById('partChipButtons');
+            if (chipBox.children.length !== status.partCount) {
+                chipBox.replaceChildren(...Array.from({ length: status.partCount }, (_, index) => {
+                    const chip = document.createElement('button');
+                    chip.type = 'button';
+                    chip.className = 'btn btn-sm part-chip';
+                    chip.dataset.part = String(index + 1);
+                    chip.textContent = String(index + 1);
+                    return chip;
+                }));
+            }
+            const next = nextPartOfStage(status);
+            Array.from(chipBox.children).forEach((chip) => {
+                const part = Number(chip.dataset.part);
+                const isNext = part === next;
+                const isDone = next ? part < next : true;
+                chip.classList.toggle('btn-primary', isNext);
+                chip.classList.toggle('btn-outline-secondary', !isNext);
+                chip.classList.toggle('is-done', isDone && !isNext);
+                chip.disabled = stageControlsLocked || !status.canResetStage;
+                chip.setAttribute('aria-current', isNext ? 'step' : 'false');
+                chip.setAttribute('aria-label', `Jump to ${stageLabel(status, current)}, part ${part}${isNext ? ' (next)' : isDone ? ' (done)' : ''}`);
+            });
+        }
     }
     if (drillSelect) drillSelect.disabled = manualMode || drillActive || stopped || countingDown;
 
@@ -1329,19 +1358,16 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         // AI-modified (Claude): Back / Redo / Skip. Works while running or paused; the controller
         // hides the targets, moves to that stage and waits for Resume. Polling reports when it is
         // ready. A pending Resume countdown is cancelled first.
-        const sendStageJump = async (path, button) => {
+        // AI-modified (Claude): label names where the move goes, for the status bar meanwhile
+        const sendStageJump = async (path, label, body) => {
             if (stageControlRequestPending || manualMode || !controllerStatus
                 || controllerStatus.state === 'idle' || controllerStatus.stopped) return;
             cancelStartCountdown?.();
-            pendingStageJump = button.textContent.trim().replace(/^(Back to|Redo|Skip to)\s+/, '');
-            // AI-generated (Claude): a part button names its stage too ("Stage 2 · Part 3")
-            if (button.closest('#partNav') && controllerStatus.stageIndex) {
-                pendingStageJump = `${stageLabel(controllerStatus, controllerStatus.stageIndex - 1)} · ${pendingStageJump}`;
-            }
+            pendingStageJump = label;
             stageControlRequestPending = true;
             updateDrillStatus();
             try {
-                await postToController(path);
+                await postToController(path, body);
                 drillLaunchMessage.hidden = true;
             } catch (error) {
                 showLaunchMessage(error.message);
@@ -1351,14 +1377,62 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
                 updateDrillStatus();
             }
         };
-        [['previousStageButton', '/api/drill/previous-stage'],
-            ['resetStageButton', '/api/drill/reset-stage'],
-            ['previousPartButton', '/api/drill/previous-part'],
-            ['resetPartButton', '/api/drill/reset-part'],
-            ['nextPartButton', '/api/drill/next-part'],
-            ['nextStageButton', '/api/drill/next-stage']].forEach(([id, path]) => {
-            const button = document.getElementById(id);
-            button?.addEventListener('click', () => sendStageJump(path, button));
+        const jumpLabel = (which) => {
+            const targets = stageJumpTargets(controllerStatus);
+            return stageLabel(controllerStatus, targets[which]);
+        };
+        document.getElementById('previousStageButton')?.addEventListener('click', () =>
+            sendStageJump('/api/drill/previous-stage', jumpLabel('previous')));
+        document.getElementById('nextStageButton')?.addEventListener('click', () =>
+            sendStageJump('/api/drill/next-stage', jumpLabel('next')));
+        document.getElementById('resetStageButton')?.addEventListener('click', () =>
+            sendStageJump('/api/drill/reset-stage', jumpLabel('current')));
+        // Part chips: jump to that part of the current stage
+        document.getElementById('partChipButtons')?.addEventListener('click', (event) => {
+            const chip = event.target.closest('.part-chip');
+            if (!chip || chip.disabled || !controllerStatus?.stageIndex) return;
+            const part = Number(chip.dataset.part);
+            sendStageJump('/api/drill/jump', `${jumpLabel('current')} · Part ${part}`,
+                { stage: controllerStatus.stageIndex, part });
+        });
+
+        // AI-generated (Claude): jump list: every stage of the running drill (or every part, for a
+        // drill without stages), each stage with a button per part when it has several
+        const stageJumpModalElement = document.getElementById('stageJumpModal');
+        document.getElementById('stageJumpListButton')?.addEventListener('click', () => {
+            const status = controllerStatus;
+            if (!status || status.state === 'idle' || !stageJumpModalElement || !bootstrapModal) return;
+            const current = (status.stageIndex || 0) - 1;
+            const names = status.stagesAreParts ? [] : drillStageNames(status.drillName);
+            const jump = (stage, part, label) => {
+                bootstrapModal.getInstance(stageJumpModalElement)?.hide();
+                sendStageJump('/api/drill/jump', label, { stage, part });
+            };
+            document.getElementById('stageJumpList').replaceChildren(...Array.from({ length: status.stageCount || 0 }, (_, index) => {
+                const row = document.createElement('li');
+                row.className = 'stage-jump-row';
+                row.classList.toggle('is-current', index === current);
+                const label = stageLabel(status, index);
+                const stageButton = document.createElement('button');
+                stageButton.type = 'button';
+                stageButton.className = `btn btn-sm ${index === current ? 'btn-primary' : 'btn-outline-secondary'} stage-jump-stage`;
+                stageButton.textContent = index === current ? `${label} (current)` : label;
+                stageButton.addEventListener('click', () => jump(index + 1, 1, label));
+                row.append(stageButton);
+                const parts = status.stagesAreParts ? 1 : stagePartCount(names[index]);
+                for (let part = 2; parts > 1 && part <= parts; part++) {
+                    const partButton = document.createElement('button');
+                    partButton.type = 'button';
+                    partButton.className = 'btn btn-sm btn-outline-secondary';
+                    partButton.textContent = `Part ${part}`;
+                    partButton.setAttribute('aria-label', `${label}, part ${part}`);
+                    partButton.addEventListener('click', () => jump(index + 1, part, `${label} · Part ${part}`));
+                    row.append(partButton);
+                }
+                return row;
+            }));
+            document.getElementById('stageJumpModalTitle').textContent = `Jump to: ${status.drillName}`;
+            bootstrapModal.getOrCreateInstance(stageJumpModalElement).show();
         });
 
         // AI-generated (Claude): turns every raised (red) target back to green.

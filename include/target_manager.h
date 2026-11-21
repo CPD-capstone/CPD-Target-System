@@ -158,6 +158,15 @@ StageResetResult resetDrillStage();
 ///         in one); NoDrill, Busy, Stopped or HalNotReady otherwise
 StageResetResult jumpToStage(StageJump jump);
 
+/// @brief AI-generated (Claude): like jumpToStage(), but to a given stage and part instead of one
+///        relative to the current stage (the web UI's "jump to any stage" list and part chips).
+/// @param stage 1-based stage (or part, for a drill without stages; see DrillStatus::stagesAreParts)
+/// @param part 1-based part of that stage, split at its pause steps (1 = the stage's start; only 1
+///        is valid when stagesAreParts)
+/// @return Accepted if the move was queued; NoStage if there is no such stage or part; NoDrill, Busy,
+///         Stopped or HalNotReady otherwise
+StageResetResult jumpToStagePart(int stage, int part);
+
 /// @brief EMERGENCY STOP. Freezes every target where it is (see hal_hold()), ends any running
 ///        drill WITHOUT hiding its targets, and latches: drills and manual moves are refused until
 ///        resetTargets(). Works whether or not a drill is running; calling it again is harmless.

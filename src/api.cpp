@@ -434,6 +434,23 @@ static void handleStageJump(AsyncWebServerRequest* request, StageJump jump) {
 
 static void handleResetStage(AsyncWebServerRequest* request) { handleStageJump(request, StageJump::Current); }
 
+// AI-generated (Claude): POST /api/drill/jump  {stage, part?}  (1-based; part defaults to 1)
+static void handleJumpToStagePart(AsyncWebServerRequest* request, JsonVariant& json) {
+    if (!json["stage"].is<int>() || (!json["part"].isNull() && !json["part"].is<int>())) {
+        return sendError(request, 400, "stage (and optional part) must be whole numbers");
+    }
+    switch (jumpToStagePart(json["stage"].as<int>(), json["part"] | 1)) {
+        case StageResetResult::Accepted:    return sendOk(request);
+        case StageResetResult::NotPaused:
+        case StageResetResult::NoDrill:     return sendError(request, 409, "No drill is running");
+        case StageResetResult::NoStage:     return sendError(request, 409, "That stage or part does not exist in this drill");
+        case StageResetResult::Busy:        return sendError(request, 409, "A stage change or Resume is already pending");
+        case StageResetResult::Stopped:     return sendError(request, 409, "Targets are stopped; press Reset first");
+        case StageResetResult::HalNotReady: return sendError(request, 503, "Target hardware is not ready");
+    }
+    sendError(request, 500, "Unknown error");
+}
+
 // POST /api/stop   EMERGENCY STOP: freeze every target where it is. Always allowed, with or
 // without a drill running. 500 means the freeze could not be confirmed -- treat as unsafe.
 static void handleStop(AsyncWebServerRequest* request) {
@@ -557,6 +574,7 @@ void registerApiRoutes(AsyncWebServer& server) {
 
     // Drill control
     onJsonBody(server, "/api/drill/start", HTTP_POST, handleStartDrill);
+    onJsonBody(server, "/api/drill/jump", HTTP_POST, handleJumpToStagePart); // AI-generated (Claude)
     server.on("/api/drill/pause", HTTP_POST, handlePauseDrill);
     server.on("/api/drill/resume", HTTP_POST, handleResumeDrill);
     server.on("/api/drill/reset-stage", HTTP_POST, handleResetStage);
