@@ -101,7 +101,8 @@
                     <i class="bi bi-hand-index-thumb" aria-hidden="true"></i>
                     <span id="manualModeLabel">Turn on manual mode</span>
                 </button>
-                <div class="btn-group target-filter-group" role="group" aria-label="Target groups and number filter" aria-describedby="manualModeHint">
+                <!-- AI-modified (Claude): hidden until manual mode is turned on (script.js). -->
+                <div class="btn-group target-filter-group" role="group" aria-label="Target groups and number filter" aria-describedby="manualModeHint" hidden>
                     <button class="btn btn-outline-dark target-toggle" type="button" data-toggle-set="all" disabled>All</button>
                     <button class="btn btn-outline-dark target-toggle" type="button" data-toggle-set="odd" disabled>Odd</button>
                     <button class="btn btn-outline-dark target-toggle" type="button" data-toggle-set="even" disabled>Even</button>
@@ -273,7 +274,7 @@
     <!-- Bootstrap JS -->
     <script src="vendor/bootstrap.bundle.min.js"></script>
     <!-- Fetch the updated target controls when this page reloads. -->
-    <script src="script.js?v=connection-rssi-5"></script>
+    <script src="script.js?v=ui-changes-1"></script>
 
 </body>
 </html>

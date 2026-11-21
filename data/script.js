@@ -614,6 +614,9 @@ const updateDrillStatus = () => {
         document.getElementById('manualModeHintIcon').className = manualTargetsAvailable() ? 'bi bi-unlock-fill' : 'bi bi-lock-fill';
     }
     document.body.classList.toggle('is-manual-mode', Boolean(manualTargetsAvailable()));
+    // AI-generated (Claude): the All / Odd / Even / Random buttons only appear once manual mode is on.
+    const manualToggleGroup = document.querySelector('.target-filter-group');
+    if (manualToggleGroup) manualToggleGroup.hidden = !manualMode;
     document.querySelectorAll('.target-toggle, #targetNumberFilterButton').forEach((button) => {
         button.disabled = !manualTargetsAvailable();
     });
