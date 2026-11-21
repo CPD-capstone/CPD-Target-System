@@ -217,8 +217,19 @@ const drillStatus = document.getElementById('drillStatus');
 const drillStatusText = document.getElementById('drillStatusText') || drillStatus;
 
 // AI-modified (Claude): the status banner is static text now (it used to scroll).
-const setDrillStatusText = (text) => {
-    drillStatusText.textContent = text;
+// AI-modified (Claude): two lines: the drill name small on top (omitted when there is no drill)
+// and a short state line in large type, so the pinned bar stays short.
+const drillStatusName = document.createElement('span');
+drillStatusName.className = 'drill-status-name';
+const drillStatusState = document.createElement('span');
+drillStatusState.className = 'drill-status-state';
+drillStatusState.textContent = drillStatusText.textContent.trim(); // shown until the first poll
+drillStatusName.hidden = true;
+drillStatusText.replaceChildren(drillStatusName, drillStatusState);
+const setDrillStatusText = (text, name = '') => {
+    drillStatusName.textContent = name;
+    drillStatusName.hidden = !name;
+    drillStatusState.textContent = text;
 };
 
 // AI-generated (Claude): shared degraded-connection indicator. Backend integration should call
@@ -618,38 +629,35 @@ const partJumpTargets = (status) => {
 };
 
 // The status bar text for a running or paused drill.
+// AI-modified (Claude): returns only the state line; the drill name goes on the line above it.
 const describeDrillProgress = (status) => {
-    const name = status.drillName || 'Drill';
     const current = (status.stageIndex || 0) - 1;
     const count = status.stageCount || 0;
     const inSection = current >= 0 && count > 1;
     const partOfStage = !status.stagesAreParts && current >= 0 && status.partCount > 1;
     const stageText = inSection ? stageLabelWithCount(status, current) : '';
-    let where = stageText ? `${name}: ${stageText}` : name;
+    let where = stageText;
     if (partOfStage && !status.betweenStages) {
-        where += ` · Part ${status.partIndex} of ${status.partCount}`;
+        where += `${where ? ' · ' : ''}Part ${status.partIndex} of ${status.partCount}`;
     }
+    const withWhere = (state) => (where ? `${where} · ${state}` : state);
 
-    if (status.stageResetPending) {
-        return `${name}: moving to ${pendingStageJump || 'another stage'}. Hiding targets`;
-    }
-    if (status.state === 'running') return `${where} in progress`;
+    if (status.stageResetPending) return `Moving to ${pendingStageJump || 'another stage'}…`;
+    if (status.state === 'running') return withWhere('Running');
     // The wording matches the Start button's label in each state (see updateDrillStatus)
     if (status.stageRestartReady) {
         // AI-modified (Claude): a part jump can land partway into a stage
         const readyPart = partOfStage && status.partIndex > 1 ? ` · Part ${status.partIndex} of ${status.partCount}` : '';
-        return `${stageText ? `${name}: ${stageText}` : name}${readyPart} ready to start`;
+        return `${stageText}${readyPart}${stageText || readyPart ? ' · ' : ''}Ready`;
     }
-    if (status.finalStageComplete) {
-        return `${name}: ${stageLabel(status, current)} complete. Press Finish drill`;
-    }
+    if (status.finalStageComplete) return `${stageLabel(status, current)} done · Press Finish`;
     if (status.betweenStages && current >= 0) {
-        return `${name}: ${stageLabel(status, current)} complete. Next: ${stageLabel(status, current + 1)}`;
+        return `${stageLabel(status, current)} done · Next: ${stageLabel(status, current + 1)}`;
     }
     if (status.stepAction === 'pause' && partOfStage) {
-        return `${name}: ${stageLabel(status, current)} · Part ${status.partIndex} complete. Next: part ${status.partIndex + 1}`;
+        return `${stageLabel(status, current)} · Part ${status.partIndex} done · Next: Part ${status.partIndex + 1}`;
     }
-    return `${where} paused. Press Resume`;
+    return withWhere('Paused');
 };
 
 // AI-modified (Claude): draws the status bar (every page) and, on the Targets page, the drill
@@ -679,11 +687,11 @@ const updateDrillStatus = () => {
         setDrillStatusText('Target hardware not ready');
     } else if (stopped) {
         setStatusBarStyle('active');
-        setDrillStatusText('Stopped: targets frozen. Press Reset to hide them');
+        setDrillStatusText('Stopped · targets frozen', 'Press Reset to hide them');
     } else if (state === 'paused' || state === 'running') {
         // AI-modified (Claude): names the stage and part, and what Resume will do next.
         setStatusBarStyle('active');
-        setDrillStatusText(describeDrillProgress(status));
+        setDrillStatusText(describeDrillProgress(status), status.drillName || 'Drill');
     } else if (manualMode) {
         setStatusBarStyle('manual');
         setDrillStatusText('Manual mode');

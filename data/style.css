@@ -113,17 +113,31 @@
 }
 
 /* AI-modified: use a readable system font for the shared status banner. */
+/* AI-modified (Claude): two lines, the drill name small and the state large (see script.js). */
 .drill-status-bar {
-    padding: 0.6rem 1rem;
+    padding: 0.5rem 1rem;
     border-bottom: 4px solid var(--bs-secondary);
     font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
-    font-size: clamp(1.35rem, 4.5vw, 2.25rem);
     font-weight: 700;
     line-height: 1.15;
-    letter-spacing: 0.06em;
     text-align: center;
-    text-transform: uppercase;
     overflow-wrap: anywhere;
+}
+
+.drill-status-name {
+    display: block;
+    margin-bottom: 0.1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    opacity: 0.9;
+}
+
+.drill-status-state {
+    display: block;
+    font-size: clamp(1.15rem, 4.2vw, 1.85rem);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
 }
 
 /* AI-generated (Claude): while a drill is running or paused (or Stop is latched) the status bar
