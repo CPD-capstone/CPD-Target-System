@@ -581,6 +581,10 @@ const updateDrillStatus = () => {
         setDrillStatusText('No drill in progress');
     }
 
+    // AI-generated (Claude): pin the bar to the top only while there is a drill to follow (or a
+    // latched Stop); otherwise it scrolls away with the page.
+    drillStatus.classList.toggle('is-pinned', Boolean(status) && (drillActive || stopped));
+
     if (!targetGrid) return;
 
     const startDrillButton = document.getElementById('startDrillButton');

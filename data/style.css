@@ -126,6 +126,16 @@
     overflow-wrap: anywhere;
 }
 
+/* AI-generated (Claude): while a drill is running or paused (or Stop is latched) the status bar
+   sticks to the top of the screen so the current stage stays visible while scrolling. Below
+   Bootstrap's offcanvas/modals (1045+) so menus and dialogs still cover it. */
+.drill-status-bar.is-pinned {
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+    box-shadow: 0 0.25rem 0.75rem rgba(33, 37, 41, 0.25);
+}
+
 .page-readout {
     max-width: 19rem;
     margin: auto auto 1.5rem;
