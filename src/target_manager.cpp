@@ -304,21 +304,19 @@ namespace{
     }
 
     /// @brief Queue paused controls without changing the runner's position (AI-assisted with Codex).
+    // AI-modified (Claude): only Resume uses this now; stage moves go through queueJump(), so the
+    // reset branches were removed.
     StageResetResult requestPausedControl(PauseControl request){
-        if(request == PauseControl::ResetPending && !hal_isReady()) return StageResetResult::HalNotReady;
         portENTER_CRITICAL(&runnerLock);
         StageResetResult result = StageResetResult::Accepted;
         if(stopLatched) result = StageResetResult::Stopped;
         else if(drillState != DrillState::Paused) result = StageResetResult::NotPaused;
-        else if(request == PauseControl::ResetPending && currentStageIndex < 0) result = StageResetResult::NoStage;
         else if(hasPendingControl()) result = StageResetResult::Busy;
-        // Reset is idempotent once the stage is ready. Resume always needs a new request.
-        bool notify = result == StageResetResult::Accepted
-                      && (request == PauseControl::ResumePending || pauseControl != PauseControl::ReplayReady);
+        // Resume always needs a new request.
+        bool notify = result == StageResetResult::Accepted;
         if(notify) pauseControl = request;
         portEXIT_CRITICAL(&runnerLock);
-        if(notify) xTaskNotify(drillTaskHandle, request == PauseControl::ResumePending
-                              ? NOTIFY_RESUME : NOTIFY_RESET_STAGE, eSetBits);
+        if(notify) xTaskNotify(drillTaskHandle, NOTIFY_RESUME, eSetBits);
         return result;
     }
 
@@ -892,26 +890,12 @@ namespace {
     int stageJumpTarget(StageJump jump){
         int current = currentStageIndex;
         if(current < 0 || current >= (int)activeStages.size()) return -1;
-        const DrillStage& stage = activeStages[current];
-        if(jump == StageJump::Current || jump == StageJump::Previous || jump == StageJump::Next){
-            // Between stages (at the pause after one), "next" skips the stage Resume would start
-            bool between = currentStep > stage.end;
-            int target = jump == StageJump::Current ? current
-                       : jump == StageJump::Previous ? current - 1
-                       : current + (between ? 2 : 1);
-            return target >= 0 && target < (int)activeStages.size() ? (int)activeStages[target].first : -1;
-        }
-        // Parts of a full drill's current stage (a drill without stages already moves by part)
-        if(stagesAreParts || currentPartCount < 2) return -1;
-        // At a pause inside the stage (between parts), "next part" skips the part Resume would start
-        size_t index = currentStep ? currentStep - 1 : 0;
-        bool betweenParts = index >= stage.first && index < stage.end
-                            && activeSteps[index].type == StepType::Yield;
-        int part = jump == StageJump::CurrentPart ? currentPart
-                 : jump == StageJump::PreviousPart ? currentPart - 1
-                 : currentPart + (betweenParts ? 2 : 1);
-        if(part < 1 || part > currentPartCount) return -1;
-        return stepOfStagePart(current, part);
+        // Between stages (at the yield after one), "next" skips the stage Resume would start
+        bool between = currentStep > activeStages[current].end;
+        int target = jump == StageJump::Current ? current
+                   : jump == StageJump::Previous ? current - 1
+                   : current + (between ? 2 : 1);
+        return target >= 0 && target < (int)activeStages.size() ? (int)activeStages[target].first : -1;
     }
 
     /// @brief AI-generated (Claude): checks the runner and queues a jump to the step `pick()` returns
@@ -1073,9 +1057,6 @@ DrillStatus getDrillStatus(){
     status.canResetStage = canMove && stageJumpTarget(StageJump::Current) >= 0;
     status.canGoBack = canMove && stageJumpTarget(StageJump::Previous) >= 0;
     status.canSkip = canMove && stageJumpTarget(StageJump::Next) >= 0;
-    status.canRedoPart = canMove && stageJumpTarget(StageJump::CurrentPart) >= 0;
-    status.canGoBackPart = canMove && stageJumpTarget(StageJump::PreviousPart) >= 0;
-    status.canSkipPart = canMove && stageJumpTarget(StageJump::NextPart) >= 0;
     status.stageCount = drillState == DrillState::Idle ? 0 : activeStages.size();
     status.stagesAreParts = stagesAreParts;
     status.partIndex = currentPart;

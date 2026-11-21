@@ -1,16 +1,3 @@
-.login-page {
-    min-height: 100vh;
-    display: grid;
-    place-items: center;
-    padding: 1.5rem;
-    background: #f8f9fa;
-}
-
-.login-modal {
-    border-top: 4px solid #0d6efd;
-    box-shadow: 0 0.75rem 2rem rgba(33, 37, 41, 0.12);
-}
-
 .login-modal .modal-header {
     padding-bottom: 0;
     border-bottom: 0;
@@ -148,24 +135,6 @@
     top: 0;
     z-index: 1020;
     box-shadow: 0 0.25rem 0.75rem rgba(33, 37, 41, 0.25);
-}
-
-.page-readout {
-    max-width: 19rem;
-    margin: auto auto 1.5rem;
-    padding: 0.65rem 0.85rem;
-    border-top: 2px solid #0d6efd;
-    border-bottom: 1px solid #adb5bd;
-    color: #495057;
-    font: 700 0.75rem/1.2 monospace;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.page-readout strong {
-    color: #0d6efd;
-    font-size: 0.95rem;
-    letter-spacing: 0.12em;
 }
 
 .drill-ticket {
@@ -509,14 +478,6 @@
 .is-manual-mode .control-hint {
     color: #8a5a00;
     font-weight: 600;
-}
-
-.toolbar-label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #495057;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
 }
 
 /* AI-generated (Claude): All / Odd / Even / Clear row above a target checkbox list. */
@@ -1235,26 +1196,6 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
 .qualification-manage-meta {
     color: #6c757d;
     font-size: 0.8rem;
-}
-
-.qualification-add-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    padding: 8px;
-    flex: none;
-    text-decoration: none;
-}
-
-.qualification-add-button .bi {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    font-size: 0.875rem;
 }
 
 .block-palette {

@@ -421,9 +421,6 @@ static void handleStageJump(AsyncWebServerRequest* request, StageJump jump) {
         case StageResetResult::NoStage:
             return sendError(request, 409, jump == StageJump::Previous ? "There is no earlier stage to go back to"
                                          : jump == StageJump::Next ? "There is no later stage to skip to"
-                                         : jump == StageJump::PreviousPart ? "There is no earlier part in this stage"
-                                         : jump == StageJump::NextPart ? "There is no later part in this stage"
-                                         : jump == StageJump::CurrentPart ? "There is no part to redo here"
                                          : "There is no stage to redo here");
         case StageResetResult::Busy:        return sendError(request, 409, "A stage change or Resume is already pending");
         case StageResetResult::Stopped:     return sendError(request, 409, "Targets are stopped; press Reset first");
@@ -474,8 +471,7 @@ static void handleReset(AsyncWebServerRequest* request) {
 //   -> {state, drillName, step, stepCount, stepAction, targets: [n, ...], lastOutcome, stopped,
 //       hardwareReady, facing: [n, ...], delayMs, delayRemainingMs, stageName, stageIndex,
 //       betweenStages, canResetStage, stageResetPending, stageRestartReady, finalStageComplete,
-//       stageCount, stagesAreParts, partIndex, partCount, canGoBack, canSkip, canRedoPart,
-//       canGoBackPart, canSkipPart}
+//       stageCount, stagesAreParts, partIndex, partCount, canGoBack, canSkip}
 // While idle, drillName/stepCount/targets describe the last drill run (step is 0).
 // stopped = emergency stop is latched; only /api/reset moves targets until it is cleared.
 static void handleDrillStatus(AsyncWebServerRequest* request) {
@@ -510,9 +506,6 @@ static void handleDrillStatus(AsyncWebServerRequest* request) {
     doc["partCount"] = status.partCount;
     doc["canGoBack"] = status.canGoBack && hal_isReady();
     doc["canSkip"] = status.canSkip && hal_isReady();
-    doc["canRedoPart"] = status.canRedoPart && hal_isReady();
-    doc["canGoBackPart"] = status.canGoBackPart && hal_isReady();
-    doc["canSkipPart"] = status.canSkipPart && hal_isReady();
 
     addSignal(doc, request);
     sendJson(request, 200, doc);
@@ -603,13 +596,6 @@ void registerApiRoutes(AsyncWebServer& server) {
               [](AsyncWebServerRequest* request) { handleStageJump(request, StageJump::Previous); });
     server.on("/api/drill/next-stage", HTTP_POST,
               [](AsyncWebServerRequest* request) { handleStageJump(request, StageJump::Next); });
-    // AI-generated (Claude): Back / Redo / Skip a part of the current stage
-    server.on("/api/drill/previous-part", HTTP_POST,
-              [](AsyncWebServerRequest* request) { handleStageJump(request, StageJump::PreviousPart); });
-    server.on("/api/drill/reset-part", HTTP_POST,
-              [](AsyncWebServerRequest* request) { handleStageJump(request, StageJump::CurrentPart); });
-    server.on("/api/drill/next-part", HTTP_POST,
-              [](AsyncWebServerRequest* request) { handleStageJump(request, StageJump::NextPart); });
     server.on("/api/drill/status", HTTP_GET, handleDrillStatus);
 
     // Manual target control (before /api/targets)

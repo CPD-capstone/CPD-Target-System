@@ -78,9 +78,8 @@ enum class StageResetResult : uint8_t { Accepted, NotPaused, NoStage, Busy, Stop
 ///   Next     = the stage after the one being run (between stages: skip the upcoming one)
 /// "Stages" are a full drill's stages; a drill without stages is split into parts at its
 /// pause steps, and those parts are used instead (see DrillStatus::stagesAreParts).
-/// AI-modified (Claude): CurrentPart / PreviousPart / NextPart do the same with the parts of a
-/// full drill's current stage (split at the stage's pause steps), staying inside that stage.
-enum class StageJump : uint8_t { Current, Previous, Next, CurrentPart, PreviousPart, NextPart };
+/// A given stage and part is reached with jumpToStagePart() instead.
+enum class StageJump : uint8_t { Current, Previous, Next };
 
 /// longest drill name kept for status display (longer names are truncated)
 constexpr size_t DRILL_NAME_MAX = 48;
@@ -118,10 +117,6 @@ struct DrillStatus {
     uint16_t partCount;       // parts in the current stage (1 = no pauses); 0 if none
     bool canGoBack;           // jumpToStage(Previous) would be accepted now
     bool canSkip;             // jumpToStage(Next) would be accepted now
-    // AI-generated (Claude): the same for the parts of a full drill's current stage
-    bool canRedoPart;         // jumpToStage(CurrentPart)
-    bool canGoBackPart;       // jumpToStage(PreviousPart)
-    bool canSkipPart;         // jumpToStage(NextPart)
 };
 
 /// @brief This function executes the drill that is passed into its arg by finding it in the json drills list and converting it to the FreeRTOS cmd queue
@@ -154,8 +149,7 @@ StageResetResult resetDrillStage();
 /// @brief AI-generated (Claude): moves a running or paused drill to another stage (or part). The
 ///        runner hides the drill's targets, waits out the mechanical buffer, moves to the first step
 ///        of that stage and pauses there (stageRestartReady) until resumeDrill().
-/// @param jump which stage (or part of the current stage) to move to, relative to the current one
-///        (see StageJump)
+/// @param jump which stage to move to, relative to the current one (see StageJump)
 /// @return Accepted if the move was queued; NoStage if there is no such stage (or the drill is not
 ///         in one); NoDrill, Busy, Stopped or HalNotReady otherwise
 StageResetResult jumpToStage(StageJump jump);

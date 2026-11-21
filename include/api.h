@@ -48,8 +48,6 @@
 //   GET    /api/settings/target-flip   -> {faceTravelMs, maxMs, defaultMs}   (AI-generated, Claude)
 //   PUT    /api/settings/target-flip   {faceTravelMs}  -> setFaceTravelMs (0-5000 ms, saved in NVS)
 //   POST   /api/drill/jump  {stage, part?}  -> jumpToStagePart: a given stage and part, 1-based (AI-generated, Claude)
-//   POST   /api/drill/previous-part | reset-part | next-part -> jumpToStage(PreviousPart | CurrentPart |
-//          NextPart): the same within the parts of a full drill's current stage (AI-generated, Claude)
 //   AI-modified (Claude): the three stage moves work while a drill is running or paused; the drill
 //   hides its targets and waits at the start of that stage for resume. A drill without stages
 //   moves by parts (the runs of steps between its pause steps).
