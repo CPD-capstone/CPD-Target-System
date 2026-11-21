@@ -423,9 +423,9 @@ const getStartDelaySetting = () => {
 
 // AI-generated (Claude): plain-language description of the start delay, for the Targets page.
 const describeStartDelay = (setting = getStartDelaySetting()) => {
-    if (setting.mode === 'instant') return 'Start and Resume: instant, no countdown';
-    if (setting.mode === 'random') return 'Start and Resume: random 1 to 5 second countdown first';
-    return `Start and Resume: ${setting.seconds}-second countdown first`;
+    if (setting.mode === 'instant') return 'Start and Resume: instant, no delay';
+    if (setting.mode === 'random') return 'Start and Resume: random 1 to 5 second delay first';
+    return `Start and Resume: ${setting.seconds}-second delay first`;
 };
 
 const startDelayNoteText = document.getElementById('startDelayNoteText');
