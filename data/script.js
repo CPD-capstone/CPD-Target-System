@@ -658,6 +658,9 @@ const describeDrillProgress = (status) => {
 const manualTargetsAvailable = () => manualMode && controllerStatus?.hardwareReady
     && controllerStatus.state === 'idle' && !controllerStatus.stopped && !cancelStartCountdown;
 
+// AI-generated (Claude): whether the last status reply had a drill running or paused
+let lastKnownDrillActive = false;
+
 const updateDrillStatus = () => {
     if (!drillStatus) return;
 
@@ -772,9 +775,21 @@ const updateDrillStatus = () => {
         pauseDrillButton.classList.toggle('btn-outline-secondary', pauseDrillButton.disabled);
     }
     // Keep Stop reachable in manual mode and when a status poll loses the connection.
-    if (stopDrillButton) stopDrillButton.disabled = stopped
-        || (Boolean(status) && !drillActive && !countingDown && !manualMode);
+    // AI-modified (Claude): Stop and Reset live in the bar pinned to the bottom of the screen,
+    // shown only while one of them can act. A lost connection keeps Stop up only if a drill was
+    // active when it dropped (so the bar doesn't flash on every page load before the first poll).
+    if (status) lastKnownDrillActive = drillActive;
+    const stopAvailable = !stopped && (drillActive || countingDown || manualMode || (!status && lastKnownDrillActive));
+    if (stopDrillButton) {
+        stopDrillButton.disabled = !stopAvailable;
+        stopDrillButton.hidden = !stopAvailable;
+    }
     if (resetTargetsButton) resetTargetsButton.hidden = !stopped;
+    const drillActionBar = document.getElementById('drillActionBar');
+    if (drillActionBar) {
+        drillActionBar.hidden = !stopAvailable && !stopped;
+        document.body.classList.toggle('has-action-bar', !drillActionBar.hidden);
+    }
     // AI-generated (Claude): Back / Redo / Skip, shown while a drill is running or paused. Each
     // button names the stage (or part) it goes to; the controller hides the targets and waits at
     // the start of that stage for Resume.
@@ -830,7 +845,6 @@ const updateDrillStatus = () => {
     [startDrillButton, pauseDrillButton].forEach((button) => {
         if (button) button.hidden = !showDrillButtons;
     });
-    if (stopDrillButton) stopDrillButton.hidden = !showDrillButtons && !manualMode;
     renderDrillDescription(status, drillSelect);
     renderDrillTargetSummary();
 };

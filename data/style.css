@@ -629,6 +629,37 @@
     margin-top: -0.75rem;
 }
 
+/* AI-generated (Claude): Stop / Reset bar pinned to the bottom of the Targets page. Above the
+   page and the help button, below Bootstrap's offcanvas/modals (1045+). */
+.drill-action-bar {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1041;
+    padding: 0.6rem calc(1rem + env(safe-area-inset-right, 0px)) calc(0.6rem + env(safe-area-inset-bottom, 0px)) calc(1rem + env(safe-area-inset-left, 0px));
+    background: #ffffff;
+    box-shadow: 0 -0.25rem 0.75rem rgba(33, 37, 41, 0.18);
+}
+
+.drill-action-bar .btn {
+    display: block;
+    width: 100%;
+    max-width: 40rem;
+    min-height: 3.5rem;
+    margin-inline: auto;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+
+body.has-action-bar {
+    padding-bottom: 5.5rem;
+}
+
+body.has-action-bar .faq-help-button {
+    bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
+}
+
 /* AI-generated (Claude): Back / Redo / Skip row under the drill buttons. Three equal columns
    so the stage names line up; the labels wrap rather than widen the page on phones. */
 .stage-nav:not([hidden]) {
