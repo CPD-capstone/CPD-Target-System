@@ -1,46 +1,6 @@
 {
   "qualifications": ["Pistol", "Rifle", "SWAT"],
   "Officers": [
-    { 
-      "Name": "Example",
-      "BadgeNum": 888,
-      "qualificationScores": {},
-      "pistolQualScores": [
-        [99, "2026-09-18"], 
-        [98, "2026-03-15"], 
-        [95, "2025-12-08"]
-      ],
-      "rifleQualScores": [
-        [99, "2026-09-18"], 
-        [98, "2026-03-15"], 
-        [95, "2025-12-08"]
-      ],
-      "swatQualScores": [
-        [99, "2026-09-18"], 
-        [98, "2026-03-15"], 
-        [95, "2025-12-08"]
-      ]
-    },
-    { 
-      "Name": "Example2",
-      "BadgeNum": 889,
-      "qualificationScores": {},
-      "pistolQualScores": [
-        [99, "2026-09-18"], 
-        [98, "2026-03-15"], 
-        [95, "2025-12-08"]
-      ],
-      "rifleQualScores": [
-        [99, "2026-09-18"], 
-        [98, "2026-03-15"], 
-        [95, "2025-12-08"]
-      ],
-      "swatQualScores": [
-        [99, "2026-09-18"], 
-        [98, "2026-03-15"], 
-        [95, "2025-12-08"]
-      ]
-    },
     {
       "Name": "Scott Winfree",
       "BadgeNum": 90001,
