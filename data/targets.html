@@ -97,6 +97,13 @@
                 </button>
             </div>
             <p class="small text-muted mb-0" id="resetStageHint" aria-live="polite" hidden></p>
+            <!-- AI-generated (Claude): the targets confirmed in the picker for the selected drill
+                 (drills that ask which targets to use). script.js fills it. -->
+            <p class="drill-target-summary" id="drillTargetSummary" aria-live="polite" hidden>
+                <i class="bi bi-bullseye" aria-hidden="true"></i>
+                <span id="drillTargetSummaryText"></span>
+                <button class="btn btn-link btn-sm p-0" id="changeDrillTargets" type="button">Change</button>
+            </p>
             <!-- AI-generated (Claude): drill description for briefing the shooter. Shown with a drill
                  selected (before it starts) and while it is paused; for a full drill, the stage that
                  is about to run. script.js fills it. -->
@@ -235,8 +242,9 @@
                 </div>
                 <div class="modal-body">
                     <p class="text-muted small mb-3">
-                        Choose the targets in use for <strong id="drillTargetPickerDrillName"></strong>. Steps set to
-                        All targets use every target checked here; custom steps use theirs, if checked here.
+                        Choose the targets in use for <strong id="drillTargetPickerDrillName"></strong>, then confirm
+                        and press Start drill. Steps set to All targets use every target checked here; custom steps
+                        use theirs, if checked here.
                     </p>
                     <div class="alert alert-warning py-2" id="drillTargetPickerError" role="alert" hidden></div>
                     <!-- AI-generated (Claude): select all / odd / even targets in one click. -->
@@ -250,9 +258,10 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <!-- AI-modified (Claude): confirms the targets only; Start drill on the page runs it. -->
                     <button type="button" class="btn btn-primary" id="drillTargetPickerStart">
-                        <i class="bi bi-play-fill" aria-hidden="true"></i>
-                        Start drill
+                        <i class="bi bi-check-lg" aria-hidden="true"></i>
+                        Confirm targets
                     </button>
                 </div>
             </div>
@@ -307,7 +316,7 @@
     <!-- Bootstrap JS -->
     <script src="vendor/bootstrap.bundle.min.js"></script>
     <!-- Fetch the updated target controls when this page reloads. -->
-    <script src="script.js?v=ui-changes-8"></script>
+    <script src="script.js?v=ui-changes-9"></script>
 
 </body>
 </html>

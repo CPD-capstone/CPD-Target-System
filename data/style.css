@@ -537,6 +537,18 @@
     white-space: nowrap;
 }
 
+/* AI-generated (Claude): "Targets: 1-5 (5)  Change" line under the drill buttons. */
+.drill-target-summary:not([hidden]) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4rem;
+    margin: 0.5rem 0 0;
+    color: #495057;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
 /* AI-generated (Claude): drill description panel on Targets (briefing text keeps its line breaks). */
 .drill-description {
     max-width: 48rem;

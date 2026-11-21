@@ -22,7 +22,7 @@ const faqGroups = [
         questions: [
             {
                 question: 'How do I start a training drill?',
-                answer: 'On Targets, choose a drill from the Run a drill selector, check the range and selected targets, then press Start drill when the instructor confirms the range is ready. Follow all range safety procedures.'
+                answer: 'On Targets, choose a drill from the Run a drill selector. If the drill asks which targets to use, check them and press Confirm targets; the targets are listed under the drill buttons (tap Change to pick again). Press Start drill when the instructor confirms the range is ready. Follow all range safety procedures.'
             },
             {
                 question: 'Can I pause or stop a drill?',
@@ -782,6 +782,7 @@ const updateDrillStatus = () => {
     });
     if (stopDrillButton) stopDrillButton.hidden = !showDrillButtons && !manualMode;
     renderDrillDescription(status, drillSelect);
+    renderDrillTargetSummary();
 };
 
 // AI-generated (Claude): the description panel on Targets, for briefing the shooter. Before a drill
@@ -789,6 +790,9 @@ const updateDrillStatus = () => {
 // the stage that will run next. Hidden while a drill runs, after Stop, and in manual mode.
 const findDrillByName = (name) => Object.values(targetAssignmentDrills)
     .find((drill) => (drill.name || drill.drillName) === name);
+
+// AI-generated (Claude): set by the Targets page; redraws the confirmed-targets line.
+let renderDrillTargetSummary = () => {};
 
 const renderDrillDescription = (status, drillSelect) => {
     const panel = document.getElementById('drillDescription');
@@ -977,10 +981,54 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             }
         };
 
+        // AI-generated (Claude): targets confirmed in the picker, kept for the selected drill until
+        // another drill is chosen. {drillId, targets}
+        let confirmedTargets = null;
+
+        // "1, 2, 3, 5, 7, 8" -> "1-3, 5, 7-8"
+        const formatTargetList = (numbers) => {
+            const sorted = [...numbers].sort((first, second) => first - second);
+            const parts = [];
+            for (let index = 0; index < sorted.length; index++) {
+                const start = sorted[index];
+                while (sorted[index + 1] === sorted[index] + 1) index++;
+                parts.push(start === sorted[index] ? String(start) : `${start}-${sorted[index]}`);
+            }
+            return parts.join(', ');
+        };
+
+        const drillAsksForTargets = (drillId) => {
+            const drill = targetAssignmentDrills[drillId];
+            return Boolean(drill) && getDrillStepTargets(drill).usesAllTargets;
+        };
+
+        renderDrillTargetSummary = () => {
+            const summary = document.getElementById('drillTargetSummary');
+            if (!summary) return;
+            const drillId = drillSelect.value;
+            const idle = !controllerStatus || controllerStatus.state === 'idle';
+            summary.hidden = !idle || manualMode || Boolean(controllerStatus?.stopped) || !drillAsksForTargets(drillId);
+            if (summary.hidden) return;
+            const confirmed = confirmedTargets?.drillId === drillId
+                ? confirmedTargets.targets.filter((targetNumber) => !unavailableTargets.has(targetNumber))
+                : [];
+            document.getElementById('drillTargetSummaryText').textContent = confirmed.length
+                ? `${confirmed.length === 1 ? 'Target' : 'Targets'}: ${formatTargetList(confirmed)}${confirmed.length > 1 ? ` (${confirmed.length})` : ''}`
+                : 'No targets chosen yet';
+            document.getElementById('changeDrillTargets').textContent = confirmed.length ? 'Change' : 'Choose targets';
+        };
+        document.getElementById('changeDrillTargets')?.addEventListener('click', () => {
+            if (drillSelect.value) openDrillTargetPicker(drillSelect.value);
+        });
+
         drillSelect.addEventListener('change', () => {
             drillLaunchMessage.hidden = true;
             drillLaunchMessage.textContent = '';
+            // AI-modified (Claude): a drill that asks which targets to use opens the picker as soon
+            // as it is selected; Start drill then runs on the confirmed targets.
+            confirmedTargets = null;
             updateDrillStatus();
+            if (drillAsksForTargets(drillSelect.value)) openDrillTargetPicker(drillSelect.value);
         });
 
         startDrillButton.addEventListener('click', async () => {
@@ -998,7 +1046,12 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             // step is "All targets", ask which targets are in use (all working ones pre-checked).
             const { usesAllTargets, targets } = getDrillStepTargets(drill);
             if (usesAllTargets) {
-                openDrillTargetPicker(drillId);
+                // AI-modified (Claude): run on the targets confirmed in the picker; ask if none are
+                const confirmed = confirmedTargets?.drillId === drillId
+                    ? confirmedTargets.targets.filter((targetNumber) => !unavailableTargets.has(targetNumber))
+                    : [];
+                if (confirmed.length) runDrillOnTargets(drillId, confirmed);
+                else openDrillTargetPicker(drillId);
                 return;
             }
             const runTargets = [...targets]
@@ -1083,7 +1136,11 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             const lastRun = controllerStatus?.state === 'idle' && controllerStatus.lastOutcome !== 'none'
                 ? new Set((controllerStatus.targets || []).map(Number).filter((n) => pickableTargets.includes(n)))
                 : new Set();
-            const defaultTargets = lastRun.size ? lastRun : new Set(pickableTargets);
+            // AI-modified (Claude): reopening the picker (Change) keeps this drill's confirmed targets
+            const confirmed = confirmedTargets?.drillId === drillId
+                ? new Set(confirmedTargets.targets.filter((n) => pickableTargets.includes(n)))
+                : new Set();
+            const defaultTargets = confirmed.size ? confirmed : lastRun.size ? lastRun : new Set(pickableTargets);
 
             if (!pickableTargets.length) {
                 pickerList.textContent = 'No targets are currently available.';
@@ -1116,18 +1173,18 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
                 pickerError.hidden = false;
                 return;
             }
-            // Close the picker fully before starting so its backdrop cannot block Pause (AI-assisted with Codex).
-            pickerStartButton.disabled = true;
+            // AI-modified (Claude): Confirm only records the targets and returns to the page, where
+            // the summary line shows them and Start drill runs the drill.
+            confirmedTargets = { drillId: pickerDrillId, targets: selectedTargets };
+            drillLaunchMessage.hidden = true;
+            // Close fully even if the picker is still opening (AI-assisted with Codex).
             const hidePicker = () => bootstrapModal.getInstance(pickerModalElement)?.hide();
             pickerModalElement.addEventListener('shown.bs.modal', hidePicker, { once: true });
             pickerModalElement.addEventListener('hidden.bs.modal', () => {
                 pickerModalElement.removeEventListener('shown.bs.modal', hidePicker);
-                pickerStartButton.disabled = false;
-                if (pickerDrillId && !manualMode) {
-                    runDrillOnTargets(pickerDrillId, selectedTargets);
-                }
             }, { once: true });
             hidePicker();
+            updateDrillStatus();
         });
 
         pauseDrillButton.addEventListener('click', async () => {
