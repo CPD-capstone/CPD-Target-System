@@ -97,6 +97,15 @@
                 </button>
             </div>
             <p class="small text-muted mb-0" id="resetStageHint" aria-live="polite" hidden></p>
+            <!-- AI-generated (Claude): drill description for briefing the shooter. Shown with a drill
+                 selected (before it starts) and while it is paused; for a full drill, the stage that
+                 is about to run. script.js fills it. -->
+            <section class="drill-description" id="drillDescription" aria-labelledby="drillDescriptionTitle" hidden>
+                <h3 class="drill-description-title" id="drillDescriptionTitle"></h3>
+                <p class="drill-description-text mb-0" id="drillDescriptionText"></p>
+                <h3 class="drill-description-title mt-2" id="drillStageDescriptionTitle" hidden></h3>
+                <p class="drill-description-text mb-0" id="drillStageDescriptionText" hidden></p>
+            </section>
             <!-- AI-generated (Claude): drill timer. Time left in the delay step being run, shown only
                  while a drill is running or paused. script.js drives it from /api/drill/status. -->
             <div class="drill-timer" id="drillTimer" role="timer" hidden>
@@ -298,7 +307,7 @@
     <!-- Bootstrap JS -->
     <script src="vendor/bootstrap.bundle.min.js"></script>
     <!-- Fetch the updated target controls when this page reloads. -->
-    <script src="script.js?v=ui-changes-6"></script>
+    <script src="script.js?v=ui-changes-7"></script>
 
 </body>
 </html>

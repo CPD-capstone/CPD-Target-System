@@ -41,6 +41,10 @@ const faqGroups = [
                 answer: 'In the drill editor, drag steps to reorder them or use the up and down arrow controls. Use the X control on a step to remove it, then save the drill.'
             },
             {
+                question: 'Can I add a description to a drill?',
+                answer: 'Yes. In the drill editor, type a Description. It appears on the Targets page when the drill is selected and while it is paused, so the instructor can brief the shooter. The qualification stages come with the descriptions from the department qualification sheets.'
+            },
+            {
                 question: 'Can I customize a drill?',
                 answer: 'Yes. In the drill editor, Present and Hide steps can use all targets or a custom target selection; Present also supports choosing a random number of targets. Delay sets the wait time, and Pause waits for the operator to resume.'
             },
@@ -491,7 +495,9 @@ const getTargetDrillLibrary = (databaseDrills = []) => {
         .map((drill, index) => [`database-drill-${index}`, {
             name: drill.drillName.trim(),
             sequence: Array.isArray(drill.sequence) ? drill.sequence : [],
-            builtIn: drill.builtIn === true
+            builtIn: drill.builtIn === true,
+            // AI-generated (Claude): briefing text shown before the drill and at its pauses
+            description: typeof drill.description === 'string' ? drill.description.trim() : ''
         }]);
     return Object.fromEntries(defaults);
 };
@@ -775,6 +781,54 @@ const updateDrillStatus = () => {
         if (button) button.hidden = !showDrillButtons;
     });
     if (stopDrillButton) stopDrillButton.hidden = !showDrillButtons && !manualMode;
+    renderDrillDescription(status, drillSelect);
+};
+
+// AI-generated (Claude): the description panel on Targets, for briefing the shooter. Before a drill
+// starts it shows the selected drill (and, for a full drill, its first stage); while paused it shows
+// the stage that will run next. Hidden while a drill runs, after Stop, and in manual mode.
+const findDrillByName = (name) => Object.values(targetAssignmentDrills)
+    .find((drill) => (drill.name || drill.drillName) === name);
+
+const renderDrillDescription = (status, drillSelect) => {
+    const panel = document.getElementById('drillDescription');
+    if (!panel) return;
+    const state = status?.state || 'idle';
+    let drill = null;
+    let stageIndex = -1; // stage of a full drill to describe below the drill's own text
+    if (state === 'idle' && !manualMode && !status?.stopped && !cancelStartCountdown) {
+        drill = targetAssignmentDrills[drillSelect?.value] || null;
+        stageIndex = drill && isFullDrill(drill) ? 0 : -1;
+    } else if (state === 'paused' && !status.stopped && !status.finalStageComplete) {
+        drill = findDrillByName(status.drillName);
+        if (drill && !status.stagesAreParts) {
+            const current = (status.stageIndex || 0) - 1;
+            stageIndex = status.betweenStages && !status.stageRestartReady ? current + 1 : current;
+        }
+    }
+    const name = drill ? (drill.name || drill.drillName) : '';
+    const stageName = stageIndex >= 0 ? drillStageNames(name)[stageIndex] : '';
+    const stage = stageName ? findDrillByName(stageName) : null;
+    const drillText = drill?.description || '';
+    const stageText = stage?.description || '';
+    panel.hidden = !drillText && !stageText;
+    if (panel.hidden) return;
+
+    const title = document.getElementById('drillDescriptionTitle');
+    const text = document.getElementById('drillDescriptionText');
+    title.textContent = name;
+    text.textContent = drillText;
+    title.hidden = text.hidden = !drillText;
+    const stageTitle = document.getElementById('drillStageDescriptionTitle');
+    const stageBody = document.getElementById('drillStageDescriptionText');
+    // "First up" before the drill, "Next up" when Resume starts a new stage, just the stage name
+    // when paused partway through it
+    const startsNewStage = state === 'paused' && (status.betweenStages || status.stageRestartReady);
+    const stagePrefix = state === 'idle' ? 'First up: ' : startsNewStage ? 'Next up: ' : '';
+    stageTitle.textContent = stage ? `${stagePrefix}${shortStageName(name, stageName)}` : '';
+    stageBody.textContent = stageText;
+    stageTitle.hidden = stageBody.hidden = !stageText;
+    stageTitle.classList.toggle('mt-2', Boolean(drillText));
 };
 
 if (drillStatus) {
@@ -2600,6 +2654,8 @@ if (document.getElementById('drillList')) {
         editingName = drill ? drill.drillName : null;
         editorTitle.textContent = drill ? `Edit ${drill.drillName}` : 'New drill';
         nameInput.value = drill ? drill.drillName : '';
+        // AI-generated (Claude): optional description
+        document.getElementById('drillEditorDescription').value = typeof drill?.description === 'string' ? drill.description : '';
         const assigned = drill ? getOwnDrillQualifications(drill) : new Set();
         document.getElementById('drillEditorQualifications').replaceChildren(...qualificationNames.map((name, index) => (
             qualificationCheckbox(name, `editorQualification${index}`, assigned.has(name.toLowerCase()))
@@ -2649,11 +2705,13 @@ if (document.getElementById('drillList')) {
         saveButton.disabled = true;
         try {
             const qualifications = Array.from(document.querySelectorAll('#drillEditorQualifications input:checked'), (input) => input.value);
+            // AI-modified (Claude): "" clears a description on an edit
+            const description = document.getElementById('drillEditorDescription').value.trim();
             if (editingName === null) {
-                await postToController('/api/drills', { drillName: name, sequence: steps, qualifications });
+                await postToController('/api/drills', { drillName: name, sequence: steps, qualifications, description });
             } else {
                 // Isaac's rename: a new drillName also updates full drills that include this one
-                await postToController(`/api/drills?name=${encodeURIComponent(editingName)}`, { drillName: name, sequence: steps, qualifications }, 'PUT');
+                await postToController(`/api/drills?name=${encodeURIComponent(editingName)}`, { drillName: name, sequence: steps, qualifications, description }, 'PUT');
             }
             editorModal.hide();
             showListMessage(`${name} saved.`, 'success');
@@ -2729,6 +2787,7 @@ if (document.getElementById('drillList')) {
                         <i class="bi ${full ? 'bi-collection' : 'bi-crosshair'} text-primary" aria-hidden="true"></i>
                     </div>
                     <h2 class="h4 mb-4 drill-ticket-name"></h2>
+                    <p class="drill-ticket-description" hidden></p>
                     <dl class="drill-details">
                         <div><dt>${full ? 'Stages' : 'Steps'}</dt><dd>${full ? stages : steps}</dd></div>
                         <div><dt>Delay time</dt><dd>${full ? 'set by its stages' : `${delaySeconds} s`}</dd></div>
@@ -2739,6 +2798,10 @@ if (document.getElementById('drillList')) {
                     </div>
                 </article>`;
             column.querySelector('.drill-ticket-name').textContent = drill.drillName;
+            // AI-generated (Claude): first lines of the description
+            const descriptionPreview = column.querySelector('.drill-ticket-description');
+            descriptionPreview.textContent = typeof drill.description === 'string' ? drill.description.trim() : '';
+            descriptionPreview.hidden = !descriptionPreview.textContent;
             column.querySelector('[data-drill-action="edit"]').addEventListener('click', () => openEditor(drill));
             column.querySelector('[data-drill-action="delete"]').addEventListener('click', () => {
                 // The controller refuses to delete a stage a full drill still uses; say which one

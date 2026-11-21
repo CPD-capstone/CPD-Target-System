@@ -148,6 +148,12 @@
                             <label for="drillEditorName" class="form-label">Name</label>
                             <input type="text" class="form-control" id="drillEditorName" maxlength="47" autocomplete="off" placeholder="e.g. Pistol Qual Stage 6" required>
                         </div>
+                        <!-- AI-generated (Claude): shown on Targets before the drill starts and at its pauses. -->
+                        <div class="mb-3">
+                            <label for="drillEditorDescription" class="form-label">Description <span class="text-secondary fw-normal">(optional)</span></label>
+                            <textarea class="form-control" id="drillEditorDescription" rows="4" maxlength="2000" placeholder="e.g. Distance: 7-yard line. On command, draw and fire 3 rounds in 4 seconds." aria-describedby="drillEditorDescriptionHint"></textarea>
+                            <p class="form-text mb-0" id="drillEditorDescriptionHint">Shown on the Targets page before the drill starts and while it is paused, so the instructor can brief the shooter.</p>
+                        </div>
                         <fieldset class="mb-3">
                             <legend class="form-label fs-6 mb-1">Qualifications</legend>
                             <div class="d-flex flex-wrap gap-3" id="drillEditorQualifications"></div>
@@ -209,5 +215,5 @@
     <script src="vendor/bootstrap.bundle.min.js"></script>
     <!-- SortableJS 1.15.2 (MIT), vendored gzipped, for touch-friendly drag and drop -->
     <script src="vendor/sortable.min.js"></script>
-    <script src="script.js?v=ui-changes-6"></script>
+    <script src="script.js?v=ui-changes-7"></script>
 </html>

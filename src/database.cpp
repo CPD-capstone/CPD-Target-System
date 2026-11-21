@@ -567,7 +567,8 @@ bool getDrill(const char* drillName, JsonDocument& out) {
 }
 
 // AI-modified (Claude): drills are just "drillName" + a validated "sequence"
-bool addDrill(const char* drillName, JsonArrayConst sequence, JsonArrayConst qualifications) {
+// AI-modified (Claude): optional description
+bool addDrill(const char* drillName, JsonArrayConst sequence, JsonArrayConst qualifications, const char* description) {
     JsonDocument doc;
     if (!loadDatabase(doc)) return false;
 
@@ -584,13 +585,15 @@ bool addDrill(const char* drillName, JsonArrayConst sequence, JsonArrayConst qua
     drill["drillName"] = drillName;
     drill["sequence"] = sequence;
     if (!qualifications.isNull()) drill["qualifications"] = qualifications;
+    if (description && *description) drill["description"] = description;
 
     return saveDatabase(doc);
 }
 
 // AI-modified (Claude): replaces the sequence only (see renameDrill for the name), so Full Drills
 // that reference this drill by name stay valid
-bool editDrill(const char* drillName, JsonArrayConst newSequence, JsonArrayConst qualifications) {
+// AI-modified (Claude): optional description (nullptr = unchanged, "" = remove)
+bool editDrill(const char* drillName, JsonArrayConst newSequence, JsonArrayConst qualifications, const char* description) {
     JsonDocument doc;
     if (!loadDatabase(doc)) return false;
 
@@ -605,6 +608,10 @@ bool editDrill(const char* drillName, JsonArrayConst newSequence, JsonArrayConst
 
     drills[i]["sequence"] = newSequence;
     if (!qualifications.isNull()) drills[i]["qualifications"] = qualifications;
+    if (description) {
+        if (*description) drills[i]["description"] = description;
+        else drills[i].remove("description");
+    }
     return saveDatabase(doc);
 }
 

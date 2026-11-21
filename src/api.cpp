@@ -87,7 +87,28 @@ static void handleGetDrills(AsyncWebServerRequest* request) {
     sendJson(request, 200, out);
 }
 
-// POST /api/drills  {drillName, sequence}
+// AI-generated (Claude): longest drill description accepted, in bytes (UTF-8)
+static constexpr size_t DRILL_DESCRIPTION_MAX = 2000;
+
+/// @brief AI-generated (Claude): reads the optional "description" of a drill body.
+/// @param out set to the text, or nullptr when the field is missing
+/// @return false (after sending a 400) if the field is not a string or is too long
+static bool readDrillDescription(AsyncWebServerRequest* request, JsonVariant& json, const char*& out) {
+    out = nullptr;
+    if (json["description"].isNull()) return true;
+    if (!json["description"].is<const char*>()) {
+        sendError(request, 400, "description must be text");
+        return false;
+    }
+    out = json["description"].as<const char*>();
+    if (strlen(out) > DRILL_DESCRIPTION_MAX) {
+        sendError(request, 400, "description is too long (2000 characters at most)");
+        return false;
+    }
+    return true;
+}
+
+// POST /api/drills  {drillName, sequence, qualifications?, description?}
 static void handleAddDrill(AsyncWebServerRequest* request, JsonVariant& json) {
     const char* name = json["drillName"] | "";
     JsonArrayConst sequence = json["sequence"].as<JsonArrayConst>();
@@ -97,14 +118,17 @@ static void handleAddDrill(AsyncWebServerRequest* request, JsonVariant& json) {
     if (!json["qualifications"].isNull() && !json["qualifications"].is<JsonArray>()) {
         return sendError(request, 400, "qualifications must be an array");
     }
-    if (!addDrill(name, sequence, json["qualifications"].as<JsonArrayConst>())) {
+    const char* description;
+    if (!readDrillDescription(request, json, description)) return;
+    if (!addDrill(name, sequence, json["qualifications"].as<JsonArrayConst>(), description)) {
         return sendError(request, 400, "Drill rejected: name taken or invalid sequence");
     }
     sendOk(request);
 }
 
 // AI-modified (Claude): also renames the drill when the body has a new drillName
-// PUT /api/drills?name=<n>  {sequence?, drillName?}   (at least one; drillName renames the drill)
+// PUT /api/drills?name=<n>  {sequence?, drillName?, qualifications?, description?}
+//   (sequence or drillName required; drillName renames the drill; description needs sequence)
 static void handleEditDrill(AsyncWebServerRequest* request, JsonVariant& json) {
     String name;
     if (!getQueryString(request, "name", name)) return sendError(request, 400, "name is required");
@@ -116,6 +140,11 @@ static void handleEditDrill(AsyncWebServerRequest* request, JsonVariant& json) {
     }
     if (!json["qualifications"].isNull() && sequence.isNull()) {
         return sendError(request, 400, "sequence is required when assigning qualifications");
+    }
+    const char* description;
+    if (!readDrillDescription(request, json, description)) return;
+    if (description && sequence.isNull()) {
+        return sendError(request, 400, "sequence is required when changing the description");
     }
     if (sequence.isNull() && newNameField.isNull()) {
         return sendError(request, 400, "sequence or drillName is required");
@@ -142,7 +171,7 @@ static void handleEditDrill(AsyncWebServerRequest* request, JsonVariant& json) {
 
     // The sequence is saved under the old name, then the rename updates it and every Full Drill
     // that includes it
-    if (!sequence.isNull() && !editDrill(name.c_str(), sequence, json["qualifications"].as<JsonArrayConst>())) {
+    if (!sequence.isNull() && !editDrill(name.c_str(), sequence, json["qualifications"].as<JsonArrayConst>(), description)) {
         return sendError(request, 400, "Edit rejected: invalid sequence");
     }
     if (renaming && !renameDrill(name.c_str(), newName.c_str())) {

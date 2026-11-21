@@ -115,15 +115,21 @@ bool getDrill(const char* drillName, JsonDocument& out);
 /// @param drillName unique, non-empty drill name other than present/hide/pause/delay
 /// @param sequence array of { "step", "action", "timeMs"? } objects
 /// @param qualifications optional registered qualification names; omitted preserves legacy behavior
+/// @param description AI-generated (Claude): optional text shown to the range instructor before the
+///        drill and at its pauses; nullptr or "" stores none
 /// @return true if the drill is valid and was saved
-bool addDrill(const char* drillName, JsonArrayConst sequence, JsonArrayConst qualifications = JsonArrayConst());
+bool addDrill(const char* drillName, JsonArrayConst sequence, JsonArrayConst qualifications = JsonArrayConst(),
+              const char* description = nullptr);
 
 /// @brief Replaces a drill's sequence, validated the same way as addDrill().
 /// @param drillName name of the drill to edit
 /// @param newSequence replacement sequence
 /// @param qualifications optional registered qualification names; omitted preserves existing assignments
+/// @param description AI-generated (Claude): nullptr keeps the current description, "" removes it,
+///        anything else replaces it
 /// @return true if the drill exists, the sequence is valid, and the change was saved
-bool editDrill(const char* drillName, JsonArrayConst newSequence, JsonArrayConst qualifications = JsonArrayConst());
+bool editDrill(const char* drillName, JsonArrayConst newSequence, JsonArrayConst qualifications = JsonArrayConst(),
+               const char* description = nullptr);
 
 /// @brief Reads qualification names, including defaults for older databases.
 /// @param out document to fill with the names array

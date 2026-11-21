@@ -8,8 +8,10 @@
 //
 // REST API between UI and backend
 //   GET    /api/drills                     -> drills array
-//   POST   /api/drills                     {drillName, sequence}  -> addDrill
-//   PUT    /api/drills?name=<drillName>    {sequence?, drillName?} -> editDrill / renameDrill
+//   POST   /api/drills                     {drillName, sequence, description?}  -> addDrill
+//   PUT    /api/drills?name=<drillName>    {sequence?, drillName?, description?} -> editDrill / renameDrill
+//   AI-generated (Claude): description = optional text (2000 bytes at most) shown to the range
+//   instructor before the drill and at its pauses; "" removes it. A PUT changing it needs sequence.
 //   DELETE /api/drills?name=<drillName>                           -> deleteDrill
 //   AI-generated (Claude): a present/hide step may carry "targets": [n, ...] (only those
 //   targets, of the ones the drill was started on); without it the step moves all of them.

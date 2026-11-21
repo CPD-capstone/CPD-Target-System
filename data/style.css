@@ -537,6 +537,43 @@
     white-space: nowrap;
 }
 
+/* AI-generated (Claude): drill description panel on Targets (briefing text keeps its line breaks). */
+.drill-description {
+    max-width: 48rem;
+    margin-top: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    border-left: 4px solid #0057b8;
+    border-radius: 0.375rem;
+    background: #f1f6fc;
+}
+
+.drill-description-title {
+    margin-bottom: 0.25rem;
+    color: #0057b8;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.drill-description-text {
+    color: #212529;
+    font-size: 0.95rem;
+    line-height: 1.45;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
+/* AI-generated (Claude): description preview on the Drills page cards. */
+.drill-ticket-description {
+    display: -webkit-box;
+    margin: -0.75rem 0 1rem;
+    overflow: hidden;
+    color: #495057;
+    font-size: 0.85rem;
+    white-space: pre-line;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+}
+
 /* AI-generated (Claude): Back / Redo / Skip row under the drill buttons. Three equal columns
    so the stage names line up; the labels wrap rather than widen the page on phones. */
 .stage-nav:not([hidden]) {
