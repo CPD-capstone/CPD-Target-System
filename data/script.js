@@ -1077,6 +1077,14 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
                 .map((column) => Number(column.dataset.targetNumber))
                 .filter((targetNumber) => !unavailableTargets.has(targetNumber));
 
+            // AI-generated (Claude): start with the targets the last drill ran on. The controller
+            // keeps them in RAM (status.targets while idle), so after a power cycle no drill has run
+            // (lastOutcome "none") and every working target is checked instead.
+            const lastRun = controllerStatus?.state === 'idle' && controllerStatus.lastOutcome !== 'none'
+                ? new Set((controllerStatus.targets || []).map(Number).filter((n) => pickableTargets.includes(n)))
+                : new Set();
+            const defaultTargets = lastRun.size ? lastRun : new Set(pickableTargets);
+
             if (!pickableTargets.length) {
                 pickerList.textContent = 'No targets are currently available.';
             } else {
@@ -1086,7 +1094,7 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
                     const input = document.createElement('input');
                     input.className = 'form-check-input';
                     input.type = 'checkbox';
-                    input.checked = true; // AI-modified (Claude): start with every working target
+                    input.checked = defaultTargets.has(targetNumber); // AI-modified (Claude): see lastRun
                     input.value = String(targetNumber);
                     const text = document.createElement('span');
                     text.textContent = `Target ${targetNumber}`;
