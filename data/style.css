@@ -398,6 +398,39 @@
     letter-spacing: 0.06em;
 }
 
+/* AI-generated (Claude): collapsible section heading (Targets page View card). */
+.control-section-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-height: 2rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+}
+
+.control-section-toggle .badge {
+    letter-spacing: 0.03em;
+}
+
+.control-section-chevron {
+    margin-left: auto;
+    transition: transform 0.15s ease;
+}
+
+.control-section-toggle[aria-expanded="true"] .control-section-chevron {
+    transform: rotate(180deg);
+}
+
+.control-section-body {
+    margin-top: 0.5rem;
+}
+
 .control-row {
     display: flex;
     flex-wrap: wrap;

@@ -58,7 +58,7 @@ const faqGroups = [
             },
             {
                 question: 'How do I switch between grid and list view?',
-                answer: 'On Targets, use the Grid view and List view buttons in the View section. Your display choice is saved on that device. Filter targets in the same section shows only the target numbers you enter, such as 1, 3, 5-8.'
+                answer: 'On Targets, tap View to open the View section, then use the Grid view and List view buttons. Your display choice is saved on that device. Filter targets in the same section shows only the target numbers you enter, such as 1, 3, 5-8.'
             },
             {
                 question: 'How do I change the delay before a drill starts?',
@@ -1138,6 +1138,9 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         numberFilterButton?.classList.toggle('btn-primary', filteredNumbers !== null);
         numberFilterButton?.classList.toggle('btn-outline-dark', filteredNumbers === null);
         numberFilterButton?.setAttribute('aria-pressed', String(filteredNumbers !== null));
+        // AI-generated (Claude): flag active filters on the View heading, visible while collapsed.
+        const viewFilterBadge = document.getElementById('viewFilterBadge');
+        if (viewFilterBadge) viewFilterBadge.hidden = !hideDefective && filteredNumbers === null;
         if (numberFilterStatus) numberFilterStatus.hidden = filteredNumbers === null;
         if (numberFilterSummary) {
             numberFilterSummary.textContent = `Showing ${visibleCount} of ${targetColumns.length} targets (${numberFilterText}). Drills and the manual group buttons still use hidden targets.`;
@@ -1210,6 +1213,20 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
         applyTargetFilters();
     });
     applyTargetFilters();
+
+    // AI-generated (Claude): collapsible View card. Collapsed by default; this phone remembers
+    // whether it was left open.
+    const viewPanelToggle = document.getElementById('viewPanelToggle');
+    const viewPanelBody = document.getElementById('viewPanelBody');
+    const viewPanelStorageKey = 'cpd-view-panel-open';
+    const setViewPanelOpen = (open) => {
+        if (!viewPanelToggle || !viewPanelBody) return;
+        viewPanelBody.hidden = !open;
+        viewPanelToggle.setAttribute('aria-expanded', String(open));
+        localStorage.setItem(viewPanelStorageKey, String(open));
+    };
+    viewPanelToggle?.addEventListener('click', () => setViewPanelOpen(viewPanelBody.hidden));
+    setViewPanelOpen(localStorage.getItem(viewPanelStorageKey) === 'true');
 
     // AI-assisted target display preference; include this change in the PR's AI-use disclosure.
     const applyTargetView = (view) => {
