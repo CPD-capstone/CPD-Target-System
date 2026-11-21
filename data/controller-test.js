@@ -194,7 +194,7 @@ export async function createControllerTest() {
                 if (route === '/api/qualifications') return json(database.qualifications || ['Pistol', 'Rifle', 'SWAT']);
                 if (route === '/api/targets/state') return json({ facing: status.facing });
                 // AI-generated (Claude): target flip delay (kept with the test data)
-                if (route === '/api/settings/target-flip') return json({ faceTravelMs: database.faceTravelMs ?? 0, maxMs: 5000, defaultMs: 0 });
+                if (route === '/api/settings/target-flip') return json({ faceTravelMs: database.faceTravelMs ?? 300, maxMs: 5000, defaultMs: 300 });
                 if (route === '/api/officers') return json(officersWithStats(url.searchParams.get('today') || new Date().toISOString().slice(0, 10)));
                 if (route === '/api/drill/status') {
                     const active = status.state !== 'idle';

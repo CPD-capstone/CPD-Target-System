@@ -28,10 +28,10 @@ constexpr uint32_t MECHANICAL_BUFFER = 500;
 
 // time in ms for a target to rotate from edge-on to fully flat facing the shooter after its
 // solenoid fires. Drill delays start counting only after this has elapsed.
-// TODO: measure on the real targets and set this; 0 means delays start the moment the solenoid fires.
+// Measured on the real targets: 0.3 s.
 // AI-modified (Claude): this is now only the DEFAULT. The value in use is set in Settings ("Target
 // flip delay"), saved in NVS, and read with getFaceTravelMs() (target_manager.h).
-constexpr uint32_t TARGET_FACE_TRAVEL_MS = 0;
+constexpr uint32_t TARGET_FACE_TRAVEL_MS = 300;
 
 // total number of targets on the range (MCP1 drives 1-16, MCP2 drives 17-20)
 constexpr uint8_t NUM_TARGETS = 20;
