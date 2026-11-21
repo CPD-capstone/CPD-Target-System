@@ -288,16 +288,34 @@ static void handleAddQualScore(AsyncWebServerRequest* request, JsonVariant& json
     sendOk(request);
 }
 
-// AI-generated (Claude): PUT /api/officers?badge=<n>  {Name}   renames an officer (editOfficer)
+// AI-generated (Claude): PUT /api/officers?badge=<n>  {Name?, BadgeNum?}   renames an officer and/or
+// changes their badge number (editOfficer); at least one field is required
 static void handleEditOfficer(AsyncWebServerRequest* request, JsonVariant& json) {
     int badge;
     if (!getQueryInt(request, "badge", badge)) return sendError(request, 400, "Badge is required");
-    String name;
-    if (const char* error = checkOfficerName(json["Name"] | "", name)) { // AI-modified (Claude)
-        return sendError(request, 400, error);
+    if (json["Name"].isNull() && json["BadgeNum"].isNull()) {
+        return sendError(request, 400, "Name or BadgeNum is required");
     }
-    if (!editOfficer(badge, name.c_str())) return sendError(request, 404, "Officer not found");
-    sendOk(request);
+    String name;
+    if (!json["Name"].isNull()) {
+        if (const char* error = checkOfficerName(json["Name"] | "", name)) { // AI-modified (Claude)
+            return sendError(request, 400, error);
+        }
+    }
+    int newBadge = 0;
+    if (!json["BadgeNum"].isNull()) {
+        if (!json["BadgeNum"].is<int>() || json["BadgeNum"].as<int>() <= 0) {
+            return sendError(request, 400, "BadgeNum must be a positive whole number");
+        }
+        newBadge = json["BadgeNum"].as<int>();
+    }
+    switch (editOfficer(badge, json["Name"].isNull() ? nullptr : name.c_str(), newBadge)) {
+        case OfficerEditResult::Saved:      return sendOk(request);
+        case OfficerEditResult::NotFound:   return sendError(request, 404, "Officer not found");
+        case OfficerEditResult::BadgeTaken: return sendError(request, 409, "Another officer already has that badge number");
+        case OfficerEditResult::SaveFailed: break;
+    }
+    sendError(request, 500, "Could not save the change");
 }
 
 // DELETE /api/officers?badge=<n>

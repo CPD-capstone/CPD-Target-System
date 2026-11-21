@@ -25,7 +25,7 @@
 //                                          plus qualificationStats {name: {attempts, average, top}}
 //                                          for custom qualifications (AI-modified, Claude)
 //   POST   /api/officers                   {BadgeNum, Name}       -> addOfficer
-//   PUT    /api/officers?badge=<n>         {Name}                 -> editOfficer (AI-generated, Claude)
+//   PUT    /api/officers?badge=<n>         {Name?, BadgeNum?}     -> editOfficer (AI-generated, Claude; BadgeNum changes the badge, 409 if taken)
 //   POST   /api/officers/scores            {BadgeNum, qualType, score, date} -> addQualScore
 //                                          (qualType: any name from /api/qualifications; score >= 0)
 //   GET    /api/qualifications             -> ["Pistol", "Rifle", "SWAT", ...custom names]

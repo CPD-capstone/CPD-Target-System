@@ -271,6 +271,29 @@ export async function createControllerTest() {
                     const histories = officer.qualificationScores || {};
                     officer.qualificationScores = { ...histories, [name]: [entry, ...(Object.hasOwn(histories, name) ? histories[name] : [])] };
                 }
+            } else if (route === '/api/officers') {
+                // AI-generated (Claude): add / edit (name, badge) / delete officers in test mode
+                const badge = Number(url.searchParams.get('badge'));
+                const index = database.Officers.findIndex((item) => item.BadgeNum === badge);
+                const nameOk = (name) => typeof name === 'string' && name.trim() && name.trim().length <= 64;
+                if (method === 'POST') {
+                    if (!Number.isInteger(body.BadgeNum) || body.BadgeNum < 1 || !nameOk(body.Name)) refuse('Enter a name and a positive badge number.');
+                    if (database.Officers.some((item) => item.BadgeNum === body.BadgeNum)) refuse('An officer with that badge number already exists');
+                    database.Officers.push({ Name: body.Name.trim(), BadgeNum: body.BadgeNum, qualificationScores: {},
+                        pistolQualScores: [], rifleQualScores: [], swatQualScores: [] });
+                } else if (method === 'PUT') {
+                    if (index < 0) refuse('Officer not found');
+                    if (body.Name !== undefined && !nameOk(body.Name)) refuse('Name is required');
+                    if (body.BadgeNum !== undefined) {
+                        if (!Number.isInteger(body.BadgeNum) || body.BadgeNum < 1) refuse('BadgeNum must be a positive whole number');
+                        if (body.BadgeNum !== badge && database.Officers.some((item) => item.BadgeNum === body.BadgeNum)) refuse('Another officer already has that badge number');
+                        database.Officers[index].BadgeNum = body.BadgeNum;
+                    }
+                    if (body.Name !== undefined) database.Officers[index].Name = body.Name.trim();
+                } else if (method === 'DELETE') {
+                    if (index < 0) refuse('Officer not found');
+                    database.Officers.splice(index, 1);
+                }
             } else if (route === '/api/qualifications' && method === 'POST') {
                 const name = typeof body.name === 'string' ? body.name.trim() : '';
                 const names = database.qualifications || ['Pistol', 'Rifle', 'SWAT'];

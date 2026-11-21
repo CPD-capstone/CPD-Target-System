@@ -80,11 +80,17 @@ bool getOfficer(int badgeNum, const char* today, JsonDocument& out);
 /// @return true if the officer was added and saved
 bool addOfficer(int badgeNum, const char* name);
 
-/// @brief Renames an officer.
+/// AI-generated (Claude): why editOfficer() did or didn't save
+enum class OfficerEditResult : uint8_t { Saved, NotFound, BadgeTaken, SaveFailed };
+
+/// @brief Renames an officer and/or changes their badge number. Scores stay with the officer.
+///        AI-modified (Claude): the badge number can now be changed too.
 /// @param badgeNum badge number of the officer to edit
-/// @param name new name
-/// @return true if the officer exists and the change was saved
-bool editOfficer(int badgeNum, const char* name);
+/// @param name new name, or nullptr to keep the current one
+/// @param newBadgeNum new badge number, or 0 to keep the current one; must not belong to
+///        another officer
+/// @return Saved, or why the change was refused
+OfficerEditResult editOfficer(int badgeNum, const char* name, int newBadgeNum = 0);
 
 /// @brief Records a qualification score as the newest entry of that officer's score list.
 /// @param badgeNum badge number of the officer

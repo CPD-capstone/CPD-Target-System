@@ -418,20 +418,28 @@ bool addOfficer(int badgeNum, const char* name) {
     return saveDatabase(doc);
 }
 
-// AI-modified (Claude): scores are edited separately with addQualScore()
-bool editOfficer(int badgeNum, const char* name) {
+// AI-modified (Claude): scores are edited separately with addQualScore(). Also changes the badge
+// number (the officer's scores move with them); a badge another officer has is refused.
+OfficerEditResult editOfficer(int badgeNum, const char* name, int newBadgeNum) {
     JsonDocument doc;
-    if (!loadDatabase(doc)) return false;
+    if (!loadDatabase(doc)) return OfficerEditResult::SaveFailed;
 
     JsonArray officers = doc["Officers"];
     int i = findIndex(officers, "BadgeNum", badgeNum);
     if (i < 0) {
         Serial.printf("No officer found with badge %d\r\n", badgeNum);
-        return false;
+        return OfficerEditResult::NotFound;
+    }
+    if (newBadgeNum > 0 && newBadgeNum != badgeNum) {
+        if (findIndex(officers, "BadgeNum", newBadgeNum) >= 0) {
+            Serial.printf("Officer with badge %d already exists\r\n", newBadgeNum);
+            return OfficerEditResult::BadgeTaken;
+        }
+        officers[i]["BadgeNum"] = newBadgeNum;
     }
 
-    officers[i]["Name"] = name;
-    return saveDatabase(doc);
+    if (name) officers[i]["Name"] = name;
+    return saveDatabase(doc) ? OfficerEditResult::Saved : OfficerEditResult::SaveFailed;
 }
 
 // AI-modified (Claude): replaces editUserPerformance. Scores are stored newest-first, and

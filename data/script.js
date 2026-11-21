@@ -98,6 +98,10 @@ const faqGroups = [
                 answer: 'Open Settings and find Officers. Enter the officer’s name and badge number, then select Add officer. The officer is saved on the controller and becomes available for score entry.'
             },
             {
+                question: 'How do I change an officer’s name or badge number?',
+                answer: 'Open Settings, find the officer under Officers, and select Edit. Change the name or badge number and select Save. Their recorded scores stay with them. Officers added from the department roster start with placeholder badge numbers (90001 and up) until their real numbers are entered.'
+            },
+            {
                 question: 'How do I record qualification scores?',
                 answer: 'Open Performance and select Add scores. Choose the officer and qualification, enter a score and date for each row, and select Save scores. Use Add another score to enter multiple attempts in one batch.'
             }
@@ -3148,7 +3152,8 @@ if (officerList) {
         return element;
     };
 
-    // One row per officer; Rename swaps the name for an input with Save / Cancel.
+    // One row per officer; Edit swaps the name and badge for inputs with Save / Cancel.
+    // AI-modified (Claude): the badge number can be changed too (it was Rename, name only).
     const renderOfficerRow = (officer) => {
         const row = document.createElement('li');
         row.className = 'officer-row';
@@ -3158,9 +3163,9 @@ if (officerList) {
         const badge = document.createElement('span');
         badge.className = 'officer-row-badge';
         badge.textContent = `Badge ${officer.BadgeNum}`;
-        const renameButton = button('Rename', 'btn-outline-secondary', 'bi-pencil');
+        const renameButton = button('Edit', 'btn-outline-secondary', 'bi-pencil');
         const deleteButton = button('Delete', 'btn-outline-danger', 'bi-trash3');
-        renameButton.setAttribute('aria-label', `Rename ${officer.Name}`);
+        renameButton.setAttribute('aria-label', `Edit ${officer.Name}`);
         deleteButton.setAttribute('aria-label', `Delete ${officer.Name}`);
         row.append(name, badge, renameButton, deleteButton);
 
@@ -3170,21 +3175,36 @@ if (officerList) {
             input.value = officer.Name || '';
             input.maxLength = 60;
             input.setAttribute('aria-label', `New name for badge ${officer.BadgeNum}`);
+            const badgeEdit = document.createElement('input');
+            badgeEdit.className = 'form-control form-control-sm officer-row-badge-input';
+            badgeEdit.type = 'number';
+            badgeEdit.min = '1';
+            badgeEdit.step = '1';
+            badgeEdit.inputMode = 'numeric';
+            badgeEdit.value = String(officer.BadgeNum);
+            badgeEdit.setAttribute('aria-label', `Badge number for ${officer.Name}`);
             const saveButton = button('Save', 'btn-primary', 'bi-check-lg');
             const cancelButton = button('Cancel', 'btn-outline-secondary', 'bi-x-lg');
-            row.replaceChildren(input, badge, saveButton, cancelButton);
+            row.replaceChildren(input, badgeEdit, saveButton, cancelButton);
             input.focus();
 
             const save = async () => {
                 const newName = input.value.trim();
+                const newBadge = Number(badgeEdit.value);
                 if (!newName) {
                     showOfficersMessage('Enter a name.', false);
                     return;
                 }
+                if (!Number.isInteger(newBadge) || newBadge < 1) {
+                    showOfficersMessage('Enter a whole-number badge number.', false);
+                    return;
+                }
                 saveButton.disabled = true;
                 try {
-                    await postToController(`/api/officers?badge=${officer.BadgeNum}`, { Name: newName }, 'PUT');
-                    showOfficersMessage(`Renamed to ${newName}.`, true);
+                    await postToController(`/api/officers?badge=${officer.BadgeNum}`, { Name: newName, BadgeNum: newBadge }, 'PUT');
+                    showOfficersMessage(newBadge === Number(officer.BadgeNum)
+                        ? `Saved ${newName}.`
+                        : `Saved ${newName} (badge ${newBadge}). Their scores moved with them.`, true);
                     loadOfficers();
                 } catch (error) {
                     showOfficersMessage(error.message, false);
@@ -3193,10 +3213,10 @@ if (officerList) {
             };
             saveButton.addEventListener('click', save);
             cancelButton.addEventListener('click', () => loadOfficers());
-            input.addEventListener('keydown', (event) => {
+            [input, badgeEdit].forEach((field) => field.addEventListener('keydown', (event) => {
                 if (event.key === 'Enter') save();
                 if (event.key === 'Escape') loadOfficers();
-            });
+            }));
         });
 
         deleteButton.addEventListener('click', () => {
