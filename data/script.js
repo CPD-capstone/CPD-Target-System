@@ -659,6 +659,14 @@ const updateDrillStatus = () => {
                 : `Redo ${status?.stageName} (stage ${status?.stageIndex}): hide the drill targets and wait for Resume.`;
     }
     if (drillSelect) drillSelect.disabled = manualMode || drillActive || stopped || countingDown;
+
+    // AI-generated (Claude): the drill buttons appear once a drill is selected (or one is running
+    // or counting down). Stop also stays visible in manual mode: it is the only emergency stop.
+    const showDrillButtons = (Boolean(drillSelect?.value) && !manualMode) || drillActive || countingDown;
+    [startDrillButton, pauseDrillButton, resetStageButton].forEach((button) => {
+        if (button) button.hidden = !showDrillButtons;
+    });
+    if (stopDrillButton) stopDrillButton.hidden = !showDrillButtons && !manualMode;
 };
 
 if (drillStatus) {

@@ -45,27 +45,28 @@
     <div class="control-bar mx-3 mb-3">
         <section class="control-section" aria-labelledby="drillPanelTitle">
             <h2 class="control-section-title" id="drillPanelTitle">Run a drill</h2>
-            <!-- AI-assisted drill start controls. -->
+            <!-- AI-assisted drill start controls. AI-modified (Claude): the buttons stay hidden
+                 until a drill is selected (script.js updateDrillStatus). -->
             <div class="drill-launch-bar" role="group" aria-label="Start a drill">
                 <label class="visually-hidden" for="drillSelect">Select a drill</label>
                 <select class="form-select" id="drillSelect" aria-label="Select a drill">
                     <option value="">Select a drill</option>
                 </select>
-                <button class="btn btn-primary" id="startDrillButton" type="button" disabled>
+                <button class="btn btn-primary" id="startDrillButton" type="button" disabled hidden>
                     <i class="bi bi-play-fill" aria-hidden="true"></i>
                     <span id="startDrillLabel">Start drill</span>
                 </button>
-                <button class="btn btn-outline-secondary" id="pauseDrillButton" type="button" aria-label="Pause drill" title="Pause drill" disabled>
+                <button class="btn btn-outline-secondary" id="pauseDrillButton" type="button" aria-label="Pause drill" title="Pause drill" disabled hidden>
                     <i class="bi bi-pause-fill" aria-hidden="true"></i>
                     Pause
                 </button>
                 <!-- Replay the paused stage without ending the drill (AI-assisted with Codex). -->
-                <button class="btn btn-outline-secondary" id="resetStageButton" type="button" aria-describedby="resetStageHint" disabled>
+                <button class="btn btn-outline-secondary" id="resetStageButton" type="button" aria-describedby="resetStageHint" disabled hidden>
                     <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
                     Redo stage
                 </button>
                 <!-- AI-generated (Claude): stop button for the active drill. -->
-                <button class="btn btn-danger" id="stopDrillButton" type="button" aria-label="Stop drill" title="Stop drill" disabled>
+                <button class="btn btn-danger" id="stopDrillButton" type="button" aria-label="Stop drill" title="Stop drill" disabled hidden>
                     <i class="bi bi-stop-fill" aria-hidden="true"></i>
                     Stop
                 </button>
@@ -286,7 +287,7 @@
     <!-- Bootstrap JS -->
     <script src="vendor/bootstrap.bundle.min.js"></script>
     <!-- Fetch the updated target controls when this page reloads. -->
-    <script src="script.js?v=ui-changes-3"></script>
+    <script src="script.js?v=ui-changes-4"></script>
 
 </body>
 </html>
