@@ -38,7 +38,12 @@
 //   POST   /api/drill/start      {drillName, targets?}  -> executeDrill
 //   POST   /api/drill/pause                             -> pauseDrill (freezes the drill clock)
 //   POST   /api/drill/resume                            -> resumeDrill (after a pause or pause step)
-//   POST   /api/drill/reset-stage                       -> resetDrillStage (paused full drills; AI-assisted with Codex)
+//   POST   /api/drill/reset-stage                       -> resetDrillStage (AI-assisted with Codex)
+//   POST   /api/drill/previous-stage                    -> jumpToStage(Previous) (AI-generated, Claude)
+//   POST   /api/drill/next-stage                        -> jumpToStage(Next)     (AI-generated, Claude)
+//   AI-modified (Claude): the three stage moves work while a drill is running or paused; the drill
+//   hides its targets and waits at the start of that stage for resume. A drill without stages
+//   moves by parts (the runs of steps between its pause steps).
 //   GET    /api/drill/status     -> {state, drillName, step, stepCount, stepAction, targets,
 //                                    lastOutcome, stopped, hardwareReady, facing,
 //                                    delayMs, delayRemainingMs}  (delay step length / time left)

@@ -537,6 +537,20 @@
     white-space: nowrap;
 }
 
+/* AI-generated (Claude): Back / Redo / Skip row under the drill buttons. Three equal columns
+   so the stage names line up; the labels wrap rather than widen the page on phones. */
+.stage-nav:not([hidden]) {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.stage-nav .btn {
+    min-height: 44px;
+    overflow-wrap: anywhere;
+}
+
 #targetGrid [data-target-number] {
     position: relative;
 }

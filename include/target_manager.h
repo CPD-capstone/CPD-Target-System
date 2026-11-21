@@ -67,7 +67,16 @@ enum class TargetCommandResult : uint8_t {
 };
 
 // Results for stage reset requests (AI-assisted with Codex).
-enum class StageResetResult : uint8_t { Accepted, NotPaused, NoStage, Busy, Stopped, HalNotReady };
+// AI-modified (Claude): also returned by jumpToStage(); NoDrill = no drill is running or paused.
+enum class StageResetResult : uint8_t { Accepted, NotPaused, NoStage, Busy, Stopped, HalNotReady, NoDrill };
+
+/// AI-generated (Claude): where jumpToStage() moves a running or paused drill.
+///   Current  = restart the stage being run (between stages: the stage just completed)
+///   Previous = the stage before that
+///   Next     = the stage after the one being run (between stages: skip the upcoming one)
+/// "Stages" are a full drill's stages; a drill without stages is split into parts at its
+/// pause steps, and those parts are used instead (see DrillStatus::stagesAreParts).
+enum class StageJump : uint8_t { Current, Previous, Next };
 
 /// longest drill name kept for status display (longer names are truncated)
 constexpr size_t DRILL_NAME_MAX = 48;
@@ -97,6 +106,14 @@ struct DrillStatus {
     // AI-generated (Claude): a full drill's last stage has finished and the controller is holding
     // (targets hidden) so it can be redone. Reset stage replays it; Resume ends the drill.
     bool finalStageComplete;
+    // AI-generated (Claude): stage navigation for the web UI.
+    uint16_t stageCount;      // stages (or parts, see stagesAreParts) in the drill; 0 when idle
+    bool stagesAreParts;      // the drill has no stages, so stageName/stageIndex/stageCount are its parts
+    uint16_t partIndex;       // 1-based part within the current stage (parts are split at pause
+                              // steps); at a pause inside the stage, the part just completed. 0 if none
+    uint16_t partCount;       // parts in the current stage (1 = no pauses); 0 if none
+    bool canGoBack;           // jumpToStage(Previous) would be accepted now
+    bool canSkip;             // jumpToStage(Next) would be accepted now
 };
 
 /// @brief This function executes the drill that is passed into its arg by finding it in the json drills list and converting it to the FreeRTOS cmd queue
@@ -121,8 +138,18 @@ bool resumeDrill();
 /// @brief Hide targets and rewind the paused full drill's current/completed stage (AI-assisted with Codex).
 ///        Remains paused until Resume. AI-modified (Claude): this includes the last stage, since a
 ///        full drill holds paused after it (see DrillStatus::finalStageComplete).
+///        AI-modified (Claude): same as jumpToStage(StageJump::Current), so it also works while
+///        the drill is running.
 /// @return Accepted if queued/already rewound; otherwise why reset is unavailable
 StageResetResult resetDrillStage();
+
+/// @brief AI-generated (Claude): moves a running or paused drill to another stage (or part). The
+///        runner hides the drill's targets, waits out the mechanical buffer, moves to the first step
+///        of that stage and pauses there (stageRestartReady) until resumeDrill().
+/// @param jump which stage to move to, relative to the current one (see StageJump)
+/// @return Accepted if the move was queued; NoStage if there is no such stage (or the drill is not
+///         in one); NoDrill, Busy, Stopped or HalNotReady otherwise
+StageResetResult jumpToStage(StageJump jump);
 
 /// @brief EMERGENCY STOP. Freezes every target where it is (see hal_hold()), ends any running
 ///        drill WITHOUT hiding its targets, and latches: drills and manual moves are refused until

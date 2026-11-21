@@ -365,17 +365,24 @@ static void handleResumeDrill(AsyncWebServerRequest* request) {
 
 // POST /api/drill/reset-stage: rewind the stage and wait for Resume (AI-assisted with Codex).
 // Acceptance is asynchronous; status reports stageResetPending until the hide/rewind completes.
-static void handleResetStage(AsyncWebServerRequest* request) {
-    switch (resetDrillStage()) {
+// AI-modified (Claude): shared by reset-stage (Redo), previous-stage (Back) and next-stage (Skip)
+static void handleStageJump(AsyncWebServerRequest* request, StageJump jump) {
+    switch (jumpToStage(jump)) {
         case StageResetResult::Accepted:    return sendOk(request);
-        case StageResetResult::NotPaused:   return sendError(request, 409, "Pause the full drill before redoing a stage");
-        case StageResetResult::NoStage:     return sendError(request, 409, "No full-drill stage is available to redo");
-        case StageResetResult::Busy:        return sendError(request, 409, "A stage redo or Resume is already pending");
+        case StageResetResult::NotPaused:
+        case StageResetResult::NoDrill:     return sendError(request, 409, "No drill is running");
+        case StageResetResult::NoStage:
+            return sendError(request, 409, jump == StageJump::Previous ? "There is no earlier stage to go back to"
+                                         : jump == StageJump::Next ? "There is no later stage to skip to"
+                                         : "There is no stage to redo here");
+        case StageResetResult::Busy:        return sendError(request, 409, "A stage change or Resume is already pending");
         case StageResetResult::Stopped:     return sendError(request, 409, "Targets are stopped; press Reset first");
         case StageResetResult::HalNotReady: return sendError(request, 503, "Target hardware is not ready");
     }
     sendError(request, 500, "Unknown error");
 }
+
+static void handleResetStage(AsyncWebServerRequest* request) { handleStageJump(request, StageJump::Current); }
 
 // POST /api/stop   EMERGENCY STOP: freeze every target where it is. Always allowed, with or
 // without a drill running. 500 means the freeze could not be confirmed -- treat as unsafe.
@@ -399,7 +406,8 @@ static void handleReset(AsyncWebServerRequest* request) {
 // GET /api/drill/status
 //   -> {state, drillName, step, stepCount, stepAction, targets: [n, ...], lastOutcome, stopped,
 //       hardwareReady, facing: [n, ...], delayMs, delayRemainingMs, stageName, stageIndex,
-//       betweenStages, canResetStage, stageResetPending, stageRestartReady, finalStageComplete}
+//       betweenStages, canResetStage, stageResetPending, stageRestartReady, finalStageComplete,
+//       stageCount, stagesAreParts, partIndex, partCount, canGoBack, canSkip}
 // While idle, drillName/stepCount/targets describe the last drill run (step is 0).
 // stopped = emergency stop is latched; only /api/reset moves targets until it is cleared.
 static void handleDrillStatus(AsyncWebServerRequest* request) {
@@ -427,6 +435,13 @@ static void handleDrillStatus(AsyncWebServerRequest* request) {
     doc["stageResetPending"] = status.stageResetPending;
     doc["stageRestartReady"] = status.stageRestartReady;
     doc["finalStageComplete"] = status.finalStageComplete;
+    // AI-generated (Claude): stage navigation (see DrillStatus)
+    doc["stageCount"] = status.stageCount;
+    doc["stagesAreParts"] = status.stagesAreParts;
+    doc["partIndex"] = status.partIndex;
+    doc["partCount"] = status.partCount;
+    doc["canGoBack"] = status.canGoBack && hal_isReady();
+    doc["canSkip"] = status.canSkip && hal_isReady();
 
     addSignal(doc, request);
     sendJson(request, 200, doc);
@@ -491,6 +506,11 @@ void registerApiRoutes(AsyncWebServer& server) {
     server.on("/api/drill/pause", HTTP_POST, handlePauseDrill);
     server.on("/api/drill/resume", HTTP_POST, handleResumeDrill);
     server.on("/api/drill/reset-stage", HTTP_POST, handleResetStage);
+    // AI-generated (Claude): Back / Skip a stage
+    server.on("/api/drill/previous-stage", HTTP_POST,
+              [](AsyncWebServerRequest* request) { handleStageJump(request, StageJump::Previous); });
+    server.on("/api/drill/next-stage", HTTP_POST,
+              [](AsyncWebServerRequest* request) { handleStageJump(request, StageJump::Next); });
     server.on("/api/drill/status", HTTP_GET, handleDrillStatus);
 
     // Manual target control (before /api/targets)

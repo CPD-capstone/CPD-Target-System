@@ -29,6 +29,10 @@ const faqGroups = [
                 answer: 'Use Pause to pause a running drill and Resume to continue. Stop ends the drill and freezes targets where they are. After a stop, use Reset only when it is safe to hide all targets.'
             },
             {
+                question: 'Can I go back, redo, or skip a stage?',
+                answer: 'Yes. While a drill is running or paused, Back, Redo, and Skip appear under the drill buttons, each naming the stage it goes to. The targets hide and the drill waits at the start of that stage until you press Resume. Drills without stages move by part instead (a part is the steps between two pauses). The status bar shows the stage and part you are on.'
+            },
+            {
                 question: 'How do I create a drill?',
                 answer: 'Open Drills and select Create Drill. Enter a name, then tap or drag Present, Delay, Hide, or Pause blocks into the sequence. Configure each block, arrange the steps, and select Save drill.'
             },
@@ -525,11 +529,86 @@ const saveTargetCardStatus = (targetCard) => {
 
 const maxDrillNesting = 4; // MAX_NESTING_DEPTH in target_manager.cpp
 
-// Keep the existing stage description shape, using controller status (AI-assisted with Codex).
-const describeDrillStage = (drillName, step) => {
-    const status = controllerStatus;
-    if (!status?.stageName || status.drillName !== drillName || status.step !== step) return null;
-    return { stage: status.stageName, between: status.betweenStages };
+// AI-generated (Claude): stage navigation labels. The controller reports the current stage (or,
+// for a drill without stages, the current part: the steps between its pause steps); the other
+// stages' names come from the drill's own sequence, the same order the controller flattens it.
+// pendingStageJump names the stage a Back / Redo / Skip is moving to while the controller hides
+// the targets.
+let pendingStageJump = '';
+
+const drillStageNames = (drillName) => {
+    const drill = Object.values(targetAssignmentDrills)
+        .find((candidate) => (candidate.name || candidate.drillName) === drillName);
+    return (Array.isArray(drill?.sequence) ? drill.sequence : [])
+        .map((step) => step?.action)
+        .filter((action) => typeof action === 'string' && !basicDrillActions.has(action));
+};
+
+// "Pistol Qual Full Drill" + "Pistol Qual Stage 2" -> "Stage 2": drop the leading words they share.
+const shortStageName = (drillName, stageName) => {
+    const drillWords = String(drillName).split(' ');
+    const stageWords = String(stageName).split(' ');
+    let shared = 0;
+    while (shared < drillWords.length - 1 && shared < stageWords.length - 1
+        && drillWords[shared].toLowerCase() === stageWords[shared].toLowerCase()) shared++;
+    return stageWords.slice(shared).join(' ');
+};
+
+// Short name of stage (or part) index (0-based) of the drill in status.
+const stageLabel = (status, index) => {
+    if (status.stagesAreParts) return `Part ${index + 1}`;
+    const name = index === status.stageIndex - 1 && status.stageName
+        ? status.stageName
+        : drillStageNames(status.drillName)[index];
+    return name ? shortStageName(status.drillName, name) : `Stage ${index + 1}`;
+};
+
+// Stage label with its place in the drill: "Stage 2 of 5", "Part 2 of 3", "Warm-up (1 of 4)".
+const stageLabelWithCount = (status, index) => {
+    const label = stageLabel(status, index);
+    const count = status.stageCount || 0;
+    return /^(Stage|Part) \d+$/.test(label) ? `${label} of ${count}` : `${label} (${index + 1} of ${count})`;
+};
+
+// Where the next Back / Redo / Skip would go, mirroring stageJumpTarget() in target_manager.cpp.
+const stageJumpTargets = (status) => {
+    const current = (status?.stageIndex || 0) - 1;
+    return {
+        previous: current - 1,
+        current,
+        next: current + (status?.betweenStages ? 2 : 1)
+    };
+};
+
+// The status bar text for a running or paused drill.
+const describeDrillProgress = (status) => {
+    const name = status.drillName || 'Drill';
+    const current = (status.stageIndex || 0) - 1;
+    const count = status.stageCount || 0;
+    const inSection = current >= 0 && count > 1;
+    const partOfStage = !status.stagesAreParts && current >= 0 && status.partCount > 1;
+    const stageText = inSection ? stageLabelWithCount(status, current) : '';
+    let where = stageText ? `${name}: ${stageText}` : name;
+    if (partOfStage && !status.betweenStages) {
+        where += ` · Part ${status.partIndex} of ${status.partCount}`;
+    }
+
+    if (status.stageResetPending) {
+        return `${name}: moving to ${pendingStageJump || 'another stage'}. Hiding targets`;
+    }
+    if (status.state === 'running') return `${where} in progress`;
+    // The wording matches the Start button's label in each state (see updateDrillStatus)
+    if (status.stageRestartReady) return `${stageText ? `${name}: ${stageText}` : name} ready to start`;
+    if (status.finalStageComplete) {
+        return `${name}: ${stageLabel(status, current)} complete. Press Finish drill`;
+    }
+    if (status.betweenStages && current >= 0) {
+        return `${name}: ${stageLabel(status, current)} complete. Next: ${stageLabel(status, current + 1)}`;
+    }
+    if (status.stepAction === 'pause' && partOfStage) {
+        return `${name}: ${stageLabel(status, current)} · Part ${status.partIndex} complete. Next: part ${status.partIndex + 1}`;
+    }
+    return `${where} paused. Press Resume`;
 };
 
 // AI-modified (Claude): draws the status bar (every page) and, on the Targets page, the drill
@@ -557,22 +636,10 @@ const updateDrillStatus = () => {
     } else if (stopped) {
         setStatusBarStyle('active');
         setDrillStatusText('Stopped: targets frozen. Press Reset to hide them');
-    } else if (state === 'paused') {
-        // Use the running drill's stage name, including after refresh (AI-assisted with Codex).
-        const stageInfo = describeDrillStage(status.drillName, status.step);
+    } else if (state === 'paused' || state === 'running') {
+        // AI-modified (Claude): names the stage and part, and what Resume will do next.
         setStatusBarStyle('active');
-        const stage = stageInfo ? `${drillName}: ${stageInfo.stage}` : drillName;
-        let message = `${stage} paused. Press Resume`;
-        if (status.stageResetPending) message = `${stage} resetting. Hiding targets`;
-        else if (status.stageRestartReady) message = `${stage} reset. Press Resume to replay`;
-        else if (stageInfo?.between) message = `${stage} complete. Resume continues; Redo stage replays it`;
-        setDrillStatusText(message);
-    } else if (state === 'running') {
-        const stageInfo = describeDrillStage(status.drillName, status.step);
-        setStatusBarStyle('active');
-        setDrillStatusText(stageInfo && !stageInfo.between
-            ? `${drillName}: ${stageInfo.stage} in progress`
-            : `${drillName} in progress`);
+        setDrillStatusText(describeDrillProgress(status));
     } else if (manualMode) {
         setStatusBarStyle('manual');
         setDrillStatusText('Manual mode');
@@ -593,6 +660,9 @@ const updateDrillStatus = () => {
     const stopDrillButton = document.getElementById('stopDrillButton');
     const resetTargetsButton = document.getElementById('resetTargetsButton');
     const resetStageButton = document.getElementById('resetStageButton');
+    const previousStageButton = document.getElementById('previousStageButton');
+    const nextStageButton = document.getElementById('nextStageButton');
+    const stageNav = document.getElementById('stageNav');
     const drillSelect = document.getElementById('drillSelect');
 
     // AI-generated (Claude): manual mode button, and target taps unlocked only in manual mode.
@@ -629,7 +699,21 @@ const updateDrillStatus = () => {
     });
 
     // Start doubles as Resume while the controller is paused (operator pause or a "pause" step).
-    if (startDrillLabel) startDrillLabel.textContent = state === 'paused' ? 'Resume drill' : 'Start drill';
+    // AI-modified (Claude): the label says what Resume starts next.
+    const jumpTargets = stageJumpTargets(status);
+    if (startDrillLabel) {
+        let label = 'Start drill';
+        if (state === 'paused' && status) {
+            const count = status.stageCount || 0;
+            if (status.finalStageComplete) label = 'Finish drill';
+            else if (status.stageRestartReady && count > 1) label = `Start ${stageLabel(status, jumpTargets.current)}`;
+            else if (status.betweenStages && jumpTargets.current + 1 < count) label = `Start ${stageLabel(status, jumpTargets.current + 1)}`;
+            else if (status.stepAction === 'pause' && !status.stagesAreParts && status.partCount > 1 && !status.betweenStages) {
+                label = `Start part ${status.partIndex + 1}`;
+            } else label = 'Resume drill';
+        }
+        startDrillLabel.textContent = label;
+    }
     const countingDown = Boolean(cancelStartCountdown);
     // Lock Reset and Resume together without blocking Stop (AI-assisted with Codex).
     const stageControlsLocked = !status?.hardwareReady || manualMode || stopped || countingDown
@@ -648,26 +732,46 @@ const updateDrillStatus = () => {
     if (stopDrillButton) stopDrillButton.disabled = stopped
         || (Boolean(status) && !drillActive && !countingDown && !manualMode);
     if (resetTargetsButton) resetTargetsButton.hidden = !stopped;
-    if (resetStageButton) {
-        resetStageButton.disabled = stageControlsLocked || !status?.canResetStage;
-        resetStageButton.classList.toggle('btn-warning', !resetStageButton.disabled);
-        resetStageButton.classList.toggle('btn-outline-secondary', resetStageButton.disabled);
+    // AI-generated (Claude): Back / Redo / Skip, shown while a drill is running or paused. Each
+    // button names the stage (or part) it goes to; the controller hides the targets and waits at
+    // the start of that stage for Resume.
+    const stageCount = status?.stageCount || 0;
+    const showStageNav = drillActive && !stopped && stageCount >= 1 && Boolean(status?.hardwareReady);
+    if (stageNav) stageNav.hidden = !showStageNav;
+    const setStageButton = (button, labelId, enabled, text) => {
+        if (!button) return;
+        button.disabled = stageControlsLocked || !enabled;
+        document.getElementById(labelId).textContent = text;
+        button.classList.toggle('btn-warning', !button.disabled);
+        button.classList.toggle('btn-outline-secondary', button.disabled);
+    };
+    if (showStageNav) {
+        const sections = status.stagesAreParts ? 'part' : 'stage';
+        setStageButton(previousStageButton, 'previousStageLabel', status.canGoBack,
+            status.canGoBack ? `Back to ${stageLabel(status, jumpTargets.previous)}` : `Back a ${sections}`);
+        setStageButton(resetStageButton, 'resetStageLabel', status.canResetStage,
+            status.stagesAreParts && stageCount === 1
+                ? 'Restart drill'
+                : status.canResetStage ? `Redo ${stageLabel(status, jumpTargets.current)}` : `Redo ${sections}`);
+        setStageButton(nextStageButton, 'nextStageLabel', status.canSkip,
+            status.canSkip ? `Skip to ${stageLabel(status, jumpTargets.next)}` : `Skip a ${sections}`);
+        // One stage (or part): nothing to go back or skip to
+        if (previousStageButton) previousStageButton.hidden = stageCount < 2;
+        if (nextStageButton) nextStageButton.hidden = stageCount < 2;
     }
     const resetStageHint = document.getElementById('resetStageHint');
     if (resetStageHint) {
-        resetStageHint.hidden = !status?.stageName || state !== 'paused' || stopped || !status.hardwareReady;
+        resetStageHint.hidden = !showStageNav;
         resetStageHint.textContent = status?.stageResetPending
-            ? 'Hiding targets. Wait for Resume to become available.'
-            : status?.stageRestartReady
-                ? 'Stage is ready to replay. Press Resume.'
-                : `Redo ${status?.stageName} (stage ${status?.stageIndex}): hide the drill targets and wait for Resume.`;
+            ? `Hiding targets and moving to ${pendingStageJump || 'the new stage'}. Wait for Resume.`
+            : 'Back, Redo and Skip hide the targets and wait at the start of that stage until you press Resume.';
     }
     if (drillSelect) drillSelect.disabled = manualMode || drillActive || stopped || countingDown;
 
     // AI-generated (Claude): the drill buttons appear once a drill is selected (or one is running
     // or counting down). Stop also stays visible in manual mode: it is the only emergency stop.
     const showDrillButtons = (Boolean(drillSelect?.value) && !manualMode) || drillActive || countingDown;
-    [startDrillButton, pauseDrillButton, resetStageButton].forEach((button) => {
+    [startDrillButton, pauseDrillButton].forEach((button) => {
         if (button) button.hidden = !showDrillButtons;
     });
     if (stopDrillButton) stopDrillButton.hidden = !showDrillButtons && !manualMode;
@@ -975,9 +1079,33 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
             pollDrillStatus();
         });
 
-        // Polling reports when the stage is ready to replay (AI-assisted with Codex).
-        document.getElementById('resetStageButton')?.addEventListener('click', () =>
-            sendPausedDrillCommand('/api/drill/reset-stage'));
+        // AI-modified (Claude): Back / Redo / Skip. Works while running or paused; the controller
+        // hides the targets, moves to that stage and waits for Resume. Polling reports when it is
+        // ready. A pending Resume countdown is cancelled first.
+        const sendStageJump = async (path, button) => {
+            if (stageControlRequestPending || manualMode || !controllerStatus
+                || controllerStatus.state === 'idle' || controllerStatus.stopped) return;
+            cancelStartCountdown?.();
+            pendingStageJump = button.textContent.trim().replace(/^(Back to|Redo|Skip to)\s+/, '');
+            stageControlRequestPending = true;
+            updateDrillStatus();
+            try {
+                await postToController(path);
+                drillLaunchMessage.hidden = true;
+            } catch (error) {
+                showLaunchMessage(error.message);
+            } finally {
+                await pollDrillStatus();
+                stageControlRequestPending = false;
+                updateDrillStatus();
+            }
+        };
+        [['previousStageButton', '/api/drill/previous-stage'],
+            ['resetStageButton', '/api/drill/reset-stage'],
+            ['nextStageButton', '/api/drill/next-stage']].forEach(([id, path]) => {
+            const button = document.getElementById(id);
+            button?.addEventListener('click', () => sendStageJump(path, button));
+        });
 
         // AI-generated (Claude): turns every raised (red) target back to green.
         const hideAllTargets = () => {
