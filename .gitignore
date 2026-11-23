@@ -3,12 +3,12 @@
 # PlatformIO build output and downloaded dependencies
 .pio/
 node_modules/
-test-results/
-playwright-report/
-test-results-*/
 __pycache__/
 
-# AI-generated (Codex): local release bundles contain saved-record backups and build artifacts.
+# AI-generated (Codex): keep existing local build/test artifacts out of source control.
+test-results/
+test-results-*/
+playwright-report/
 releases/
 
 # PlatformIO-generated VS Code files

@@ -10,8 +10,8 @@ test('unit gate requires complete test runs and discovers new suites recursively
     const root = path.resolve(__dirname, '../..');
     const project = fs.mkdtempSync(path.join(os.tmpdir(), 'cpd-unit-gate-'));
     t.after(() => fs.rmSync(project, { recursive: true, force: true }));
-    const runner = 'tools/release/test-unit.cjs';
-    fs.mkdirSync(path.join(project, 'tools/release'), { recursive: true });
+    const runner = 'tools/test-unit.cjs';
+    fs.mkdirSync(path.join(project, 'tools'), { recursive: true });
     fs.copyFileSync(path.join(root, runner), path.join(project, runner));
     const passing = "require('node:test')('passing assertion', () => {});";
     function write(relative, source) {
@@ -22,7 +22,7 @@ test('unit gate requires complete test runs and discovers new suites recursively
     for (const file of fs.globSync('tests/**/*.test.cjs', { cwd: root })) write(file, passing);
     function check(status, message) {
         const env = { ...process.env };
-        delete env.NODE_TEST_CONTEXT; // Launch the independent runner just as npm and the release driver do.
+        delete env.NODE_TEST_CONTEXT; // Launch the independent runner just as npm does.
         const result = spawnSync(process.execPath, [runner], { cwd: project, env, encoding: 'utf8' });
         assert.ifError(result.error);
         const output = result.stdout + result.stderr;
@@ -38,6 +38,6 @@ test('unit gate requires complete test runs and discovers new suites recursively
     write(addedSuite, '// no registered assertions');
     check(1, /No passing unit tests in .*new\.test\.cjs/);
     write(addedSuite, passing);
-    fs.unlinkSync(path.join(project, 'tests/release/release.test.cjs'));
-    check(1, /Missing required unit suite: tests\/release\/release\.test\.cjs/);
+    fs.unlinkSync(path.join(project, 'tests/data-rules/data-rules.test.cjs'));
+    check(1, /Missing required unit suite: tests\/data-rules\/data-rules\.test\.cjs/);
 });

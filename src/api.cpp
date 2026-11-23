@@ -8,12 +8,11 @@
 #include <memory>
 #include <new>
 #include <utility>
-#include "release_version.h"
 
 
 // AI-assisted (Claude): REST handlers for the web UI. Each handler validates its input, calls
 // one database / target_manager / hal function, and replies with JSON. Request bodies must be
-// sent with "Content-Type: application/json" or AsyncCallbackJsonWebHandler ignores them.
+// sent with "Content-Type: application/json"; the bounded body handler rejects other types.
 
 // Helpers ---------------------------------------------------------------------------------------------
 
@@ -94,88 +93,55 @@ static void addSignal(JsonDocument& doc, AsyncWebServerRequest* request) {
 
 // AI-generated (Codex): retain bounded raw bytes until strict parsing can reject ambiguous keys.
 class BoundedJsonHandler : public AsyncWebHandler {
-    struct Body { size_t received; bool invalid; bool busy; char bytes[1]; };
+    struct Body { size_t received; size_t length; bool invalid; char bytes[1]; };
     static constexpr size_t REQUEST_RAM_LIMIT = 16384;
-    static constexpr const char* UPLOAD_PATH = "/database.upload";
     String uri;
     WebRequestMethod method;
-    size_t maximum;
     using DocumentHandler = std::function<void(AsyncWebServerRequest*, JsonDocument&)>;
     DocumentHandler callback;
-    AsyncWebServerRequest* uploadOwner = nullptr;
-    bool fileBacked() const { return maximum > REQUEST_RAM_LIMIT; }
-    void releaseBody(AsyncWebServerRequest* request, Body* body) {
-        if (uploadOwner == request) {
-            if (request->_tempFile) request->_tempFile.close();
-            LittleFS.remove(UPLOAD_PATH);
-            uploadOwner = nullptr;
-        }
-        free(body);
-    }
     struct Cleanup {
-        BoundedJsonHandler* handler;
-        AsyncWebServerRequest* request;
-        void operator()(Body* body) const { handler->releaseBody(request, body); }
+        void operator()(Body* body) const { free(body); }
     };
 public:
-    BoundedJsonHandler(const char* path, WebRequestMethod verb,
-                       DocumentHandler handler, size_t limit = REQUEST_RAM_LIMIT)
-        : uri(path), method(verb), maximum(limit), callback(handler) {}
+    BoundedJsonHandler(const char* path, WebRequestMethod verb, DocumentHandler handler)
+        : uri(path), method(verb), callback(handler) {}
     bool canHandle(AsyncWebServerRequest* request) const override {
         return request->isHTTP() && request->method() == method && request->url() == uri;
     }
     bool isRequestHandlerTrivial() const override { return false; }
     void handleBody(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) override {
-        if (total == 0 || total > maximum || index > total || len > total - index) return;
+        if (total == 0 || total > REQUEST_RAM_LIMIT || index > total || len > total - index) return;
         if (!request->_tempObject && index == 0) {
-            auto* body = static_cast<Body*>(calloc(1, sizeof(Body) + (fileBacked() ? 0 : total)));
+            auto* body = static_cast<Body*>(calloc(1, sizeof(Body) + total));
             if (!body) return;
+            body->length = total;
             request->_tempObject = body;
-            request->onDisconnect([this, request]() {
-                releaseBody(request, static_cast<Body*>(request->_tempObject));
+            request->onDisconnect([request]() {
+                free(request->_tempObject);
                 request->_tempObject = nullptr;
             });
-            if (fileBacked()) {
-                if (uploadOwner && uploadOwner != request) body->busy = true;
-                else {
-                    uploadOwner = request;
-                    request->_tempFile = LittleFS.open(UPLOAD_PATH, "w");
-                    if (!request->_tempFile) body->invalid = true;
-                }
-            }
         }
         auto* body = static_cast<Body*>(request->_tempObject);
-        if (!body || body->invalid || body->busy) return;
-        if (index != body->received) { body->invalid = true; return; }
-        if (fileBacked()) {
-            if (request->_tempFile.write(data, len) != len) { body->invalid = true; return; }
-        } else {
-            memcpy(body->bytes + index, data, len);
-            body->bytes[total] = '\0';
-        }
+        if (!body || body->invalid) return;
+        if (total != body->length || index != body->received) { body->invalid = true; return; }
+        memcpy(body->bytes + index, data, len);
+        body->bytes[total] = '\0';
         body->received += len;
     }
     void handleRequest(AsyncWebServerRequest* request) override {
         // Take ownership now so every early return frees the raw request buffer too.
-        std::unique_ptr<Body, Cleanup> body(static_cast<Body*>(request->_tempObject), Cleanup{this, request});
+        std::unique_ptr<Body, Cleanup> body(static_cast<Body*>(request->_tempObject));
         request->_tempObject = nullptr;
-        if (request->contentLength() > maximum) return sendError(request, 413, "JSON request exceeds the supported size");
+        if (request->contentLength() > REQUEST_RAM_LIMIT) return sendError(request, 413, "JSON request exceeds the supported size");
         String contentType = request->contentType();
         int semicolon = contentType.indexOf(';');
         if (semicolon >= 0) contentType = contentType.substring(0, semicolon);
         contentType.trim();
         if (!contentType.equalsIgnoreCase("application/json")) return sendError(request, 415, "Send the body as application/json");
-        if (body && body->busy) return sendError(request, 503, "Another database upload is still in progress");
         if (!body || body->invalid || body->received != request->contentLength()) return sendError(request, 400, "Incomplete JSON request body");
         JsonDocument document;
         String reason;
-        bool parsed;
-        if (fileBacked()) {
-            request->_tempFile.flush();
-            request->_tempFile.close();
-            parsed = parseDatabaseFile(UPLOAD_PATH, document, reason);
-        } else parsed = parseDatabaseJson(body->bytes, body->received, document, reason);
-        if (!parsed) return sendError(request, 400, reason.c_str());
+        if (!parseDatabaseJson(body->bytes, body->received, document, reason)) return sendError(request, 400, reason.c_str());
         // The const-input parser owns its strings; release raw bytes before loading/saving records.
         body.reset();
         if (!document.is<JsonObject>()) return sendError(request, 400, "JSON body must be an object");
@@ -190,33 +156,6 @@ static void onJsonBody(AsyncWebServer& server, const char* uri, WebRequestMethod
             JsonVariant json = document.as<JsonVariant>();
             handler(request, json);
         }));
-}
-
-static void handleDatabaseBackup(AsyncWebServerRequest* request) {
-    JsonDocument database;
-    if (!getDatabaseBackup(database)) return sendError(request, 503, "A valid database could not be exported.");
-    auto* response = new(std::nothrow) DocumentJsonResponse(200, database);
-    if (!response) {
-        database.clear();
-        return sendError(request, 503, "Insufficient memory for backup response");
-    }
-    response->addHeader("Cache-Control", "no-store");
-    response->addHeader("Content-Disposition", "attachment; filename=cpd-database-backup.json");
-    request->send(response);
-}
-
-static void registerDatabaseRecovery(AsyncWebServer& server) {
-    server.on("/api/database/backup", HTTP_GET, handleDatabaseBackup);
-    auto* restore = new BoundedJsonHandler("/api/database/restore", HTTP_POST,
-        [](AsyncWebServerRequest* request, JsonDocument& candidate) {
-            String confirmation;
-            if (!getQueryString(request, "confirm", confirmation) || confirmation != "restore")
-                return sendError(request, 400, "Explicit confirm=restore is required. Export a backup before replacing records.");
-            String reason;
-            if (!restoreDatabase(candidate, reason)) return sendError(request, 503, reason.c_str());
-            sendOk(request);
-        }, DATABASE_MAX_BYTES);
-    server.addHandler(restore);
 }
 
 // Drills ---------------------------------------------------------------------------------------------
@@ -722,7 +661,6 @@ static void handleChangeWiFiPassword(AsyncWebServerRequest* request, JsonVariant
 // matches "/a/b". So every sub-path (/api/officers/scores, /api/targets/state, ...) must be
 // registered before its parent, and this must run before serveStatic("/") in initWebserver().
 void registerApiRoutes(AsyncWebServer& server) {
-    registerDatabaseRecovery(server); // AI-generated (Codex): before the /api catchall.
     // Emergency stop / reset (not drill-specific: they apply to every target)
     server.on("/api/stop", HTTP_POST, handleStop);
     server.on("/api/reset", HTTP_POST, handleReset);

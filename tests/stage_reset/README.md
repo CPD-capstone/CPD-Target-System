@@ -1,41 +1,30 @@
 <!-- Stage-reset regression checks (AI-assisted with Codex). -->
 # Stage reset regression checks
 
-This is an optional development-computer regression harness. Its C++ mock runtime,
-clock, filesystem, and HAL substitutes are not compiled into the ESP32 firmware or
-copied into the controller's website. It remains separate from the 49-group
-database suite and the software release gate.
+Run from the repository root with MinGW/C++17, after `pio run` installs ArduinoJson:
 
-Run from the repository root on a development computer with a C++17 compiler,
-after the project ArduinoJson dependency is available:
-
-```text
-python tools/release/test_database.py --source tests/stage_reset/runner.cpp --mocks tests/stage_reset/mocks
+```powershell
+g++ -std=c++17 -I tests/stage_reset/mocks -I include -I .pio/libdeps/esp32/ArduinoJson/src tests/stage_reset/runner.cpp -o "$env:TEMP\cpd-stage-reset-tests.exe"
+& "$env:TEMP\cpd-stage-reset-tests.exe"
 ```
 
-Thirteen scenario groups run the production runner with a simulated clock, notifications,
-in-memory JSON, Preferences, and HAL cooldowns. They cover replay/timing, ordinary Resume, nested pauses,
+Eleven scenario groups run the production runner with a simulated clock, notifications,
+in-memory JSON and HAL cooldowns. They cover replay/timing, ordinary Resume, nested pauses,
 repeated stages/requests, target-facing waits, Stop races (including after replay is ready), invalid requests, failures,
 assigned/random targets, restricted selections, late notifications, defective exclusion, cleanup
-redoing the last stage from the final-stage hold (AI-added, Claude), a drill without stages replaying
-by part, plus persisted target-flip settings and their range boundaries.
-No device or production database is modified by this command. The retained npm
-unit/browser/preflight commands and Python release gate are also development-only
-tools; see [the software test guide](../../docs/testing/README.md).
+and redoing the last stage from the final-stage hold (AI-added, Claude).
+No device/database is modified.
 
-The maintained `npm run test:ui` browser suite has 48 checks across desktop Chromium,
-Pixel 7 viewport/user-agent emulation in Chromium, and iPhone 13 WebKit emulation.
-It covers manual target gating and fixture persistence, unavailable-target
-exclusion, drill authoring, PDF creation, failed/stale saves, recovery information,
-and layouts at 320/360/390/430 CSS pixels. These are host browser checks; emulation
-does not establish real Android Chrome, iOS Safari, or target hardware behavior.
+Validation completed: firmware build, native tests, JavaScript syntax, and headless Edge
+against a local mock API (full-drill Start/target picker, buttons, duplicates, pending/ready refresh,
+countdown/cancel, rejected/failed resets, accurate failure feedback,
+mobile wrapping and defective toggle/persistence/filtering). The one-off browser harness
+is kept outside the repository; these checks do not establish hardware behavior.
 
-The browser suite starts `tests/ui/preview_server.py` and explicitly injects the
-development adapter from `tests/fixtures/controller-test.js`. Neither file lives
-in production `data/`. The deployed application always contacts its controller;
-opening a URL with `?test=1` does not enable a simulation. See
-[unit tests, validation, and guardrails](../../docs/testing/tests-validation-and-guardrails.md)
-for the test boundaries and the controller's current RAM/storage protections.
+<!-- AI-modified (Codex): the local browser simulator has been removed. -->
+Pages always use the controller API, including on localhost or with `?test=1`.
+The retained [JavaScript and database tests](../../docs/testing/README.md) run
+without a controller. The browser checks above describe earlier validation.
 
 Device/browser integration still required:
 

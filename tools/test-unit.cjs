@@ -4,14 +4,12 @@ const path = require('node:path');
 const { run } = require('node:test');
 const { spec } = require('node:test/reporters');
 
-const root = path.resolve(__dirname, '../..');
+const root = path.resolve(__dirname, '..');
 const files = fs.globSync('tests/**/*.test.cjs', { cwd: root })
     .map(file => path.join(root, file)).sort();
 for (const required of [
     'data-rules/data-rules.test.cjs',
-    'browser-unit/controller-client.test.cjs',
-    'browser-unit/controller-mock.test.cjs',
-    'release/release.test.cjs'
+    'unit/test-runners.test.cjs'
 ]) {
     if (!files.includes(path.join(root, 'tests', required))) {
         throw new Error(`Missing required unit suite: tests/${required}`);

@@ -7,7 +7,7 @@ const path = require('node:path');
 const { validateDatabase, parseDatabaseJson, SCHEMA_VERSION, MAX_DATABASE_BYTES } = require('./data-rules.cjs');
 
 function main(args, { writeOutput = text => process.stdout.write(text) } = {}) {
-    let input = path.resolve(__dirname, '../../data/database.json');
+    let input = path.resolve(__dirname, '../data/database.json');
     let reportPath;
     let allowLegacy = true;
     let inputSeen = false;
@@ -33,7 +33,15 @@ function main(args, { writeOutput = text => process.stdout.write(text) } = {}) {
         if (fs.statSync(input).size > MAX_DATABASE_BYTES) {
             return output({ ok: false, errors: [{ path: '$', code: 'json.size', message: 'database exceeds 256 KiB' }], warnings: [], schemaVersion: SCHEMA_VERSION }, 1);
         }
-        const parsed = parseDatabaseJson(fs.readFileSync(input, 'utf8'));
+        // AI-assisted (Codex): reject invalid UTF-8 rather than changing stored names during decoding.
+        let text;
+        try {
+            text = new TextDecoder('utf-8', { fatal: true }).decode(fs.readFileSync(input));
+        } catch (error) {
+            if (error.code !== 'ERR_ENCODING_INVALID_ENCODED_DATA') throw error;
+            return output({ ok: false, errors: [{ path: '$', code: 'json.encoding', message: 'database must contain valid UTF-8' }], warnings: [], schemaVersion: SCHEMA_VERSION }, 1);
+        }
+        const parsed = parseDatabaseJson(text);
         if (!parsed.ok) return output({ ok: false, errors: parsed.errors, warnings: [], schemaVersion: SCHEMA_VERSION }, 1);
         const result = validateDatabase(parsed.document, { allowLegacy });
         return output(result, result.ok ? 0 : 1);

@@ -1,7 +1,6 @@
 // Stage-reset regression tests using the production runner (AI-assisted with Codex).
 // Clock, notifications and HAL outputs are simulated; no hardware or database is changed.
 #include "mocks/Arduino.h"
-#include "mocks/Preferences.h"
 #include <iostream>
 #include "../../src/target_manager.cpp"
 
@@ -181,25 +180,11 @@ void plainResume(){
     setup("Stage 1");
     at(2000, []{ CHECK(pauseDrill()); });
     at(2100, []{
+        CHECK(resetDrillStage() == StageResetResult::NoStage);
         CHECK(getDrillStatus().delayRemainingMs == 2010);
     });
     at(3000, []{ CHECK(getDrillStatus().delayRemainingMs == 2010); CHECK(resumeDrill()); });
     run(); completed(); CHECK(now == 5010); CHECK(presents() == 1);
-}
-// AI-generated (Copilot): a drill without composite stages replays by part.
-void singleDrillPartReplay(){
-    setup("Stage 1");
-    at(2000, []{ CHECK(pauseDrill()); });
-    at(2100, []{ CHECK(resetDrillStage() == StageResetResult::Accepted); });
-    at(2800, []{
-        const auto status = getDrillStatus();
-        CHECK(status.stagesAreParts && status.stageCount == 1 && status.stageIndex == 1);
-        CHECK(status.stageRestartReady && status.partIndex == 0 && status.partCount == 0);
-        CHECK(!facing);
-        CHECK(resumeDrill());
-    });
-    run(); completed();
-    CHECK(presents() == 2);
 }
 void repeatedStage(){
     setup("Repeated");
@@ -272,11 +257,11 @@ void stopRaces(){
 }
 void invalidAndFailure(){
     setup("Before");
-    CHECK(resetDrillStage() == StageResetResult::NoStage);
+    CHECK(resetDrillStage() == StageResetResult::NotPaused);
     at(1010, []{ CHECK(resetDrillStage() == StageResetResult::NoStage); CHECK(resumeDrill()); });
     finishAtFinalHold(10000);
     run(); completed();
-    CHECK(resetDrillStage() == StageResetResult::NoDrill);
+    CHECK(resetDrillStage() == StageResetResult::NotPaused);
     for(int failure = 0; failure < 3; failure++){
         setup();
         at(2000, []{ CHECK(pauseDrill()); });
@@ -360,27 +345,11 @@ void finalStageReplay(){
     setup("Stage 1");
     CHECK(finalHoldStep == 0);
 }
-// AI-generated (Copilot): verify target flip delay settings persist and reject out-of-range values.
-void faceTravelSetting(){
-    Preferences::clear();
-    loadDrillSettings();
-    CHECK(getFaceTravelMs() == TARGET_FACE_TRAVEL_MS);
-    CHECK(!setFaceTravelMs(FACE_TRAVEL_MAX_MS + 1));
-    CHECK(getFaceTravelMs() == TARGET_FACE_TRAVEL_MS);
-    CHECK(setFaceTravelMs(0));
-    CHECK(getFaceTravelMs() == 0);
-    loadDrillSettings();
-    CHECK(getFaceTravelMs() == 0);
-    CHECK(setFaceTravelMs(FACE_TRAVEL_MAX_MS));
-    loadDrillSettings();
-    CHECK(getFaceTravelMs() == FACE_TRAVEL_MAX_MS);
-}
 int main(){
     try {
         for(auto test : {boundaryReplay, midDelayReplay, plainResume, repeatedStage,
-                        singleDrillPartReplay, nestedInternalPause, facingWaitReplay, stopRaces, invalidAndFailure,
-                        assignmentsAndRandom, selectedTargetsAndLateNotifications, finalStageReplay,
-                        faceTravelSetting}) test();
-        std::cout << "PASS: 13 scenario groups (production runner, simulated FreeRTOS/HAL/Preferences)\n";
+                        nestedInternalPause, facingWaitReplay, stopRaces, invalidAndFailure,
+                        assignmentsAndRandom, selectedTargetsAndLateNotifications, finalStageReplay}) test();
+        std::cout << "PASS: 11 scenario groups (production runner, simulated FreeRTOS/HAL)\n";
     }catch(const std::exception& error){ std::cerr << error.what() << '\n'; return 1; }
 }

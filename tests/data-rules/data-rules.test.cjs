@@ -1,16 +1,16 @@
 'use strict';
 
-// AI-assisted (Codex): fixtures exercise audited persistence/release failures without hardware.
+// AI-assisted (Codex): fixtures exercise database validation failures without hardware.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { main: preflightCommand } = require('../../tools/release/validate-database.cjs');
+const { main: preflightCommand } = require('../../tools/validate-database.cjs');
 const {
     validateDatabase, migrateDatabase, parseDatabaseJson, isDateString,
     twelveMonthCutoff, scoreStatistics, MAX_DATABASE_BYTES, MAX_INT
-} = require('../../tools/release/data-rules.cjs');
+} = require('../../tools/data-rules.cjs');
 
 const officer = () => ({ Name: 'Audit Officer', BadgeNum: 1, pistolQualScores: [], rifleQualScores: [], swatQualScores: [], qualificationScores: {} });
 const drill = (name = 'Stage', action = 'hide') => ({ drillName: name, sequence: [{ step: 1, action }] });
