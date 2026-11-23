@@ -45,11 +45,11 @@
 // SRD-05VDC-SL-C, opto-isolated, VCC-JD-VCC jumper removed). These energize a relay
 // when its IN pin is pulled LOW (active-low). hal.cpp applies this in ONE place
 // (writeOutputs()); everything else in the firmware works in "1 = energized = target
-// facing" terms. Set to 0 only if a bench test shows the boards are active-high.
-// TODO: bench-verify -- with the board powered, tie one IN pin to GND; the relay
-// should click if this is correct.
+// facing" terms.
+// Bench-verified: the boards are active-low (IN pulled LOW = relay on), and relays switch
+// the right way from the web UI.
 //
-// All three relay boards are to be physically matched so one setting covers all of them.
+// All three relay boards are physically matched, so one setting covers all of them.
 //
 // This setting only covers the ELECTRICAL polarity of the relay inputs. The air lines are
 // plumbed so an UNPOWERED valve HIDES its target (verified), which is what makes the

@@ -106,7 +106,12 @@ assignments above are affected either way — but the project should settle on o
 board and make the diagram and `platformio.ini` agree. This chat's recommendation
 remains: buy/use the official DevKitC-32E and set `board = esp32dev`.
 
-## Active-high vs. active-low relay trigger — KNOWN OPEN ITEM, explicitly deferred
+## Active-high vs. active-low relay trigger — RESOLVED: active-low (bench-verified)
+
+**Update:** the relay boards have since been bench-verified as **active-low** (IN pulled
+LOW = relay on), matching the firmware (`RELAY_ACTIVE_LOW 1` in `pins.h`). All three boards
+are physically matched and switch the right way from the web UI. The history below is kept
+for context.
 
 This was discussed explicitly in this chat. When asked whether the SainSmart relay
 boards are active-high or active-low, **the user made a deliberate call to assume
@@ -170,9 +175,10 @@ safe margin, not a measured limit, and may be tuned on the real targets.
 - **Board:** settled on the ESP32-DevKitC-32E; `platformio.ini` now uses `board = esp32dev`.
 - **Relay polarity:** firmware now assumes active-low (`RELAY_ACTIVE_LOW` in `pins.h`),
   inverts the outputs in one place, and loads the all-off pattern *before* switching the
-  expander pins to outputs so no relay energizes at boot. Still to bench-verify.
+  expander pins to outputs so no relay energizes at boot. Bench-verified: the boards are
+  active-low.
 - **Air-line polarity:** already plumbed correctly (unpowered valve = hidden). Only the
-  relay boards' electrical polarity varies, and all three will be physically matched.
+  relay boards' electrical polarity varies, and all three are physically matched.
 - **Relay logic supply (VCC):** moved from 3.3 V to the Pololu 5 V rail (diagram v3.5+). At
   3.3 V the SainSmart input's two series LEDs (indicator + opto) through ~1 kΩ would get only
   ~0.3 mA, likely too little to switch reliably. This also resolves the 3.3 V rail-loading item.
