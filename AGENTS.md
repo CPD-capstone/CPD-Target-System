@@ -4,12 +4,12 @@ This file provides working guidance for AI coding agents and contributors workin
 
 ## Project
 
-ESP32 firmware for the Cookeville Police Department shooting range’s target control system, used for shooting qualifications. The ESP32 hosts its own WiFi access point and captive-portal web UI; range staff use it to raise/hide up to 24 solenoid-driven turning targets and run timed drills. Requirements and architecture references live in `docs/requirements/` and `docs/architecture/`.
+ESP32 firmware for the Cookeville Police Department shooting range’s target control system, used for shooting qualifications. The ESP32 hosts its own WiFi access point and web UI; range staff use it to raise/hide up to 24 solenoid-driven turning targets and run timed drills. Requirements and architecture references live in `docs/requirements/` and `docs/architecture/`.
 
 ## Core responsibilities by area
 
 - `src/` and `include/` — ESP32 firmware and device-control logic
-- `data/` — static frontend files for the captive portal web UI (`targets.html`, `drills.html`, `style.css`, `script.js`, and static assets like the `uspsa_target_*.svg` images)
+- `data/` — static frontend files for the web UI (`targets.html`, `drills.html`, `style.css`, `script.js`, and static assets like the `uspsa_target_*.svg` images)
 - `docs/` — requirements, architecture, testing, maintenance, and design guidance
 - `platformio.ini` — PlatformIO build configuration for the ESP32 firmware
 
@@ -36,7 +36,7 @@ Important notes:
 Each module is split by concern, with headers in `include/` and implementations in `src/`.
 
 - **wifi_manager** — Starts the soft AP, uses NVS/Preferences for configuration, and defaults to the range access point credentials.
-- **webserver** — Hosts the captive portal and serves static files from LittleFS. It resolves hostnames to the AP IP and serves the target page via the ESP32’s embedded web UI.
+- **webserver** — Hosts the web UI and serves static files from LittleFS. It resolves hostnames to the AP IP and serves the target page via the ESP32’s embedded web UI.
 - **database** — LittleFS-backed JSON store used for drills, targets, and officer data. Writes must be atomic and preserve the schema in `data/database.json`.
 - **hal** — Hardware abstraction for the target solenoid and GPIO control layer.
 - **target_manager** — Drill execution and target-state logic.

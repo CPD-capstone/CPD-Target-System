@@ -23,6 +23,6 @@ extern AsyncWebServer server;
 void initWebserver();
 
 /// @brief to be called in loop() to handle DNS queries
-void processCaptivePortalDNS();
+void processDNS(); // AI-modified (Claude): renamed to processDNS
 
 #endif

@@ -17,7 +17,7 @@ void initWebserver(){
     });
 
     // AI-modified (Claude): answer each OS's "is there internet?" probe with the reply it expects
-    // for an online network. Otherwise the phone opens its captive-portal mini-browser, which has
+    // for an online network. Otherwise the phone opens its WiFi sign-in pop-up browser, which has
     // a fixed OS header and wipes the page's saved settings when closed. Staff open the page from
     // a Home Screen icon instead (see manifest.json); every other URL still lands on the UI.
     // Apple (iOS/macOS): any page with the title "Success"
@@ -68,6 +68,7 @@ void initWebserver(){
     Serial.println("Webserver initialized on port 80.");
 }
 
-void processCaptivePortalDNS(){
+// AI-modified (Claude): renamed to processDNS.
+void processDNS(){
     dnsServer.processNextRequest();
 }

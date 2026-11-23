@@ -351,7 +351,7 @@ let targetAssignmentDrills = {};
 // AI-generated (Claude): the controller is the source of truth for drills and targets. Every
 // page with the status bar polls GET /api/drill/status (fast while a drill is running or
 // paused, slow when idle) and redraws from the reply. Deliberately no WebSocket: one phone at a
-// time, and captive-portal browsers drop connections, which polling survives.
+// time, and phones drop connections when the page is in the background, which polling survives.
 // controllerStatus = last reply ({state, drillName, step, stepCount, stepAction, targets,
 // lastOutcome, stopped, hardwareReady, facing}), or null if the controller can't be reached.
 let controllerStatus = null;
@@ -1038,7 +1038,7 @@ const renderDrillDescription = (status, drillSelect) => {
 if (drillStatus) {
     controllerStatusListeners.push(updateDrillStatus);
     pollDrillStatus();
-    // Captive-portal browsers suspend the page; refresh as soon as it is visible again.
+    // Phones suspend the page in the background; refresh as soon as it is visible again.
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') pollDrillStatus();
     });
