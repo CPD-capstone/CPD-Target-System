@@ -15,8 +15,9 @@
 // BOTTOM of the PCB -- check them there before wiring.
 // None of GPIO 10-14 is a strapping pin on the S3, and none is used by flash or PSRAM.
 // Keep the 10k pull-ups on both CS lines so the expanders stay deselected at boot.
-// NOTE: the range wiring diagram (docs/architecture) must match these pins. If the two
-// ever disagree, THIS FILE is authoritative.
+// NOTE: the final wiring diagram (docs/architecture/CPD_Range_Diagram_Final.pdf) shows
+// these SPI pins. It labels relay modules #1 and #2 the other way round from the channel
+// map below. THIS FILE is authoritative.
 // Pins to AVOID on the ESP32-S3-DevKitC-1:
 //   - GPIO 26-32: SPI flash / PSRAM (not on the headers on most modules)
 //   - GPIO 33-37: octal PSRAM (this board is an N16R8 module, so these are NOT usable)

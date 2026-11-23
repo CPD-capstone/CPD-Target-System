@@ -50,3 +50,15 @@ A web-based control and qualification-tracking system for the Cookeville Police 
 - View controller connection quality and hardware availability.
 
 <img width="1280" height="1100" alt="settings-connection" src="https://github.com/user-attachments/assets/3a846ef6-b90c-4944-8b47-cb4b2309d336" />
+
+## Hardware
+
+An ESP32-S3 drives two MCP23S17 SPI I/O expanders, which switch three SainSmart 8-channel relay boards. Each relay powers one target's MAC 12 V pneumatic valve through a 3 A fuse and a diode/MOV surge clamp, over the range's original buried field cable. A powered valve turns its target to face the shooter; losing power hides every target.
+
+- **Power:** Tripp Lite PR-40 (13.8 V) through a 7 A slow-blow fuse feeds the relay contacts and valves. A Pololu 5 V converter, fused at 3 A, powers the relay boards and the ESP32. The expanders run from the ESP32's 3.3 V pin.
+- **Expander to relay map** (from [`include/pins.h`](include/pins.h), which is authoritative): MCP23S17 #1 GPB7–GPB0 → relay board #2 → targets 1–8; MCP23S17 #1 GPA7–GPA0 → relay board #1 → targets 9–16; MCP23S17 #2 GPA7–GPA4 → relay board #3 IN1–IN4 → targets 17–20. The diagram labels relay boards #1 and #2 the other way round.
+- **SPI:** SCK GPIO 12, SI (MOSI) GPIO 11, SO (MISO) GPIO 13, CS GPIO 14 (expander #1) and GPIO 10 (expander #2), with 10 kΩ pull-ups on both CS lines.
+
+Full wiring diagram ([PDF](docs/architecture/CPD_Range_Diagram_Final.pdf)):
+
+![CPD range wiring diagram](docs/architecture/CPD_Range_Diagram_Final.png)

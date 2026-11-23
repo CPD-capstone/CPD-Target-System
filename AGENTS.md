@@ -4,7 +4,7 @@ This file provides working guidance for AI coding agents and contributors workin
 
 ## Project
 
-ESP32 firmware for the Cookeville Police Department shooting range’s target control system, used for shooting qualifications. The ESP32 hosts its own WiFi access point and web UI; range staff use it to raise/hide up to 24 solenoid-driven turning targets and run timed drills. Requirements and architecture references live in `docs/requirements/` and `docs/architecture/`.
+ESP32 firmware for the Cookeville Police Department shooting range’s target control system, used for shooting qualifications. The ESP32 hosts its own WiFi access point and web UI; range staff use it to raise/hide 20 solenoid-driven turning targets and run timed drills. Requirements live in `docs/requirements/`; the final wiring diagram is `docs/architecture/CPD_Range_Diagram_Final.pdf` (PNG copy alongside). If the diagram and `include/pins.h` ever disagree, `pins.h` is authoritative.
 
 ## Core responsibilities by area
 
@@ -27,7 +27,7 @@ Important notes:
 - Changes to anything under `data/` require `uploadfs`; firmware upload alone does not update the web UI.
 - There is no test suite or linter configured for this project.
 - The UI is plain HTML, CSS, and JavaScript using Bootstrap, with no build step.
-- The current board target is temporary; `platformio.ini` currently targets `ttgo-lora32-v21`, while the expected production board is `esp32doit-devkit-v1`.
+- `platformio.ini` targets `esp32-s3-devkitc-1`: a Hosyond ESP32-S3 dev board (ESP32-S3-WROOM-1 N16R8), the board shown on the final wiring diagram.
 
 ## Architecture overview
 

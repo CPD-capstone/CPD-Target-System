@@ -26,7 +26,7 @@ replaced. No new wire gauge was purchased for that run.
 | ESP32 dev board | 1 | **See "Open discrepancy" below** — this chat spec'd an official Espressif ESP32-DevKitC-32E (38-pin) for pin-labeling reliability, replacing an earlier ambiguous "DOIT clone" board. Reasoning: DOIT-clone boards exist in 30/36/38-pin variants with inconsistent silkscreen labeling. |
 | MCP23S17 (SPI I/O expander) | 2 | Bare **MCP23S17-E/SP** DIP-28 chips (from microchipdirect.com), each in a 28-pin DIP socket (swappable), NOT the $14 "EXPAND Click" breakout board — switched to bare chip + socket for ~$12/chip savings, consistent with the project's overall "everything socketed/swappable" philosophy. |
 | 0.1 µF ceramic decoupling capacitor | 2 | One per MCP23S17, wired directly across VDD/VSS pins (in parallel, as close to the pins as possible — NOT in series with the power line). Confirmed part: SparkFun COM-08375-style 0.1µF ceramic, through-hole. |
-| Relay modules | 3 | **SainSmart 8-Channel Relay Module, ASIN B0057OC5WK** (Songle SRD-05VDC-SL-C relay, opto-isolated). VCC–JD-VCC jumper **removed** on all three boards to enable true opto-isolation. VCC → 3.3V (logic/opto side), JD-VCC → 5V (relay coil side, separate feed). |
+| Relay modules | 3 | **SainSmart 8-Channel Relay Module, ASIN B0057OC5WK** (Songle SRD-05VDC-SL-C relay, opto-isolated). VCC–JD-VCC jumper **removed** on all three boards to enable true opto-isolation. VCC → 3.3V (logic/opto side), JD-VCC → 5V (relay coil side, separate feed). *Superseded: VCC and JD-VCC are both on the 5 V rail in the final diagram (see the last section).* |
 | Step-down regulator | 1 | **Pololu D24V50F5** — fixed 5V output, 5A continuous, synchronous buck. Chosen over generic adjustable LM2596/MP1584/Mini-360 modules specifically to avoid trimpot drift under vibration. Pinout: VIN, GND, OUT, GND, EN (EN left unconnected — pulled high internally by default, always-on). |
 | Main PSU | 1 | **Tripp Lite PR-40** — 13.8VDC (not literal 12V; standard automotive/radio "12V" nominal), 40A peak / 32A continuous, linear regulated, 120VAC input. Has a built-in 10A front-panel fuse (twist-lock glass fuse holder, not an adjustable current dial). |
 | Per-channel diode | 20 | **1N4007**, flyback suppression across each solenoid coil. Orientation (see Wiring/Protection section below) is critical and was corrected once already (see Known bugs already caught, below). |
@@ -61,6 +61,8 @@ Relay GND ─────────────┴──────┴──�
 
 ## Relay/expander channel mapping (as designed in this chat — cross-check against what the Code instance found in HAL)
 
+*Superseded by the as-built map in the final wiring diagram (see "Final wiring diagram" at the end) and `pins.h`.*
+
 - MCP23S17 #1, GPA0–GPA7 → Relay Module #1, IN1–IN8 → Targets 1–8
 - MCP23S17 #1, GPB0–GPB7 → Relay Module #2, IN1–IN8 → Targets 9–16
 - MCP23S17 #2, GPA0–GPA7 → Relay Module #3, IN1–IN8 → Targets 17–20 use GPA0–GPA3 (IN1–IN4); GPA4–GPA7/IN5–IN8 wired but **unused/no fuse populated** (spare capacity, matches "only 4 of module #3's relays are fused and used" from the Code instance's HAL read)
@@ -69,7 +71,7 @@ Relay GND ─────────────┴──────┴──�
 - Both chips: RESET tied to VDD (never held in reset)
 - Both chips: VDD → 3V3, VSS → GND, plus 0.1µF decoupling cap across VDD/VSS as noted above
 
-## SPI bus — OPEN DISCREPANCY, please reconcile
+## SPI bus — OPEN DISCREPANCY, please reconcile (resolved: see the ESP32-S3 and final diagram sections)
 
 This chat's diagram work used the following SPI pin assignments (based on the
 project's original wiring/diagram and an early code review in this conversation):
@@ -95,7 +97,7 @@ chat's diagram, and the **diagram simply never got updated to match** — this i
 diagram bug, not a firmware bug. Whoever updates the diagram next should pull the
 pin numbers from `pins.h`, not from this chat's history.
 
-## Board — also an open discrepancy
+## Board — also an open discrepancy (resolved: ESP32-S3, see below)
 
 This chat's diagram specifies an **ESP32-DevKitC-32E** (official Espressif, 38-pin,
 PlatformIO board name `esp32dev`), chosen specifically to get away from an earlier
@@ -223,4 +225,30 @@ it back to the user rather than guess.
   MOSI GPIO 11 (J1-17), SCK GPIO 12 (J1-18), MISO GPIO 13 (J1-19), CS1 GPIO 14 (J1-20);
   3V3 J1-1, GND J1-22. On the S3 none of these is a flash or strapping pin (the earlier
   objection to GPIO 10–12 applied only to the classic ESP32). The 10 kΩ CS pull-ups stay.
-  The wiring diagram (v3.6) still shows the classic-ESP32 pins and needs updating.
+  The final wiring diagram shows these pins (see below).
+
+## Final wiring diagram (2026-11-22)
+
+The final diagram is `docs/architecture/CPD_Range_Diagram_Final.pdf` (PNG copy alongside);
+it replaces every earlier revision (v1 through v5). **`pins.h` is authoritative** wherever the
+two differ. What it shows:
+
+- **12 V side:** Tripp Lite PR-40 + → **7 A slow-blow fuse** → 12 V terminal blocks →
+  each relay's COM. PSU − → GND terminal block, which carries every return.
+- **5 V side:** 12 V terminal block → Pololu 12 V→5 V converter → **3 A fuse** → 5 V
+  terminal block → each relay board's VCC and JD-VCC (jumper removed), and the ESP32-S3's
+  5 V input. Relay board GND → GND terminal block.
+- **3.3 V side:** the ESP32-S3's 3.3 V pin → both MCP23S17s' VDD and the two 10 kΩ CS
+  pull-ups. A 0.1 µF capacitor sits at each expander.
+- **SPI:** SCK GPIO 12, SI GPIO 11, SO GPIO 13, CS GPIO 14 (MCP23S17 #1), CS GPIO 10
+  (MCP23S17 #2).
+- **Expander → relay:** MCP23S17 #1 GPB7–GPB0 → targets 1–8; MCP23S17 #1 GPA7–GPA0 →
+  targets 9–16; MCP23S17 #2 GPA7–GPA4 → Relay Module #3 IN1–IN4 (targets 17–20). The diagram
+  labels the GPB board Relay Module #1 and the GPA board #2; `pins.h` calls them #2 and #1,
+  and `pins.h` is authoritative. Relay #3 IN5–IN8, MCP23S17 #2 GPA0–GPA3 and
+  GPB0–GPB7 are unconnected.
+- **Per channel (×20):** relay NO → 3 A fuse → 1N4007 (cathode toward NO) and S14K25 MOV
+  to the return → field connector → MAC 46A-AA2-JDDA-1BA valve.
+- **Field connector:** drawn as one "24 Pin Connector" block; physically it is the two
+  12-pin ZBLZGP SP21 connectors described above. The pin-to-target assignment is still
+  unknown until the field wires are traced on site.
