@@ -175,11 +175,16 @@ export async function createControllerTest() {
     exit.textContent = 'Exit';
     exit.title = 'Exit test mode';
     banner.append(label, clear, exit);
-    document.body.append(banner);
+    // AI-generated (Claude): ?test=1&screenshot=1 hides the badge for clean screenshots; links
+    // carry screenshot=1 along so it stays hidden across pages. Use plain ?test=1 to get the
+    // badge (and its Clear button) back.
+    const screenshotMode = new URLSearchParams(location.search).get('screenshot') === '1';
+    if (!screenshotMode) document.body.append(banner);
     document.querySelectorAll('a[href]').forEach((link) => {
         const url = new URL(link.href);
         if (link !== exit && url.origin === location.origin && url.pathname.endsWith('.html')) {
             url.searchParams.set('test', '1');
+            if (screenshotMode) url.searchParams.set('screenshot', '1');
             link.href = url.href;
         }
     });
