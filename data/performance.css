@@ -357,7 +357,7 @@
 
     /* AI-modified (Claude): was 3 equal columns, but the Sort select's 8.5rem minimum is wider
        than a third of a phone screen, so it overlapped Export PDF. Now Filter and Sort share
-       the first row (each allowed to shrink) and Export PDF gets its own full-width row. */
+       the first row (each allowed to shrink) and Add scores and Export PDF share the second. */
     .performance-actions {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -372,8 +372,8 @@
         min-width: 0;
     }
 
+    /* AI-modified (Claude): Add scores and Export PDF share the second row */
     .performance-actions .export-button {
-        grid-column: 1 / -1;
         justify-content: center;
     }
 
@@ -511,18 +511,14 @@
 /* Add scores dialog: ported from Oviya's oviyaTest branch ("AI-assisted change: align the
    batch-entry controls with the Results section"). AI-modified (Claude): own @media blocks,
    an in-dialog error line, hidden when printing. */
+/* AI-modified (Claude): the section now only holds the dialog (its button is in the toolbar) */
 .add-scores {
-    margin: 1.25rem 0 0.75rem;
-}
-
-.add-scores-toolbar {
-    display: flex;
-    justify-content: flex-end;
+    margin: 0;
 }
 
 .add-scores-toggle {
-    width: 7.4rem;
     justify-content: center;
+    white-space: nowrap;
 }
 
 .add-scores-dialog {

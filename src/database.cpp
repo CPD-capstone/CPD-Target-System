@@ -14,7 +14,8 @@ static JsonArray qualificationNames(JsonDocument& doc);
  *   "qualifications": [ "Pistol", "Rifle", "SWAT", ...custom names ]
  *   "drills":   [ { "drillName": str,
  *                   "sequence": [ { "step": int, "action": str, "timeMs"?: int } ] } ]
- *                 action is "present" | "hide" | "pause" | "delay" (delay requires timeMs),
+ *                 action is "present" | "hide" | "yield" | "delay" (delay requires timeMs),
+ *                 (AI-modified (Claude): "yield" was "pause"; the old name is still accepted)
  *                 OR the drillName of another drill (the "... Full Drill" entries compose stages)
  *   "targets":  [ { "id": 1..20, "working": bool } ]
  *
@@ -152,9 +153,10 @@ bool isDateString(const char* date) {
     return true;
 }
 
+// AI-modified (Claude): "yield" is the new name for "pause" (still accepted for older drills)
 static bool isBasicAction(const char* action) {
     return strcmp(action, "present") == 0 || strcmp(action, "hide") == 0 ||
-           strcmp(action, "pause") == 0 || strcmp(action, "delay") == 0;
+           strcmp(action, "yield") == 0 || strcmp(action, "pause") == 0 || strcmp(action, "delay") == 0;
 }
 
 //True if drill `fromName` includes drill `targetName` as a step, directly or through nested drills.
@@ -418,20 +420,28 @@ bool addOfficer(int badgeNum, const char* name) {
     return saveDatabase(doc);
 }
 
-// AI-modified (Claude): scores are edited separately with addQualScore()
-bool editOfficer(int badgeNum, const char* name) {
+// AI-modified (Claude): scores are edited separately with addQualScore(). Also changes the badge
+// number (the officer's scores move with them); a badge another officer has is refused.
+OfficerEditResult editOfficer(int badgeNum, const char* name, int newBadgeNum) {
     JsonDocument doc;
-    if (!loadDatabase(doc)) return false;
+    if (!loadDatabase(doc)) return OfficerEditResult::SaveFailed;
 
     JsonArray officers = doc["Officers"];
     int i = findIndex(officers, "BadgeNum", badgeNum);
     if (i < 0) {
         Serial.printf("No officer found with badge %d\r\n", badgeNum);
-        return false;
+        return OfficerEditResult::NotFound;
+    }
+    if (newBadgeNum > 0 && newBadgeNum != badgeNum) {
+        if (findIndex(officers, "BadgeNum", newBadgeNum) >= 0) {
+            Serial.printf("Officer with badge %d already exists\r\n", newBadgeNum);
+            return OfficerEditResult::BadgeTaken;
+        }
+        officers[i]["BadgeNum"] = newBadgeNum;
     }
 
-    officers[i]["Name"] = name;
-    return saveDatabase(doc);
+    if (name) officers[i]["Name"] = name;
+    return saveDatabase(doc) ? OfficerEditResult::Saved : OfficerEditResult::SaveFailed;
 }
 
 // AI-modified (Claude): replaces editUserPerformance. Scores are stored newest-first, and
@@ -535,6 +545,53 @@ bool addQualification(const char* name) {
     return saveDatabase(doc);
 }
 
+// AI-generated (Claude): delete a custom qualification (see database.h)
+QualificationDeleteResult deleteQualification(const char* name, int& scoreCount) {
+    scoreCount = 0;
+    String target = name ? name : "";
+    target.trim();
+    for (const char* builtIn : {"Pistol", "Rifle", "SWAT"}) {
+        if (target.equalsIgnoreCase(builtIn)) return QualificationDeleteResult::BuiltIn;
+    }
+    JsonDocument doc;
+    if (!loadDatabase(doc)) return QualificationDeleteResult::SaveFailed;
+    JsonArray names = qualificationNames(doc);
+    int index = -1;
+    for (size_t i = 0; i < names.size(); i++) {
+        if (target.equalsIgnoreCase(names[i].as<const char*>())) index = (int)i;
+    }
+    if (index < 0) return QualificationDeleteResult::NotFound;
+
+    // Scores recorded under it (custom histories are keyed by name in qualificationScores)
+    for (JsonObject officer : doc["Officers"].as<JsonArray>()) {
+        for (JsonPair history : officer["qualificationScores"].as<JsonObject>()) {
+            if (target.equalsIgnoreCase(history.key().c_str())) {
+                scoreCount += history.value().as<JsonArray>().size();
+            }
+        }
+    }
+    if (scoreCount > 0) return QualificationDeleteResult::HasScores;
+
+    names.remove(index);
+    // Untag drills; a drill left with no qualification simply has none
+    for (JsonObject drill : doc["drills"].as<JsonArray>()) {
+        JsonArray tags = drill["qualifications"].as<JsonArray>();
+        for (int i = (int)tags.size() - 1; i >= 0; i--) {
+            if (target.equalsIgnoreCase(tags[i].as<const char*>())) tags.remove(i);
+        }
+    }
+    // Drop empty histories so re-adding the same name starts clean
+    for (JsonObject officer : doc["Officers"].as<JsonArray>()) {
+        JsonObject histories = officer["qualificationScores"].as<JsonObject>();
+        String key;
+        for (JsonPair history : histories) {
+            if (target.equalsIgnoreCase(history.key().c_str())) key = history.key().c_str();
+        }
+        if (key.length()) histories.remove(key);
+    }
+    return saveDatabase(doc) ? QualificationDeleteResult::Deleted : QualificationDeleteResult::SaveFailed;
+}
+
 static bool validQualifications(JsonDocument& doc, JsonArrayConst selected) {
     if (selected.isNull()) return true;
     JsonArray names = qualificationNames(doc);
@@ -567,7 +624,8 @@ bool getDrill(const char* drillName, JsonDocument& out) {
 }
 
 // AI-modified (Claude): drills are just "drillName" + a validated "sequence"
-bool addDrill(const char* drillName, JsonArrayConst sequence, JsonArrayConst qualifications) {
+// AI-modified (Claude): optional description
+bool addDrill(const char* drillName, JsonArrayConst sequence, JsonArrayConst qualifications, const char* description) {
     JsonDocument doc;
     if (!loadDatabase(doc)) return false;
 
@@ -584,13 +642,15 @@ bool addDrill(const char* drillName, JsonArrayConst sequence, JsonArrayConst qua
     drill["drillName"] = drillName;
     drill["sequence"] = sequence;
     if (!qualifications.isNull()) drill["qualifications"] = qualifications;
+    if (description && *description) drill["description"] = description;
 
     return saveDatabase(doc);
 }
 
 // AI-modified (Claude): replaces the sequence only (see renameDrill for the name), so Full Drills
 // that reference this drill by name stay valid
-bool editDrill(const char* drillName, JsonArrayConst newSequence, JsonArrayConst qualifications) {
+// AI-modified (Claude): optional description (nullptr = unchanged, "" = remove)
+bool editDrill(const char* drillName, JsonArrayConst newSequence, JsonArrayConst qualifications, const char* description) {
     JsonDocument doc;
     if (!loadDatabase(doc)) return false;
 
@@ -605,6 +665,10 @@ bool editDrill(const char* drillName, JsonArrayConst newSequence, JsonArrayConst
 
     drills[i]["sequence"] = newSequence;
     if (!qualifications.isNull()) drills[i]["qualifications"] = qualifications;
+    if (description) {
+        if (*description) drills[i]["description"] = description;
+        else drills[i].remove("description");
+    }
     return saveDatabase(doc);
 }
 

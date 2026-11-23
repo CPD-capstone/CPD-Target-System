@@ -22,7 +22,11 @@
     <link rel="stylesheet" href="vendor/bootstrap-icons.min.css">
     <link rel="stylesheet" href="vendor/barlow-condensed.css">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="performance.css?v=results-export-1">
+    <link rel="stylesheet" href="performance.css?v=add-scores-toolbar-1">
+    <!-- AI-generated (Claude): Tactical theme (Settings > Theme, saved per phone). The script applies
+         the saved theme before the page draws, so it never flashes the normal colors first. -->
+    <link rel="stylesheet" href="tactical.css?v=2">
+    <script>try{if(localStorage.getItem('cpd-theme')==='tactical'){document.documentElement.classList.add('theme-tactical');document.documentElement.setAttribute('data-bs-theme','dark');}}catch(e){}</script>
 </head>
 <body class="performance-page">
     <!-- Match the title banner and menu placement used by the Drills page. -->
@@ -48,7 +52,7 @@
         <div class="offcanvas-body">
             <div class="d-grid gap-2">
                 <!-- AI-modified (Claude): same menu on every page, current page highlighted. -->
-                <a class="btn btn-outline-primary text-start" href="targets.html">Targets</a>
+                <a class="btn btn-outline-primary text-start" href="targets.html">Range Control</a>
                 <a class="btn btn-outline-primary text-start" href="drills.html">Drills</a>
                 <a class="btn btn-outline-primary text-start active" href="Performance.html" aria-current="page">Performance</a>
                 <!-- AI-generated (Claude): start delay and WiFi password settings. -->
@@ -111,7 +115,13 @@
                         <option value="score-low">Lowest score</option>
                     </select>
                 </label>
-                <button class="btn btn-primary export-button" type="button" id="exportPdfButton" disabled>
+                <!-- AI-modified (Claude): Add scores moved here from above the Results table, next to
+                     the page's other action; it opens the dialog in the add-scores section below. -->
+                <button class="btn btn-primary export-button add-scores-toggle" type="button" id="addScoresToggle" aria-expanded="false" aria-controls="addScoresDialog">
+                    <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                    <span>Add scores</span>
+                </button>
+                <button class="btn btn-outline-primary export-button" type="button" id="exportPdfButton" disabled>
                     <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
                     <span>Export PDF</span>
                 </button>
@@ -140,42 +150,12 @@
             </article>
         </section>
 
-        <!-- Each table row represents one dated qualification attempt. -->
-        <!-- AI-generated (Claude): each officer's qualification standing over the last 12 months,
-             calculated on the controller (GET /api/officers?today=..., Isaac's officer stats). -->
-        <section class="performance-records officer-standing" aria-labelledby="standingTitle">
-            <div class="section-heading records-heading">
-                <div>
-                    <h2 id="standingTitle">Officer standing</h2>
-                    <p class="standing-note mb-0">Last 12 months: average, top score and attempts per qualification.</p>
-                </div>
-                <span class="record-count" id="standingCount">0 officers</span>
-            </div>
-            <div class="table-responsive">
-                <table class="table performance-table align-middle mb-0">
-                    <thead>
-                        <tr id="standingHeader">
-                            <th scope="col">Officer</th>
-                            <th scope="col">Badge</th>
-                        </tr>
-                    </thead>
-                    <tbody id="standingRows">
-                        <tr><td colspan="5" class="table-empty">Loading officers...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <!-- Add scores dialog: ported from Oviya's oviyaTest branch ("AI-assisted change: open batch
+        <!-- AI-modified (Claude): the Add scores button is in the toolbar above (next to Export
+             PDF); this section only holds its dialog.
+             Add scores dialog: ported from Oviya's oviyaTest branch ("AI-assisted change: open batch
              score entry in a dialog above Results"). AI-modified (Claude): scores are saved on the
              controller, and errors show inside the dialog. -->
         <section class="add-scores" aria-label="Add qualification scores">
-            <div class="add-scores-toolbar">
-                <button class="btn btn-primary export-button add-scores-toggle" type="button" id="addScoresToggle" aria-expanded="false" aria-controls="addScoresDialog">
-                    <i class="bi bi-plus-lg" aria-hidden="true"></i>
-                    <span>Add scores</span>
-                </button>
-            </div>
             <dialog class="add-scores-dialog" id="addScoresDialog" aria-labelledby="addScoresTitle">
                 <div class="add-scores-dialog-heading">
                     <h2 id="addScoresTitle">Add qualification scores</h2>
@@ -225,14 +205,55 @@
             </dialog>
         </section>
 
+        <!-- Each table row represents one dated qualification attempt. -->
+        <!-- AI-generated (Claude): each officer's qualification standing over the last 12 months,
+             calculated on the controller (GET /api/officers?today=..., Isaac's officer stats). -->
+        <section class="performance-records officer-standing" aria-labelledby="standingTitle">
+            <div class="section-heading records-heading">
+                <div>
+                    <h2 id="standingTitle">Officer standing</h2>
+                    <p class="standing-note mb-0">Last 12 months: average, top score and attempts per qualification.</p>
+                </div>
+<div class="section-heading-actions">
+                    <span class="record-count" id="standingCount">0 officers</span>
+                    <!-- AI-generated (Claude): collapses the table below; script.js remembers it per phone -->
+                    <button class="btn btn-sm btn-outline-secondary section-collapse-toggle" type="button" aria-expanded="true" aria-controls="standingBody" data-collapse-key="cpd-performance-standing-open" aria-label="Hide officer standing">
+                        <i class="bi bi-chevron-up" aria-hidden="true"></i>
+                        <span class="section-collapse-label">Hide</span>
+                    </button>
+                </div>
+            </div>
+            <div class="table-responsive" id="standingBody">
+                <table class="table performance-table align-middle mb-0">
+                    <thead>
+                        <tr id="standingHeader">
+                            <th scope="col">Officer</th>
+                            <th scope="col">Badge</th>
+                        </tr>
+                    </thead>
+                    <tbody id="standingRows">
+                        <tr><td colspan="5" class="table-empty">Loading officers...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+
         <section class="performance-records" aria-labelledby="recordsTitle">
             <div class="section-heading records-heading">
                 <div>
                     <h2 id="recordsTitle">Results</h2>
                 </div>
-                <span class="record-count" id="recordCount">0 records</span>
+<div class="section-heading-actions">
+                    <span class="record-count" id="recordCount">0 records</span>
+                    <!-- AI-generated (Claude): collapses the table below; script.js remembers it per phone -->
+                    <button class="btn btn-sm btn-outline-secondary section-collapse-toggle" type="button" aria-expanded="true" aria-controls="resultsBody" data-collapse-key="cpd-performance-results-open" aria-label="Hide results">
+                        <i class="bi bi-chevron-up" aria-hidden="true"></i>
+                        <span class="section-collapse-label">Hide</span>
+                    </button>
+                </div>
             </div>
-            <div class="table-responsive">
+            <div class="table-responsive" id="resultsBody">
                 <table class="table performance-table align-middle mb-0">
                     <thead>
                         <tr>
@@ -295,6 +316,6 @@
 
     <!-- Bootstrap provides the shared menu interaction. -->
     <script src="vendor/bootstrap.bundle.min.js"></script>
-    <script src="script.js?v=connection-rssi-5"></script>
+    <script src="script.js?v=ui-changes-33"></script>
 </body>
 </html>

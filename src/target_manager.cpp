@@ -1,4 +1,5 @@
 #include "target_manager.h"
+#include <Preferences.h> // AI-generated (Claude): target flip delay setting
 #include "hal.h"
 #include <LittleFS.h>
 #include <ArduinoJson.h>
@@ -33,7 +34,7 @@
 // Anything in this unnamed namespace is private to target_manager.cpp
 namespace{
     // The four step types a drill is reduced to once nested drills are expanded
-    enum class StepType : uint8_t { Present, Hide, Delay, Pause };
+    enum class StepType : uint8_t { Present, Hide, Delay, Yield };
 
     // One entry in the flattened step list
     struct DrillStep {
@@ -89,6 +90,15 @@ namespace{
     std::vector<DrillStage> activeStages;
     int currentStageIndex = -1;
     PauseControl pauseControl = PauseControl::Waiting;
+    // AI-generated (Claude): stage navigation. pendingJumpStep = the step index the queued jump goes
+    // to (valid while pauseControl is ResetPending); stagesAreParts = activeStages holds the parts of
+    // a drill that has no stages; currentPart/currentPartCount describe the current stage's parts.
+    // rewinding = the runner is hiding targets for a jump, so waitMs() ignores further jump wakes.
+    int pendingJumpStep = -1;
+    bool stagesAreParts = false;
+    uint16_t currentPart = 0;
+    uint16_t currentPartCount = 0;
+    bool rewinding = false;
     uint32_t activeMask = 0;            // which targets this drill uses (bit 0 = target 1)
 
     // AI-assisted (Claude): progress/outcome reported by getDrillStatus(). Written under
@@ -118,13 +128,19 @@ namespace{
     // and a drill that ends does not send its usual final hide.
     volatile bool stopLatched = false;
 
+    // AI-generated (Claude): target flip delay in use (see setFaceTravelMs()); written by the web
+    // server task, read by the runner at each present step
+    volatile uint32_t faceTravelMs = TARGET_FACE_TRAVEL_MS;
+    constexpr const char* DRILL_PREFS_NAMESPACE = "drill_config";
+    constexpr const char* FACE_TRAVEL_KEY = "face_ms";
+
     /// @brief action name of a step type, as written in database.json
     const char* stepActionName(StepType type){
         switch(type){
             case StepType::Present: return "present";
             case StepType::Hide:    return "hide";
             case StepType::Delay:   return "delay";
-            case StepType::Pause:   return "pause";
+            case StepType::Yield:   return "yield"; // AI-modified (Claude): was "pause"
         }
         return "";
     }
@@ -232,8 +248,10 @@ namespace{
                     randomCount = (uint8_t)count;
                 }
                 out.push_back({strcmp(action, "present") == 0 ? StepType::Present : StepType::Hide, 0, mask, randomCount});
-            }else if(strcmp(action, "pause") == 0){
-                out.push_back({StepType::Pause, 0, 0});
+            // AI-modified (Claude): "yield" (hand control back to the operator until Resume); the
+            // old name "pause" is still read so drills saved before the rename keep working
+            }else if(strcmp(action, "yield") == 0 || strcmp(action, "pause") == 0){
+                out.push_back({StepType::Yield, 0, 0});
             }else if(strcmp(action, "delay") == 0){
                 // A delay must have a whole, non-negative timeMs; reject the drill otherwise
                 // rather than guess a time during a qualification
@@ -286,21 +304,19 @@ namespace{
     }
 
     /// @brief Queue paused controls without changing the runner's position (AI-assisted with Codex).
+    // AI-modified (Claude): only Resume uses this now; stage moves go through queueJump(), so the
+    // reset branches were removed.
     StageResetResult requestPausedControl(PauseControl request){
-        if(request == PauseControl::ResetPending && !hal_isReady()) return StageResetResult::HalNotReady;
         portENTER_CRITICAL(&runnerLock);
         StageResetResult result = StageResetResult::Accepted;
         if(stopLatched) result = StageResetResult::Stopped;
         else if(drillState != DrillState::Paused) result = StageResetResult::NotPaused;
-        else if(request == PauseControl::ResetPending && currentStageIndex < 0) result = StageResetResult::NoStage;
         else if(hasPendingControl()) result = StageResetResult::Busy;
-        // Reset is idempotent once the stage is ready. Resume always needs a new request.
-        bool notify = result == StageResetResult::Accepted
-                      && (request == PauseControl::ResumePending || pauseControl != PauseControl::ReplayReady);
+        // Resume always needs a new request.
+        bool notify = result == StageResetResult::Accepted;
         if(notify) pauseControl = request;
         portEXIT_CRITICAL(&runnerLock);
-        if(notify) xTaskNotify(drillTaskHandle, request == PauseControl::ResumePending
-                              ? NOTIFY_RESUME : NOTIFY_RESET_STAGE, eSetBits);
+        if(notify) xTaskNotify(drillTaskHandle, NOTIFY_RESUME, eSetBits);
         return result;
     }
 
@@ -378,6 +394,10 @@ namespace{
                 if(bits & NOTIFY_STOP){
                     return WaitResult::Stopped; // stopDrill() was called
                 }
+                // AI-generated (Claude): jumpToStage() while running cuts the wait short
+                if((bits & NOTIFY_RESET_STAGE) && !rewinding && pauseControl == PauseControl::ResetPending){
+                    return WaitResult::ResetStage;
+                }
                 // Ignore an old Pause request while reset waits for targets to hide (AI-assisted with Codex).
                 if((bits & NOTIFY_PAUSE) && drillState == DrillState::Running){
                     // Operator pause: sit here until resumed, then push the start time forward
@@ -431,8 +451,9 @@ namespace{
         }
 
         // Phase 2: the valves have switched; now give the targets time to rotate fully flat.
-        // With TARGET_FACE_TRAVEL_MS = 0 this returns immediately.
-        return waitMs(TARGET_FACE_TRAVEL_MS);
+        // With a flip delay of 0 this returns immediately.
+        // AI-modified (Claude): the delay is set in Settings (getFaceTravelMs()), not fixed.
+        return waitMs(faceTravelMs);
     }
 
     /// @brief AI-generated (Claude): the targets a present/hide step moves: its own list limited to
@@ -469,37 +490,69 @@ namespace{
         for(size_t n = 0; n < activeStages.size(); n++){
             const DrillStage& stage = activeStages[n];
             if(stage.first > index) break;
-            if(index < stage.end || activeSteps[index].type == StepType::Pause){
+            if(index < stage.end || activeSteps[index].type == StepType::Yield){
                 stageIndex = n;
             }
+        }
+        // AI-generated (Claude): parts of a full drill's stage, split at the stage's pause steps.
+        // At a pause inside the stage this is the part just completed.
+        uint16_t part = 0, partCount = 0;
+        if(stageIndex >= 0 && !stagesAreParts){
+            const DrillStage& stage = activeStages[stageIndex];
+            uint16_t pausesBefore = 0, pauses = 0;
+            for(size_t n = stage.first; n < stage.end; n++){
+                if(activeSteps[n].type != StepType::Yield) continue;
+                pauses++;
+                if(n < index) pausesBefore++;
+            }
+            part = pausesBefore + 1;
+            partCount = pauses + 1;
         }
         portENTER_CRITICAL(&runnerLock);
         currentStep = index + 1;
         currentType = activeSteps[index].type;
         currentStageIndex = stageIndex;
+        currentPart = part;
+        currentPartCount = partCount;
         portEXIT_CRITICAL(&runnerLock);
     }
 
     /// @brief Hide targets before replay, keeping any emergency hold intact (AI-assisted with Codex).
+    /// AI-modified (Claude): moves to the step jumpToStage() chose (pendingJumpStep: the start of the
+    /// current, previous or next stage, or of a part of the current stage), and also handles a jump
+    /// requested while running. A further jump while it waits for Resume is applied in the same loop.
     bool rewindStage(size_t& index){
-        if(stopLatched) return false;
-        if(!hal_sendCommand(activeMask, false)){
-            drillFailed = true;
-            return false;
+        for(;;){
+            if(stopLatched) return false;
+            // Report Paused from the start so an operator Pause can't interrupt the move
+            portENTER_CRITICAL(&runnerLock);
+            drillState = DrillState::Paused;
+            int target = pendingJumpStep;
+            portEXIT_CRITICAL(&runnerLock);
+            if(target < 0 || target >= (int)activeSteps.size()) return false;
+            if(!hal_sendCommand(activeMask, false)){
+                drillFailed = true;
+                return false;
+            }
+            // Let the HAL consume the hide and finish any cooldown before replay can present again.
+            rewinding = true;
+            WaitResult hidden = waitMs(MECHANICAL_BUFFER + 100);
+            rewinding = false;
+            if(hidden != WaitResult::Complete) return false;
+            if(!hal_isReady() || (hal_getTargetStates() & activeMask)){
+                drillFailed = true;
+                return false;
+            }
+            index = target;
+            publishStep(index);
+            portENTER_CRITICAL(&runnerLock);
+            pauseControl = PauseControl::ReplayReady;
+            portEXIT_CRITICAL(&runnerLock);
+            // A fresh Resume is required; all previous waits and their timing are gone.
+            WaitResult result = waitForResume();
+            if(result == WaitResult::Complete) return true;
+            if(result != WaitResult::ResetStage) return false;
         }
-        // Let the HAL consume the hide and finish any cooldown before replay can present again.
-        if(waitMs(MECHANICAL_BUFFER + 100) != WaitResult::Complete) return false;
-        if(!hal_isReady() || (hal_getTargetStates() & activeMask)){
-            drillFailed = true;
-            return false;
-        }
-        index = activeStages[currentStageIndex].first;
-        publishStep(index);
-        portENTER_CRITICAL(&runnerLock);
-        pauseControl = PauseControl::ReplayReady;
-        portEXIT_CRITICAL(&runnerLock);
-        // A fresh Resume is required; all previous waits and their timing are gone.
-        return waitForResume() == WaitResult::Complete;
     }
 
     /// @brief runs activeSteps; returns false if stopped or a command couldn't be queued
@@ -507,6 +560,14 @@ namespace{
         // Only this task advances or rewinds the drill (AI-assisted with Codex).
         for(size_t i = 0; i < activeSteps.size(); ){
             if(stopLatched) return false;
+            // AI-generated (Claude): a jump requested while running, between waits
+            portENTER_CRITICAL(&runnerLock);
+            bool jumpPending = pauseControl == PauseControl::ResetPending;
+            portEXIT_CRITICAL(&runnerLock);
+            if(jumpPending){
+                if(!rewindStage(i)) return false;
+                continue;
+            }
             const DrillStep& step = activeSteps[i];
             publishStep(i);
             WaitResult result = WaitResult::Complete;
@@ -549,7 +610,7 @@ namespace{
                     result = waitMs(step.timeMs, true);
                     break;
 
-                case StepType::Pause:
+                case StepType::Yield:
                     // Wait for the operator to press Resume
                     result = pauseUntilResumed();
                     break;
@@ -611,6 +672,8 @@ namespace{
             // Clear replay state before releasing the runner (AI-assisted with Codex).
             currentStageIndex = -1;
             pauseControl = PauseControl::Waiting;
+            pendingJumpStep = -1;
+            currentPart = currentPartCount = 0;
             lastOutcome = outcome;
             runnerBusy = false;
             portEXIT_CRITICAL(&runnerLock);
@@ -653,8 +716,25 @@ namespace{
         uint16_t finalHold = 0;
         if(!stages.empty() && stages.back().end == steps.size()){
             steps.push_back({StepType::Hide, 0, 0, 0});  // mask 0 = all of the drill's targets
-            steps.push_back({StepType::Pause, 0, 0, 0});
+            steps.push_back({StepType::Yield, 0, 0, 0});
             finalHold = steps.size();                    // 1-based step number of that pause
+        }
+        // AI-generated (Claude): a drill without stages is navigated by parts instead: the runs of
+        // steps between its pause steps (a drill with no pauses is one part). Built after the
+        // final-stage hold check, so a single drill still ends on its own after its last part.
+        bool partsOnly = stages.empty();
+        if(partsOnly){
+            size_t first = 0;
+            for(size_t n = 0; n <= steps.size(); n++){
+                if(n < steps.size() && steps[n].type != StepType::Yield) continue;
+                if(n > first){
+                    DrillStage part = {};
+                    part.first = first;
+                    part.end = n;
+                    stages.push_back(part);
+                }
+                first = n + 1;
+            }
         }
 
         // Step 3: work out which targets to use. targetMask 0 means "all"; otherwise take the
@@ -670,6 +750,7 @@ namespace{
         // Step 4: hand the result to the runner. std::move transfers the list without copying it.
         activeSteps = std::move(steps);
         activeStages = std::move(stages);
+        stagesAreParts = partsOnly;
         // AI-modified (Claude): publish name/mask/step count for getDrillStatus() under the
         // lock, since it can be called from the web server at any moment
         portENTER_CRITICAL(&runnerLock);
@@ -782,8 +863,74 @@ bool resumeDrill(){
 }
 
 // Let the runner perform the rewind and target movement (AI-assisted with Codex).
+// AI-modified (Claude): now the same request as Redo in jumpToStage().
 StageResetResult resetDrillStage(){
-    return requestPausedControl(PauseControl::ResetPending);
+    return jumpToStage(StageJump::Current);
+}
+
+namespace {
+    /// @brief AI-generated (Claude): first step of part `part` (1-based, split at pause steps) of
+    ///        stage `stageIndex` (0-based), or -1 if there is no such stage or part. Under runnerLock.
+    int stepOfStagePart(int stageIndex, int part){
+        if(stageIndex < 0 || stageIndex >= (int)activeStages.size() || part < 1) return -1;
+        const DrillStage& stage = activeStages[stageIndex];
+        if(part == 1) return (int)stage.first;
+        if(stagesAreParts) return -1; // a part of a drill without stages has no parts itself
+        // Part n starts after the stage's (n-1)th pause step
+        int pauses = 0;
+        for(size_t n = stage.first; n < stage.end; n++){
+            if(pauses == part - 1) return (int)n;
+            if(activeSteps[n].type == StepType::Yield) pauses++;
+        }
+        return -1;
+    }
+
+    /// @brief AI-generated (Claude): the step index a jump would move to (the first step of the
+    ///        target stage or part), or -1 if there is none. Call under runnerLock.
+    int stageJumpTarget(StageJump jump){
+        int current = currentStageIndex;
+        if(current < 0 || current >= (int)activeStages.size()) return -1;
+        // Between stages (at the yield after one), "next" skips the stage Resume would start
+        bool between = currentStep > activeStages[current].end;
+        int target = jump == StageJump::Current ? current
+                   : jump == StageJump::Previous ? current - 1
+                   : current + (between ? 2 : 1);
+        return target >= 0 && target < (int)activeStages.size() ? (int)activeStages[target].first : -1;
+    }
+
+    /// @brief AI-generated (Claude): checks the runner and queues a jump to the step `pick()` returns
+    ///        (called under runnerLock; -1 = no such stage/part). Shared by both jump functions.
+    template <typename PickStep>
+    StageResetResult queueJump(PickStep pick){
+        if(!hal_isReady()) return StageResetResult::HalNotReady;
+        portENTER_CRITICAL(&runnerLock);
+        StageResetResult result = StageResetResult::Accepted;
+        int target = -1;
+        if(stopLatched) result = StageResetResult::Stopped;
+        else if(drillState == DrillState::Idle) result = StageResetResult::NoDrill;
+        else if(hasPendingControl()) result = StageResetResult::Busy;
+        else if((target = pick()) < 0) result = StageResetResult::NoStage;
+        // Already rewound to that step and waiting for Resume: nothing to do (e.g. Redo pressed twice)
+        bool notify = result == StageResetResult::Accepted
+                      && !(pauseControl == PauseControl::ReplayReady && target == (int)currentStep - 1);
+        if(notify){
+            pendingJumpStep = target;
+            pauseControl = PauseControl::ResetPending;
+        }
+        portEXIT_CRITICAL(&runnerLock);
+        if(notify) xTaskNotify(drillTaskHandle, NOTIFY_RESET_STAGE, eSetBits);
+        return result;
+    }
+}
+
+// AI-generated (Claude): Back / Redo / Skip. The runner does the moving (see rewindStage()).
+StageResetResult jumpToStage(StageJump jump){
+    return queueJump([jump]{ return stageJumpTarget(jump); });
+}
+
+// AI-generated (Claude): jump to a given stage and part (1-based)
+StageResetResult jumpToStagePart(int stage, int part){
+    return queueJump([stage, part]{ return stepOfStagePart(stage - 1, part); });
 }
 
 // AI-modified (Claude): emergency stop -- freezes targets instead of hiding them
@@ -855,6 +1002,32 @@ TargetCommandResult resetTargets(){
     return result;
 }
 
+// AI-generated (Claude): target flip delay, saved in NVS like the WiFi password
+void loadDrillSettings(){
+    Preferences prefs;
+    // Read-only open fails when nothing was ever saved: keep the default
+    if(prefs.begin(DRILL_PREFS_NAMESPACE, true)){
+        uint32_t saved = prefs.getUInt(FACE_TRAVEL_KEY, TARGET_FACE_TRAVEL_MS);
+        prefs.end();
+        faceTravelMs = saved <= FACE_TRAVEL_MAX_MS ? saved : TARGET_FACE_TRAVEL_MS;
+    }
+    Serial.printf("Target flip delay: %lu ms\r\n", (unsigned long)faceTravelMs);
+}
+
+uint32_t getFaceTravelMs(){
+    return faceTravelMs;
+}
+
+bool setFaceTravelMs(uint32_t ms){
+    if(ms > FACE_TRAVEL_MAX_MS) return false;
+    Preferences prefs;
+    if(!prefs.begin(DRILL_PREFS_NAMESPACE, false)) return false;
+    bool saved = prefs.putUInt(FACE_TRAVEL_KEY, ms) == sizeof(uint32_t);
+    prefs.end();
+    if(saved) faceTravelMs = ms;
+    return saved;
+}
+
 DrillState getDrillState(){
     return drillState;
 }
@@ -879,8 +1052,15 @@ DrillStatus getDrillStatus(){
     strlcpy(status.stageName, stage ? stage->name : "", sizeof(status.stageName));
     status.stageIndex = currentStageIndex + 1;
     status.betweenStages = stage && currentStep > stage->end;
-    status.canResetStage = drillState == DrillState::Paused && currentStageIndex >= 0
-                           && !stopLatched && !hasPendingControl();
+    // AI-modified (Claude): stage moves work while running too (see jumpToStage())
+    bool canMove = drillState != DrillState::Idle && !stopLatched && !hasPendingControl();
+    status.canResetStage = canMove && stageJumpTarget(StageJump::Current) >= 0;
+    status.canGoBack = canMove && stageJumpTarget(StageJump::Previous) >= 0;
+    status.canSkip = canMove && stageJumpTarget(StageJump::Next) >= 0;
+    status.stageCount = drillState == DrillState::Idle ? 0 : activeStages.size();
+    status.stagesAreParts = stagesAreParts;
+    status.partIndex = currentPart;
+    status.partCount = currentPartCount;
     status.stageResetPending = pauseControl == PauseControl::ResetPending;
     status.stageRestartReady = pauseControl == PauseControl::ReplayReady;
     // AI-generated (Claude): waiting at the final-stage hold, before any Reset/Resume is accepted

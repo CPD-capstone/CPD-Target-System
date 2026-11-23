@@ -7,9 +7,13 @@
 // (database + target_manager). Routes, all JSON:
 //
 // REST API between UI and backend
+//   DELETE /api/qualifications?name=<n>   -> deleteQualification (custom only, refused while it has
+//          scores; untags its drills) (AI-generated, Claude)
 //   GET    /api/drills                     -> drills array
-//   POST   /api/drills                     {drillName, sequence}  -> addDrill
-//   PUT    /api/drills?name=<drillName>    {sequence?, drillName?} -> editDrill / renameDrill
+//   POST   /api/drills                     {drillName, sequence, description?}  -> addDrill
+//   PUT    /api/drills?name=<drillName>    {sequence?, drillName?, description?} -> editDrill / renameDrill
+//   AI-generated (Claude): description = optional text (2000 bytes at most) shown to the range
+//   instructor before the drill and at its pauses; "" removes it. A PUT changing it needs sequence.
 //   DELETE /api/drills?name=<drillName>                           -> deleteDrill
 //   AI-generated (Claude): a present/hide step may carry "targets": [n, ...] (only those
 //   targets, of the ones the drill was started on); without it the step moves all of them.
@@ -23,7 +27,7 @@
 //                                          plus qualificationStats {name: {attempts, average, top}}
 //                                          for custom qualifications (AI-modified, Claude)
 //   POST   /api/officers                   {BadgeNum, Name}       -> addOfficer
-//   PUT    /api/officers?badge=<n>         {Name}                 -> editOfficer (AI-generated, Claude)
+//   PUT    /api/officers?badge=<n>         {Name?, BadgeNum?}     -> editOfficer (AI-generated, Claude; BadgeNum changes the badge, 409 if taken)
 //   POST   /api/officers/scores            {BadgeNum, qualType, score, date} -> addQualScore
 //                                          (qualType: any name from /api/qualifications; score >= 0)
 //   GET    /api/qualifications             -> ["Pistol", "Rifle", "SWAT", ...custom names]
@@ -38,7 +42,15 @@
 //   POST   /api/drill/start      {drillName, targets?}  -> executeDrill
 //   POST   /api/drill/pause                             -> pauseDrill (freezes the drill clock)
 //   POST   /api/drill/resume                            -> resumeDrill (after a pause or pause step)
-//   POST   /api/drill/reset-stage                       -> resetDrillStage (paused full drills; AI-assisted with Codex)
+//   POST   /api/drill/reset-stage                       -> resetDrillStage (AI-assisted with Codex)
+//   POST   /api/drill/previous-stage                    -> jumpToStage(Previous) (AI-generated, Claude)
+//   POST   /api/drill/next-stage                        -> jumpToStage(Next)     (AI-generated, Claude)
+//   GET    /api/settings/target-flip   -> {faceTravelMs, maxMs, defaultMs}   (AI-generated, Claude)
+//   PUT    /api/settings/target-flip   {faceTravelMs}  -> setFaceTravelMs (0-5000 ms, saved in NVS)
+//   POST   /api/drill/jump  {stage, part?}  -> jumpToStagePart: a given stage and part, 1-based (AI-generated, Claude)
+//   AI-modified (Claude): the three stage moves work while a drill is running or paused; the drill
+//   hides its targets and waits at the start of that stage for resume. A drill without stages
+//   moves by parts (the runs of steps between its pause steps).
 //   GET    /api/drill/status     -> {state, drillName, step, stepCount, stepAction, targets,
 //                                    lastOutcome, stopped, hardwareReady, facing,
 //                                    delayMs, delayRemainingMs}  (delay step length / time left)

@@ -17,6 +17,10 @@
     <link rel="stylesheet" href="vendor/bootstrap-icons.min.css">
     <link rel="stylesheet" href="vendor/barlow-condensed.css">
     <link rel="stylesheet" href="style.css">
+    <!-- AI-generated (Claude): Tactical theme (Settings > Theme, saved per phone). The script applies
+         the saved theme before the page draws, so it never flashes the normal colors first. -->
+    <link rel="stylesheet" href="tactical.css?v=2">
+    <script>try{if(localStorage.getItem('cpd-theme')==='tactical'){document.documentElement.classList.add('theme-tactical');document.documentElement.setAttribute('data-bs-theme','dark');}}catch(e){}</script>
 </head>
 <body class="settings-page">
     <div id="drillStatus" class="drill-status-bar text-white bg-primary" style="--bs-primary-rgb: 0, 87, 184;" role="status" aria-live="polite">
@@ -39,7 +43,7 @@
         </div>
         <div class="offcanvas-body">
             <div class="d-grid gap-2">
-                <a class="btn btn-outline-primary text-start" href="targets.html">Targets</a>
+                <a class="btn btn-outline-primary text-start" href="targets.html">Range Control</a>
                 <a class="btn btn-outline-primary text-start" href="drills.html">Drills</a>
                 <a class="btn btn-outline-primary text-start" href="Performance.html">Performance</a>
                 <a class="btn btn-outline-primary text-start active" href="settings.html" aria-current="page">Settings</a>
@@ -50,9 +54,43 @@
     <main class="container-fluid px-3 px-md-4 py-3 settings-main">
         <h1 class="h3 mb-4">Settings</h1>
 
-        <section class="card mb-4" aria-labelledby="startDelayTitle">
+        <!-- AI-generated (Claude): theme (Normal / Tactical), saved on this phone. -->
+        <section class="card mb-4" aria-labelledby="themeTitle">
             <div class="card-body">
-                <h2 class="h5 card-title" id="startDelayTitle">Drill start delay</h2>
+                <!-- AI-generated (Claude): collapsible card, collapsed by default (script.js) -->
+                <h2 class="h5 card-title mb-0" id="themeTitle">
+                    <button class="settings-card-toggle" type="button" aria-expanded="false" aria-controls="themeBody">
+                        <span>Theme</span>
+                        <i class="bi bi-chevron-down settings-card-chevron" aria-hidden="true"></i>
+                    </button>
+                </h2>
+                <div class="settings-card-body" id="themeBody" hidden>
+                <p class="text-secondary small">How every page looks on this phone. Saved on this phone only.</p>
+                <form id="themeForm">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="theme" id="themeNormal" value="normal">
+                        <label class="form-check-label" for="themeNormal">Normal <span class="text-secondary small">— light, blue</span></label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="theme" id="themeTactical" value="tactical">
+                        <label class="form-check-label" for="themeTactical">Tactical <span class="text-secondary small">— dark, olive green and coyote tan</span></label>
+                    </div>
+                </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- AI-modified (Claude): id is the target of the Targets page's "Change" link -->
+        <section class="card mb-4 settings-anchor" id="startDelay" aria-labelledby="startDelayTitle">
+            <div class="card-body">
+                <!-- AI-generated (Claude): collapsible card, collapsed by default (script.js) -->
+                <h2 class="h5 card-title mb-0" id="startDelayTitle">
+                    <button class="settings-card-toggle" type="button" aria-expanded="false" aria-controls="startDelayBody">
+                        <span>Drill start delay</span>
+                        <i class="bi bi-chevron-down settings-card-chevron" aria-hidden="true"></i>
+                    </button>
+                </h2>
+                <div class="settings-card-body" id="startDelayBody" hidden>
                 <p class="text-secondary small">
                     After you press <strong>Start drill</strong> or <strong>Resume</strong>, a countdown
                     runs beside the Stop button before the targets move. Press <strong>Stop</strong>
@@ -79,27 +117,76 @@
                         <i class="bi bi-check-circle-fill" aria-hidden="true"></i> Saved
                     </p>
                 </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- AI-generated (Claude): target flip delay (TARGET_FACE_TRAVEL_MS), saved on the controller. -->
+        <section class="card mb-4" aria-labelledby="targetFlipTitle">
+            <div class="card-body">
+                <!-- AI-generated (Claude): collapsible card, collapsed by default (script.js) -->
+                <h2 class="h5 card-title mb-0" id="targetFlipTitle">
+                    <button class="settings-card-toggle" type="button" aria-expanded="false" aria-controls="targetFlipBody">
+                        <span>Target flip delay</span>
+                        <i class="bi bi-chevron-down settings-card-chevron" aria-hidden="true"></i>
+                    </button>
+                </h2>
+                <div class="settings-card-body" id="targetFlipBody" hidden>
+                <p class="text-secondary small">
+                    How long a target takes to turn from edge-on to fully facing the shooter. Drill
+                    timers start counting only after this, so a 4-second string gives the shooter the
+                    full 4 seconds. Measured at 300 ms (0.3 s) on the range targets; change it
+                    if they are re-timed. Saved on the controller, so it applies to every phone.
+                </p>
+                <form id="targetFlipForm" novalidate>
+                    <label class="form-label small mb-1" for="targetFlipMs">Delay</label>
+                    <div class="d-flex flex-wrap gap-2 align-items-start">
+                        <div class="input-group target-flip-input">
+                            <input class="form-control" type="number" id="targetFlipMs" min="0" max="5000" step="10" inputmode="numeric" disabled aria-describedby="targetFlipHint">
+                            <span class="input-group-text">ms</span>
+                        </div>
+                        <button class="btn btn-primary" type="submit" id="targetFlipSave" disabled>Save</button>
+                    </div>
+                    <p class="form-text mb-0" id="targetFlipHint">0 to 5000 milliseconds (1000 ms = 1 second). 0 starts timers the moment the targets are told to turn.</p>
+                    <p class="small mt-2 mb-0" id="targetFlipMessage" role="status" hidden></p>
+                </form>
+                </div>
             </div>
         </section>
 
         <section class="card mb-4" aria-labelledby="defectiveTargetsTitle">
             <div class="card-body">
-                <h2 class="h5 card-title" id="defectiveTargetsTitle">Defective targets</h2>
+                <!-- AI-generated (Claude): collapsible card, collapsed by default (script.js) -->
+                <h2 class="h5 card-title mb-0" id="defectiveTargetsTitle">
+                    <button class="settings-card-toggle" type="button" aria-expanded="false" aria-controls="defectiveTargetsBody">
+                        <span>Defective targets</span>
+                        <i class="bi bi-chevron-down settings-card-chevron" aria-hidden="true"></i>
+                    </button>
+                </h2>
+                <div class="settings-card-body" id="defectiveTargetsBody" hidden>
                 <p class="text-secondary small">
                     Check any target that is broken. Drills and manual control skip it, and it shows
-                    grey on the Targets page. Saved on the controller, so it applies to every phone.
+                    grey on the Range Control page. Saved on the controller, so it applies to every phone.
                 </p>
                 <div class="target-options" id="defectiveTargetList" role="group" aria-labelledby="defectiveTargetsTitle">
                     <p class="small text-secondary mb-0">Loading targets...</p>
                 </div>
                 <p class="small mt-3 mb-0" id="defectiveTargetsMessage" role="status" hidden></p>
+                </div>
             </div>
         </section>
 
         <!-- AI-generated (Claude): officer list (saved on the controller). -->
         <section class="card mb-4" aria-labelledby="officersTitle">
             <div class="card-body">
-                <h2 class="h5 card-title" id="officersTitle">Officers</h2>
+                <!-- AI-generated (Claude): collapsible card, collapsed by default (script.js) -->
+                <h2 class="h5 card-title mb-0" id="officersTitle">
+                    <button class="settings-card-toggle" type="button" aria-expanded="false" aria-controls="officersBody">
+                        <span>Officers</span>
+                        <i class="bi bi-chevron-down settings-card-chevron" aria-hidden="true"></i>
+                    </button>
+                </h2>
+                <div class="settings-card-body" id="officersBody" hidden>
                 <p class="text-secondary small">
                     Officers who can be given qualification scores. Saved on the controller, so it
                     applies to every phone.
@@ -123,6 +210,7 @@
                     </button>
                 </form>
                 <p class="small mt-3 mb-0" id="officersMessage" role="status" hidden></p>
+                </div>
             </div>
         </section>
 
@@ -150,7 +238,14 @@
 
         <section class="card mb-4" aria-labelledby="wifiPasswordTitle">
             <div class="card-body">
-                <h2 class="h5 card-title" id="wifiPasswordTitle">WiFi password</h2>
+                <!-- AI-generated (Claude): collapsible card, collapsed by default (script.js) -->
+                <h2 class="h5 card-title mb-0" id="wifiPasswordTitle">
+                    <button class="settings-card-toggle" type="button" aria-expanded="false" aria-controls="wifiPasswordBody">
+                        <span>WiFi password</span>
+                        <i class="bi bi-chevron-down settings-card-chevron" aria-hidden="true"></i>
+                    </button>
+                </h2>
+                <div class="settings-card-body" id="wifiPasswordBody" hidden>
                 <p class="text-secondary small">
                     Changes the password for the <strong>CPD Range Control</strong> network. Every
                     connected phone, including this one, disconnects and must rejoin with the new password.
@@ -176,11 +271,12 @@
                     <div class="alert py-2" id="wifiPasswordMessage" role="status" hidden></div>
                     <button class="btn btn-primary" type="submit" id="wifiPasswordSubmit">Change password</button>
                 </form>
+                </div>
             </div>
         </section>
     </main>
 
     <script src="vendor/bootstrap.bundle.min.js"></script>
-    <script src="script.js?v=connection-rssi-5"></script>
+    <script src="script.js?v=ui-changes-33"></script>
 </body>
 </html>

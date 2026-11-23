@@ -1,0 +1,589 @@
+/* AI-generated (Claude): "Tactical" theme (Settings > Theme, saved per phone).
+   Applied when <html> has the theme-tactical class (set by a small script in each page's <head>
+   before the page draws, and by script.js when the setting changes); the "Normal" theme is the
+   regular stylesheet with nothing from this file applied. Bootstrap's own dark mode
+   (data-bs-theme="dark") handles its components; this file recolors them in olive / ranger green /
+   coyote and overrides the project's hard-coded light colors in style.css and performance.css.
+   Palette: near-black olive grounds, ranger / OD green actions, coyote (FDE) accents, bone text,
+   and a faint multicam-style blotch pattern behind the page. */
+
+html.theme-tactical {
+    --tac-ground: #171914;
+    --tac-surface: #22251d;
+    --tac-surface-2: #2b2f25;
+    --tac-raised: #353a2d;
+    --tac-border: #454b39;
+    --tac-border-strong: #5c6449;
+    --tac-text: #e4dfcd;
+    --tac-muted: #a6a38c;
+    --tac-green: #5d6d36;
+    --tac-green-hover: #6e8040;
+    --tac-green-bright: #a3b46a;
+    --tac-ranger: #3c4423;
+    --tac-fde: #c4a877;
+    --tac-coyote: #9a7a4c;
+    --tac-red: #b13b2f;
+    --tac-red-hover: #c4473a;
+    --tac-amber: #d4a03a;
+
+    /* Bootstrap (dark mode) variables */
+    --bs-body-bg: var(--tac-ground);
+    --bs-body-bg-rgb: 23, 25, 20;
+    --bs-body-color: var(--tac-text);
+    --bs-body-color-rgb: 228, 223, 205;
+    --bs-emphasis-color: #f4f0e2;
+    --bs-secondary-color: var(--tac-muted);
+    --bs-secondary-bg: var(--tac-surface-2);
+    --bs-tertiary-bg: var(--tac-surface);
+    --bs-border-color: var(--tac-border);
+    --bs-border-color-translucent: rgba(196, 168, 119, 0.18);
+    --bs-primary: var(--tac-green);
+    --bs-primary-rgb: 93, 109, 54;
+    --bs-link-color: var(--tac-fde);
+    --bs-link-color-rgb: 196, 168, 119;
+    --bs-link-hover-color: #dcc493;
+    --bs-link-hover-color-rgb: 220, 196, 147;
+    --bs-focus-ring-color: rgba(196, 168, 119, 0.35);
+    --bs-heading-color: #efe9d6;
+    color-scheme: dark;
+}
+
+html.theme-tactical body {
+    background-color: var(--tac-ground);
+    /* faint multicam-style blotches (greens, browns, tan) over the dark olive ground */
+    background-image:
+        radial-gradient(38% 26% at 12% 18%, rgba(84, 96, 52, 0.22), transparent 70%),
+        radial-gradient(30% 22% at 78% 12%, rgba(122, 98, 62, 0.18), transparent 70%),
+        radial-gradient(34% 28% at 62% 48%, rgba(64, 74, 40, 0.22), transparent 72%),
+        radial-gradient(26% 20% at 22% 66%, rgba(140, 116, 78, 0.14), transparent 70%),
+        radial-gradient(36% 26% at 88% 78%, rgba(78, 90, 48, 0.2), transparent 72%),
+        radial-gradient(24% 18% at 40% 92%, rgba(108, 88, 56, 0.16), transparent 70%);
+    background-attachment: fixed;
+    color: var(--tac-text);
+}
+
+/* Condensed uppercase headings, like the status bar font */
+html.theme-tactical h1,
+html.theme-tactical .h3,
+html.theme-tactical h2.h5,
+html.theme-tactical .modal-title,
+html.theme-tactical .offcanvas-title,
+html.theme-tactical .drill-ticket-name {
+    font-family: 'Barlow Condensed', system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+html.theme-tactical .text-secondary,
+html.theme-tactical .text-muted,
+html.theme-tactical .form-text {
+    color: var(--tac-muted) !important;
+}
+
+/* ---------------------------------------------------------------- buttons */
+html.theme-tactical .btn-primary {
+    --bs-btn-bg: var(--tac-green);
+    --bs-btn-border-color: var(--tac-green);
+    --bs-btn-color: #f4f0e2;
+    --bs-btn-hover-bg: var(--tac-green-hover);
+    --bs-btn-hover-border-color: var(--tac-green-hover);
+    --bs-btn-hover-color: #fff;
+    --bs-btn-active-bg: var(--tac-ranger);
+    --bs-btn-active-border-color: var(--tac-ranger);
+    --bs-btn-disabled-bg: #3f4830;
+    --bs-btn-disabled-border-color: #3f4830;
+    --bs-btn-disabled-color: #9a9a85;
+}
+
+html.theme-tactical .btn-outline-primary {
+    --bs-btn-color: var(--tac-green-bright);
+    --bs-btn-border-color: #6f7d47;
+    --bs-btn-hover-bg: var(--tac-green);
+    --bs-btn-hover-border-color: var(--tac-green);
+    --bs-btn-hover-color: #f4f0e2;
+    --bs-btn-active-bg: var(--tac-green);
+    --bs-btn-active-border-color: var(--tac-green);
+    --bs-btn-active-color: #f4f0e2;
+    --bs-btn-disabled-color: #7c806a;
+    --bs-btn-disabled-border-color: var(--tac-border);
+}
+
+html.theme-tactical .btn-outline-secondary,
+html.theme-tactical .btn-outline-dark,
+html.theme-tactical .btn-light {
+    --bs-btn-color: var(--tac-text);
+    --bs-btn-bg: transparent;
+    --bs-btn-border-color: var(--tac-border-strong);
+    --bs-btn-hover-bg: var(--tac-raised);
+    --bs-btn-hover-border-color: var(--tac-fde);
+    --bs-btn-hover-color: #fff;
+    --bs-btn-active-bg: var(--tac-raised);
+    --bs-btn-active-border-color: var(--tac-fde);
+    --bs-btn-active-color: #fff;
+    --bs-btn-disabled-color: #7c806a;
+    --bs-btn-disabled-border-color: var(--tac-border);
+}
+
+html.theme-tactical .btn-secondary {
+    --bs-btn-bg: var(--tac-raised);
+    --bs-btn-border-color: var(--tac-border-strong);
+    --bs-btn-color: var(--tac-text);
+    --bs-btn-hover-bg: #424834;
+    --bs-btn-hover-border-color: var(--tac-fde);
+}
+
+html.theme-tactical .btn-danger {
+    --bs-btn-bg: var(--tac-red);
+    --bs-btn-border-color: var(--tac-red);
+    --bs-btn-hover-bg: var(--tac-red-hover);
+    --bs-btn-hover-border-color: var(--tac-red-hover);
+    --bs-btn-disabled-bg: #6e3029;
+    --bs-btn-disabled-border-color: #6e3029;
+}
+
+html.theme-tactical .btn-outline-danger {
+    --bs-btn-color: #e07a6e;
+    --bs-btn-border-color: #8e3a31;
+    --bs-btn-hover-bg: var(--tac-red);
+    --bs-btn-hover-border-color: var(--tac-red);
+}
+
+html.theme-tactical .btn-warning {
+    --bs-btn-bg: var(--tac-coyote);
+    --bs-btn-border-color: var(--tac-coyote);
+    --bs-btn-color: #171914;
+    --bs-btn-hover-bg: var(--tac-fde);
+    --bs-btn-hover-border-color: var(--tac-fde);
+    --bs-btn-hover-color: #171914;
+}
+
+html.theme-tactical .btn-link {
+    --bs-btn-color: var(--tac-fde);
+    --bs-btn-hover-color: #dcc493;
+}
+
+html.theme-tactical .btn-close {
+    filter: invert(1) sepia(0.4) brightness(0.9);
+}
+
+/* ---------------------------------------------------------------- forms */
+html.theme-tactical .form-control,
+html.theme-tactical .form-select {
+    border-color: var(--tac-border-strong);
+    background-color: #1d2018;
+    color: var(--tac-text);
+}
+
+html.theme-tactical .form-control::placeholder {
+    color: #858470;
+}
+
+html.theme-tactical .form-control:focus,
+html.theme-tactical .form-select:focus {
+    border-color: var(--tac-fde);
+    box-shadow: 0 0 0 0.2rem rgba(196, 168, 119, 0.25);
+}
+
+html.theme-tactical .form-check-input {
+    border-color: var(--tac-border-strong);
+    background-color: #1d2018;
+}
+
+html.theme-tactical .form-check-input:checked {
+    border-color: var(--tac-green);
+    background-color: var(--tac-green);
+}
+
+html.theme-tactical .input-group-text {
+    border-color: var(--tac-border-strong);
+    background: var(--tac-raised);
+    color: var(--tac-muted);
+}
+
+/* ---------------------------------------------------------------- surfaces */
+html.theme-tactical .card,
+html.theme-tactical .modal-content,
+html.theme-tactical .offcanvas,
+html.theme-tactical .dropdown-menu {
+    --bs-card-bg: var(--tac-surface);
+    border-color: var(--tac-border);
+    background-color: var(--tac-surface);
+    color: var(--tac-text);
+}
+
+html.theme-tactical .modal-header,
+html.theme-tactical .modal-footer {
+    border-color: var(--tac-border);
+}
+
+html.theme-tactical .alert-info {
+    --bs-alert-bg: #23302c;
+    --bs-alert-border-color: #34483f;
+    --bs-alert-color: #b9d3c4;
+}
+
+html.theme-tactical .alert-success {
+    --bs-alert-bg: #27321c;
+    --bs-alert-border-color: #44562d;
+    --bs-alert-color: #c3d79a;
+}
+
+html.theme-tactical .alert-warning {
+    --bs-alert-bg: #3a3018;
+    --bs-alert-border-color: #6a5527;
+    --bs-alert-color: #e6c77f;
+}
+
+html.theme-tactical .alert-danger {
+    --bs-alert-bg: #3d1f1b;
+    --bs-alert-border-color: #6e3029;
+    --bs-alert-color: #f0b0a6;
+}
+
+html.theme-tactical .badge.text-bg-primary,
+html.theme-tactical .text-bg-primary {
+    background-color: var(--tac-green) !important;
+    color: #f4f0e2 !important;
+}
+
+html.theme-tactical .badge.text-bg-light {
+    background-color: var(--tac-raised) !important;
+    color: var(--tac-fde) !important;
+}
+
+/* ---------------------------------------------------------------- status bar (every page) */
+html.theme-tactical .drill-status-bar {
+    border-bottom: 3px solid var(--tac-coyote);
+    font-family: 'Barlow Condensed', system-ui, sans-serif;
+}
+
+html.theme-tactical .drill-status-bar.bg-primary {
+    background-color: var(--tac-ranger) !important;
+}
+
+html.theme-tactical .drill-status-bar.bg-dark {
+    background-color: #0f110d !important;
+}
+
+html.theme-tactical .drill-status-bar.bg-danger {
+    background-color: #8a2a21 !important;
+}
+
+html.theme-tactical .drill-status-bar.bg-warning {
+    background-color: var(--tac-coyote) !important;
+    color: #171914 !important;
+}
+
+html.theme-tactical .drill-status-state {
+    letter-spacing: 0.08em;
+}
+
+html.theme-tactical .menu-toggle {
+    --bs-btn-color: var(--tac-fde);
+    --bs-btn-border-color: var(--tac-coyote);
+    --bs-btn-hover-bg: var(--tac-raised);
+    --bs-btn-hover-color: var(--tac-fde);
+    --bs-btn-hover-border-color: var(--tac-fde);
+}
+
+html.theme-tactical .faq-help-button {
+    --bs-btn-bg: var(--tac-coyote);
+    --bs-btn-border-color: var(--tac-coyote);
+    --bs-btn-color: #171914;
+    --bs-btn-hover-bg: var(--tac-fde);
+    --bs-btn-hover-border-color: var(--tac-fde);
+    --bs-btn-hover-color: #171914;
+}
+
+html.theme-tactical .faq-group-title {
+    color: var(--tac-fde);
+}
+
+html.theme-tactical .faq-item {
+    border-color: var(--tac-border);
+}
+
+html.theme-tactical .faq-item summary {
+    color: var(--tac-text);
+}
+
+html.theme-tactical .faq-item p {
+    color: var(--tac-muted);
+}
+
+/* ---------------------------------------------------------------- Range Control (targets.html) */
+html.theme-tactical .control-bar {
+    border-color: var(--tac-border);
+    background: var(--tac-border);
+}
+
+html.theme-tactical .control-section {
+    background: var(--tac-surface);
+}
+
+html.theme-tactical .control-section-title,
+html.theme-tactical .part-chips-label,
+html.theme-tactical .drill-description-summary {
+    color: var(--tac-fde);
+}
+
+html.theme-tactical .control-hint,
+html.theme-tactical .start-delay-note,
+html.theme-tactical .drill-target-summary,
+html.theme-tactical .target-number-filter-status {
+    color: var(--tac-muted);
+}
+
+html.theme-tactical .is-manual-mode .control-hint {
+    color: var(--tac-amber);
+}
+
+html.theme-tactical .drill-description {
+    border-left-color: var(--tac-coyote);
+    background: var(--tac-surface-2);
+}
+
+html.theme-tactical .drill-description-title,
+html.theme-tactical .drill-description-next {
+    color: var(--tac-fde);
+}
+
+html.theme-tactical .drill-description-text {
+    color: var(--tac-text);
+}
+
+html.theme-tactical .drill-description-line.is-next-part {
+    border-left-color: var(--tac-fde);
+    background: rgba(196, 168, 119, 0.14);
+}
+
+html.theme-tactical .drill-timer {
+    border: 1px solid var(--tac-border);
+    background: #0f110d;
+    color: var(--tac-text);
+}
+
+html.theme-tactical .drill-timer-value {
+    color: var(--tac-green-bright);
+}
+
+html.theme-tactical .drill-timer.is-paused {
+    border-color: #5a5236;
+    background: #2a2719;
+    color: var(--tac-fde);
+}
+
+html.theme-tactical .drill-timer.is-paused .drill-timer-value {
+    color: var(--tac-fde);
+}
+
+html.theme-tactical .start-countdown {
+    border-color: #6a5527;
+    background: #3a3018;
+    color: #e6c77f;
+}
+
+html.theme-tactical .stage-current:disabled {
+    color: var(--tac-text);
+}
+
+html.theme-tactical .part-chip.is-done {
+    color: #7c806a;
+}
+
+html.theme-tactical .drill-action-bar {
+    background: rgba(23, 25, 20, 0.96);
+    box-shadow: 0 -0.25rem 0.75rem rgba(0, 0, 0, 0.5);
+}
+
+/* slightly muted target images so they sit in the dark page; green = down, red = up stay clear */
+html.theme-tactical .target-face img {
+    filter: saturate(0.8) brightness(0.92);
+}
+
+html.theme-tactical .target-number {
+    border-color: var(--tac-ground);
+    background: #0f110d;
+    color: var(--tac-fde);
+}
+
+html.theme-tactical #targetGrid.is-list-view > [data-target-number] {
+    border-color: var(--tac-border);
+    background: var(--tac-surface);
+}
+
+html.theme-tactical #targetGrid.is-list-view > [data-target-number]::before {
+    background: var(--tac-raised);
+    color: var(--tac-fde);
+}
+
+html.theme-tactical #targetGrid.is-list-view > [data-target-number]:hover {
+    background: var(--tac-surface-2);
+}
+
+html.theme-tactical .target-option {
+    border-color: var(--tac-border);
+    background: #1d2018;
+}
+
+html.theme-tactical .target-option:has(input:checked) {
+    border-color: var(--tac-green-bright);
+    background: rgba(93, 109, 54, 0.3);
+}
+
+html.theme-tactical .stage-jump-row,
+html.theme-tactical .qualification-manage-list li,
+html.theme-tactical .officer-row,
+html.theme-tactical .drill-details > div {
+    border-color: var(--tac-border);
+}
+
+html.theme-tactical .connection-alert-poor {
+    background: #3a3018;
+    color: #e6c77f;
+}
+
+html.theme-tactical .connection-alert-none {
+    background: #3d1f1b;
+    color: #f0b0a6;
+}
+
+html.theme-tactical .connection-icon-poor b {
+    background: #3a3018;
+}
+
+/* ---------------------------------------------------------------- Drills page */
+html.theme-tactical .drill-ticket {
+    border-color: var(--tac-border);
+    border-top-color: var(--tac-coyote);
+    background-color: var(--tac-surface);
+    box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.35);
+}
+
+html.theme-tactical .drill-ticket-label,
+html.theme-tactical .drill-details dt {
+    color: var(--tac-fde);
+}
+
+html.theme-tactical .drill-details dd {
+    color: var(--tac-text);
+}
+
+html.theme-tactical .drill-ticket-description,
+html.theme-tactical .qualification-manage-meta,
+html.theme-tactical .officer-row-badge {
+    color: var(--tac-muted);
+}
+
+html.theme-tactical .drill-ticket .text-primary {
+    color: var(--tac-green-bright) !important;
+}
+
+html.theme-tactical .form-validation-message {
+    border-color: #6e3029;
+    border-left-color: var(--tac-red);
+    background: #3d1f1b;
+    color: #f0b0a6;
+}
+
+html.theme-tactical .delete-confirmation {
+    border-top-color: var(--tac-red);
+}
+
+html.theme-tactical .delete-confirmation .modal-title {
+    color: #f0b0a6;
+}
+
+/* Drill builder blocks: dark tints of each action color */
+html.theme-tactical .seq-palette-block--present,
+html.theme-tactical .seq-block--present { --seq-color: #a3c47a; --seq-tint: #26301d; }
+html.theme-tactical .seq-palette-block--delay,
+html.theme-tactical .seq-block--delay { --seq-color: #c9c5b2; --seq-tint: #2d2f28; }
+html.theme-tactical .seq-palette-block--hide,
+html.theme-tactical .seq-block--hide { --seq-color: #e3897e; --seq-tint: #35221f; }
+html.theme-tactical .seq-palette-block--yield,
+html.theme-tactical .seq-block--yield { --seq-color: #e0bd6e; --seq-tint: #352d19; }
+html.theme-tactical .seq-palette-block--drill,
+html.theme-tactical .seq-block--drill { --seq-color: #c4a877; --seq-tint: #2f2a20; }
+
+html.theme-tactical .sequence-list {
+    border-color: var(--tac-border-strong);
+}
+
+html.theme-tactical .seq-block {
+    border-color: var(--tac-border);
+    border-left-color: var(--seq-color);
+    background: var(--tac-surface);
+}
+
+html.theme-tactical .seq-block-tip {
+    color: #e0bd6e;
+}
+
+html.theme-tactical .seq-handle,
+html.theme-tactical .seq-step-number,
+html.theme-tactical .seq-block-note,
+html.theme-tactical .sequence-list:empty::before {
+    color: var(--tac-muted);
+}
+
+/* ---------------------------------------------------------------- Settings */
+html.theme-tactical .settings-card-chevron {
+    color: var(--tac-fde);
+}
+
+html.theme-tactical .officer-list {
+    border-color: var(--tac-border);
+    background: #1d2018;
+}
+
+/* ---------------------------------------------------------------- Performance */
+html.theme-tactical .performance-page {
+    --performance-ink: var(--tac-text);
+    --performance-muted: var(--tac-muted);
+    --performance-line: var(--tac-border);
+    --performance-paper: var(--tac-surface);
+    --performance-ground: transparent;
+    --performance-blue: var(--tac-green-bright);
+    --performance-red: #d0574a;
+    --performance-green: var(--tac-green-bright);
+}
+
+html.theme-tactical .performance-table {
+    --bs-table-bg: transparent;
+    --bs-table-color: var(--tac-text);
+    --bs-table-border-color: var(--tac-border);
+}
+
+html.theme-tactical .performance-table thead th {
+    background: var(--tac-surface-2);
+    color: var(--tac-fde);
+}
+
+html.theme-tactical .metric-highlight {
+    border-top-color: var(--tac-coyote) !important;
+}
+
+html.theme-tactical .score-standing.is-developing {
+    background: #3a3018;
+    color: #e6c77f;
+}
+
+html.theme-tactical .filter-count {
+    background: var(--tac-coyote);
+    color: #171914;
+}
+
+html.theme-tactical .add-scores-dialog {
+    background: var(--tac-surface);
+    color: var(--tac-text);
+}
+
+/* Printing / PDF export always uses the normal light styles */
+@media print {
+    html.theme-tactical body {
+        background: #fff;
+        color: #000;
+    }
+}

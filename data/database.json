@@ -1,50 +1,595 @@
 {
   "qualifications": ["Pistol", "Rifle", "SWAT"],
   "Officers": [
-    { 
-      "Name": "Example",
-      "BadgeNum": 888,
+    {
+      "Name": "Scott Winfree",
+      "BadgeNum": 90001,
       "qualificationScores": {},
-      "pistolQualScores": [
-        [99, "2026-09-18"], 
-        [98, "2026-03-15"], 
-        [95, "2025-12-08"]
-      ],
-      "rifleQualScores": [
-        [99, "2026-09-18"], 
-        [98, "2026-03-15"], 
-        [95, "2025-12-08"]
-      ],
-      "swatQualScores": [
-        [99, "2026-09-18"], 
-        [98, "2026-03-15"], 
-        [95, "2025-12-08"]
-      ]
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
     },
-    { 
-      "Name": "Example2",
-      "BadgeNum": 889,
+    {
+      "Name": "Darrin Stout",
+      "BadgeNum": 90002,
       "qualificationScores": {},
-      "pistolQualScores": [
-        [99, "2026-09-18"], 
-        [98, "2026-03-15"], 
-        [95, "2025-12-08"]
-      ],
-      "rifleQualScores": [
-        [99, "2026-09-18"], 
-        [98, "2026-03-15"], 
-        [95, "2025-12-08"]
-      ],
-      "swatQualScores": [
-        [99, "2026-09-18"], 
-        [98, "2026-03-15"], 
-        [95, "2025-12-08"]
-      ]
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Greg Young",
+      "BadgeNum": 90003,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Steven Brent Anderson",
+      "BadgeNum": 90004,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Brian S. Long",
+      "BadgeNum": 90005,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Anthony Leonard",
+      "BadgeNum": 90006,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Jeffery L. Glass",
+      "BadgeNum": 90007,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "James Harris",
+      "BadgeNum": 90008,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Ryan Acuff",
+      "BadgeNum": 90009,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Christopher M. Melton",
+      "BadgeNum": 90010,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Jamey A. McCurry",
+      "BadgeNum": 90011,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Michael C. Herrick",
+      "BadgeNum": 90012,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Cary Wesley Matheney",
+      "BadgeNum": 90013,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Marc deClaire",
+      "BadgeNum": 90014,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "James T. Lee III",
+      "BadgeNum": 90015,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Kenneth Barrett Frye",
+      "BadgeNum": 90016,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Anthony R. Nash",
+      "BadgeNum": 90017,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Heather L. Marshall",
+      "BadgeNum": 90018,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Colby Fox",
+      "BadgeNum": 90019,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Michael Caleb Arms",
+      "BadgeNum": 90020,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Ben Dukes",
+      "BadgeNum": 90021,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Logan Shrum",
+      "BadgeNum": 90022,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Andrew Gibbs",
+      "BadgeNum": 90023,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Charlotte Clayburn",
+      "BadgeNum": 90024,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Joseph Dowdy",
+      "BadgeNum": 90025,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Jacob J Byrd",
+      "BadgeNum": 90026,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Brandon L. Cooper",
+      "BadgeNum": 90027,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Thomas C. Smith",
+      "BadgeNum": 90028,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Joseph A. Williams",
+      "BadgeNum": 90029,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Michael D. McDonald",
+      "BadgeNum": 90030,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Zachary S. Gilpin",
+      "BadgeNum": 90031,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Alyssa J McHargue",
+      "BadgeNum": 90032,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "James C Cannon",
+      "BadgeNum": 90033,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Jacob Joseph Byer",
+      "BadgeNum": 90034,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Keith R. Snyder",
+      "BadgeNum": 90035,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "David H. Baker",
+      "BadgeNum": 90036,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Sierra A. O'Grady",
+      "BadgeNum": 90037,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Chantelle Nahmens",
+      "BadgeNum": 90038,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Cole Lewis",
+      "BadgeNum": 90039,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Owen Tolbert",
+      "BadgeNum": 90040,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Hayden L. Atkinson",
+      "BadgeNum": 90041,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Linnea D. Sparkman",
+      "BadgeNum": 90042,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Alannah G. Davis",
+      "BadgeNum": 90043,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Zachary Davidson",
+      "BadgeNum": 90044,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Katelyn Gramme",
+      "BadgeNum": 90045,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Nick Gramme",
+      "BadgeNum": 90046,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Blaine Riederich",
+      "BadgeNum": 90047,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "William Duncan",
+      "BadgeNum": 90048,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Tyler Pullins",
+      "BadgeNum": 90049,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Mariah Logg",
+      "BadgeNum": 90050,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Jacob Faw",
+      "BadgeNum": 90051,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Eduardo Gama",
+      "BadgeNum": 90052,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Tiffany Beaty",
+      "BadgeNum": 90053,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Lane Pebbles",
+      "BadgeNum": 90054,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Jacorrian Wrenn",
+      "BadgeNum": 90055,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Kiera D. Hill",
+      "BadgeNum": 90056,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Michael Allen",
+      "BadgeNum": 90057,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Joseph Gardiner",
+      "BadgeNum": 90058,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Jeremy Beard",
+      "BadgeNum": 90059,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Gary Davis",
+      "BadgeNum": 90060,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Nicholas Amoss",
+      "BadgeNum": 90061,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Austin West",
+      "BadgeNum": 90062,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Jeremiah Brown",
+      "BadgeNum": 90063,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Stephen Daniels",
+      "BadgeNum": 90064,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Brian Haworth",
+      "BadgeNum": 90065,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Alexandra Ragle",
+      "BadgeNum": 90066,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Matt Tyree",
+      "BadgeNum": 90067,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Connor Burnette",
+      "BadgeNum": 90068,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Nick Herrick",
+      "BadgeNum": 90069,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Mathew Rue",
+      "BadgeNum": 90070,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Christopher Kelleher",
+      "BadgeNum": 90071,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Nicolas Reineke",
+      "BadgeNum": 90072,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
+    },
+    {
+      "Name": "Carson Weber",
+      "BadgeNum": 90073,
+      "qualificationScores": {},
+      "pistolQualScores": [],
+      "rifleQualScores": [],
+      "swatQualScores": []
     }
   ],
 
   "drills": [
-    {"drillName": "Pistol Qual Stage 1", "builtIn": true, 
+    {"drillName": "Pistol Qual Stage 1", "builtIn": true, "qualifications": ["Pistol"],
+      "description": "Distance: 3-yard line (grassy area between the timber beams and the concrete)\nRounds/Time: 3 rounds in 4 seconds / SWAP TO SUPPORT HAND / 3 rounds in 4 seconds\nPart 1 (4 s): On command, the shooter draws and fires 3 rounds in the high thoracic cavity STRONG HAND ONLY. The shooter then slowly swaps the handgun to the support hand and stays in the low ready position.\nPart 2 (4 s): On command, the shooter fires 3 rounds in the high thoracic cavity from low ready SUPPORT HAND ONLY.\nUpon completing Stage 1, the shooter holsters.",
       "sequence": [
         {
           "step": 1,
@@ -61,7 +606,7 @@
         },
         {
           "step": 4,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 5,
@@ -78,7 +623,8 @@
         }
       ] 
     },  
-    { "drillName": "Pistol Qual Stage 2", "builtIn": true,
+    { "drillName": "Pistol Qual Stage 2", "builtIn": true, "qualifications": ["Pistol"],
+      "description": "Distance: 5-yard line (back edge of the first concrete pad)\nRounds/Time: 3 rounds in 3 seconds / ADMIN RELOAD / 3 rounds in 5 seconds / 6 rounds in 4 seconds\nPart 1 (3 s): On command, the shooter draws and fires 3 rounds in the high thoracic cavity, then administratively reloads the handgun and slowly holsters.\nPart 2 (5 s): On command, the shooter draws and fires 2 rounds to the high thoracic cavity and 1 round to the head FAILURE DRILL. Upon completion the shooter stays in the low ready position.\nPart 3 (4 s): On command, the shooter fires 6 rounds in the high thoracic cavity from low ready.\nUpon completing Stage 2, the shooter holsters.",
       "sequence": [
         {
           "step": 1,
@@ -95,7 +641,7 @@
         },
         {
           "step": 4,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 5,
@@ -112,7 +658,7 @@
         },
         {
           "step": 8,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 9,
@@ -129,7 +675,8 @@
         }
       ]
     },
-    { "drillName": "Pistol Qual Stage 3", "builtIn": true,
+    { "drillName": "Pistol Qual Stage 3", "builtIn": true, "qualifications": ["Pistol"],
+      "description": "Distance: 7-yard line (back edge of second concrete pad)\nRounds/Time: 5 rounds in 5 seconds / 8 rounds in 8 seconds with reload / 5 rounds in 4 seconds\nPart 1 (5 s): On command, the shooter draws and fires 5 rounds in the high thoracic cavity. Upon completion the shooter stays in the low ready position.\nPart 2 (8 s): On command, the shooter fires 8 rounds in the high thoracic cavity from low ready, to include a reload. Upon completion the shooter stays in the low ready position.\nPart 3 (4 s): On command, the shooter fires 5 rounds in the high thoracic cavity from low ready.\nUpon completing Stage 3, the shooter holsters.",
       "sequence": [
         {
           "step": 1,
@@ -146,7 +693,7 @@
         },
         {
           "step": 4,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 5,
@@ -163,7 +710,7 @@
         },
         {
           "step": 8,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 9,
@@ -180,7 +727,8 @@
         }
       ]
     },
-    { "drillName": "Pistol Qual Stage 4", "builtIn": true,
+    { "drillName": "Pistol Qual Stage 4", "builtIn": true, "qualifications": ["Pistol"],
+      "description": "Distance: 15-yard line (back edge of third concrete pad)\nRounds/Time: 3 rounds in 6 seconds / 3 rounds in 5 seconds\nPart 1 (6 s): On command, the shooter draws and fires 3 rounds in the high thoracic cavity. Upon completion the shooter stays in the low ready position.\nPart 2 (5 s): On command, the shooter fires 3 rounds in the high thoracic cavity from low ready.\nUpon completion of Stage 4, the shooter holsters.",
       "sequence":[
         {
           "step": 1,
@@ -197,7 +745,7 @@
         },
         {
           "step": 4,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 5,
@@ -214,7 +762,8 @@
         }
       ]
     },
-    {"drillName": "Pistol Qual Stage 5", "builtIn": true,
+    {"drillName": "Pistol Qual Stage 5", "builtIn": true, "qualifications": ["Pistol"],
+      "description": "Distance: 25-yard line (back edge of the fourth concrete pad)\nRounds/Time: 8 rounds in 20 seconds\nOn command, the shooter draws and fires 4 rounds standing and 4 rounds kneeling in the high thoracic cavity in 20 seconds.\nUpon completing Stage 5, the shooter performs a safety check, administratively unloads the weapon, and holsters an empty weapon.",
       "sequence":[
         {
           "step": 1,
@@ -231,7 +780,8 @@
         }
       ]
     },
-    { "drillName": "Pistol Qual Full Drill", "builtIn": true,
+    { "drillName": "Pistol Qual Full Drill", "builtIn": true, "qualifications": ["Pistol"],
+      "description": "Ammunition: 50 rounds\nTarget: ANT4-CPD-P 23\"x35\"\nQualifying score: 75\n2 points for hits in the high thoracic cavity box or head circle\n1 point for hits in the body outside of the designated target area (HTC or head)\nAUTOMATIC DQ FOR TOTAL BODY MISS",
       "sequence":[
         {
           "step": 1,
@@ -239,7 +789,7 @@
         },
         {
           "step": 2,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 3,
@@ -247,7 +797,7 @@
         },
         {
           "step": 4,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 5,
@@ -255,7 +805,7 @@
         },
         {
           "step": 6,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 7,
@@ -263,7 +813,7 @@
         },
         {
           "step": 8,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 9,
@@ -272,7 +822,8 @@
       ]
     },
 
-    { "drillName": "Rifle Qual Stage 1", "builtIn": true,
+    { "drillName": "Rifle Qual Stage 1", "builtIn": true, "qualifications": ["Rifle"],
+      "description": "Distance: 50-yard line\nRounds/Time: 20 rounds in 60 seconds\nStart at the High Ready Position with a loaded weapon, selector lever on safe.\nOn command, fire 4 rounds standing, 4 rounds kneeling, 4 rounds prone, 4 rounds kneeling, and 4 rounds standing in 60 seconds. All rounds are to the high thoracic cavity target area. The selector lever must be placed on safe prior to moving to and from the prone position. Upon completion, place the selector lever on safe, sling the weapon muzzle down and maintain positive control of the weapon and selector lever.",
       "sequence":[
         {
           "step": 1,
@@ -289,7 +840,8 @@
         }
       ]
     },
-    { "drillName": "Rifle Qual Stage 2", "builtIn": true,
+    { "drillName": "Rifle Qual Stage 2", "builtIn": true, "qualifications": ["Rifle"],
+      "description": "Distance: 25-yard line\nRounds/Time: 10 rounds in 15 seconds (5 rounds RELOAD 5 rounds)\nStart at the High Ready or Low Ready Position with the selector lever on safe.\nOn command, fire 10 rounds standing with a reload in 15 seconds. All rounds are to the high thoracic cavity target area.\nUpon completion, place the selector lever on safe, sling the weapon muzzle down and maintain positive control of the weapon and selector lever.",
       "sequence":[
         {
           "step": 1,
@@ -306,7 +858,8 @@
         }
       ]
     },
-    { "drillName": "Rifle Qual Stage 3", "builtIn": true,
+    { "drillName": "Rifle Qual Stage 3", "builtIn": true, "qualifications": ["Rifle"],
+      "description": "Distance: 15-yard line\nRounds/Time: 5 rounds in 6 seconds\nStart at the High Ready or Low Ready Position with the selector lever on safe.\nOn command, fire 5 rounds standing in 6 seconds. All rounds are to the high thoracic cavity target area.\nUpon completion, place the selector lever on safe, sling the weapon muzzle down and maintain positive control of the weapon and selector lever.",
       "sequence": [
         {
           "step": 1,
@@ -323,7 +876,8 @@
         }
       ]
     },
-    { "drillName": "Rifle Qual Stage 4", "builtIn": true,
+    { "drillName": "Rifle Qual Stage 4", "builtIn": true, "qualifications": ["Rifle"],
+      "description": "Distance: 7-yard line\nRounds/Time: 5 rounds in 4 seconds / 5 rounds in 3 seconds\nStart at the High Ready Position with the selector lever on safe.\nPart 1 (4 s): On command, fire 5 rounds standing. All rounds are to the high thoracic cavity target area. Upon completion, place the selector lever on safe, sling the weapon muzzle down and maintain positive control of the weapon and selector lever. Go back to the Low Ready Position.\nPart 2 (3 s): On command, fire 5 rounds standing. All rounds are to the high thoracic cavity target area.\nUpon completion, place the selector lever on safe, sling the weapon muzzle down and maintain positive control of the weapon and selector lever.",
       "sequence":[
         {
           "step": 1,
@@ -340,7 +894,7 @@
         },
         {
           "step": 4,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 5,
@@ -357,7 +911,8 @@
         }
       ]
     },
-    { "drillName": "Rifle Qual Stage 5", "builtIn": true,
+    { "drillName": "Rifle Qual Stage 5", "builtIn": true, "qualifications": ["Rifle"],
+      "description": "Distance: 5-yard line\nRounds/Time: 5 rounds in 3 seconds\nStart at the Low Ready Position with the selector lever on safe.\nOn command, fire 5 rounds standing in 3 seconds. All rounds are to the high thoracic cavity target area.\nUpon completion, perform a safety check and sling the weapon safe and empty.",
       "sequence":[
         {
           "step": 1,
@@ -374,7 +929,8 @@
         }
       ]
     },
-    { "drillName": "Rifle Qual Full Drill", "builtIn": true,
+    { "drillName": "Rifle Qual Full Drill", "builtIn": true, "qualifications": ["Rifle"],
+      "description": "Ammunition: 50 rounds (2 25-round magazines)\nTarget: ANT4-CPD-P 23\"x35\"\nQualifying score: 75\n2 points for hits in the high thoracic cavity box or head circle\n1 point for hits in the body outside of the designated target area (HTC or head)\nAUTOMATIC DQ FOR TOTAL BODY MISS",
       "sequence":[
         {
           "step": 1,
@@ -382,7 +938,7 @@
         },
         {
           "step": 2,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 3,
@@ -390,7 +946,7 @@
         },
         {
           "step": 4,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 5,
@@ -398,7 +954,7 @@
         },
         {
           "step": 6,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 7,
@@ -406,7 +962,7 @@
         },
         {
           "step": 8,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 9,
@@ -415,7 +971,8 @@
       ]
     },
 
-    { "drillName": "SWAT Qual Stage 1", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 1", "builtIn": true, "qualifications": ["SWAT"],
+      "description": "Distance: 50-yard line\nRounds/Time: 4 rounds in 10 seconds rifle\nOn command, 2 rounds standing, 2 rounds kneeling HTC",
       "sequence": [
         {
           "step": 1,
@@ -432,7 +989,8 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 2", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 2", "builtIn": true, "qualifications": ["SWAT"],
+      "description": "Movement: Run from 50yd to 25yd\nRounds/Time: 4 rounds in 12 seconds rifle\nOn command, 2 rounds standing, 2 rounds kneeling HTC",
       "sequence": [
         {
           "step": 1,
@@ -449,7 +1007,8 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 3", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 3", "builtIn": true, "qualifications": ["SWAT"],
+      "description": "Distance: 25-yard line (Barricade)\nRounds/Time: 4 rounds in 12 seconds rifle\nOn command, 2 rounds left side standing, reload, 2 rounds right side standing HTC",
       "sequence": [
         {
           "step": 1,
@@ -466,7 +1025,8 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 4", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 4", "builtIn": true, "qualifications": ["SWAT"],
+      "description": "Movement: Run from 25yd to 15yd\nRounds/Time: 2 rounds in 6 seconds rifle\nOn command, 2 rounds standing HTC",
       "sequence": [
         {
           "step": 1,
@@ -483,7 +1043,8 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 5", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 5", "builtIn": true, "qualifications": ["SWAT"],
+      "description": "Distance: 15-yard line\nRounds/Time: 2 rounds in 3 seconds rifle\nOn command, right side 90-degree pivot, 2 rounds standing HTC",
       "sequence": [
         {
           "step": 1,
@@ -500,7 +1061,8 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 6", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 6", "builtIn": true, "qualifications": ["SWAT"],
+      "description": "Distance: 15-yard line\nRounds/Time: 2 rounds in 3 seconds rifle\nOn command, left side 90-degree pivot, 2 rounds standing HTC",
       "sequence": [
         {
           "step": 1,
@@ -517,7 +1079,8 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 7", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 7", "builtIn": true, "qualifications": ["SWAT"],
+      "description": "Movement: Run from 15yd to 7yd\nRounds/Time: 4 rounds in 8 seconds\nOn command, 2 rounds rifle, transition to pistol, 2 rounds HTC (admin reload rifle)",
       "sequence": [
         {
           "step": 1,
@@ -534,7 +1097,8 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 8", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 8", "builtIn": true, "qualifications": ["SWAT"],
+      "description": "Distance: 7-yard line\nRounds/Time: 4 rounds in 2 seconds rifle\nOn command, 4 rounds standing HTC",
       "sequence":[
         {
           "step": 1,
@@ -551,7 +1115,8 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 9", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 9", "builtIn": true, "qualifications": ["SWAT"],
+      "description": "Movement: Walk 7yd to 4yd\nRounds/Time: 2 rounds in 3 seconds rifle\nOn command, 2 rounds HTC",
       "sequence":[
         {
           "step": 1,
@@ -568,7 +1133,8 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 10", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 10", "builtIn": true, "qualifications": ["SWAT"],
+      "description": "Movement: Walk backwards 4yd to 7yd\nRounds/Time: 2 rounds in 2 seconds rifle\nOn command, 2 rounds HTC",
       "sequence":[
         {
           "step": 1,
@@ -585,7 +1151,8 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 11", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 11", "builtIn": true, "qualifications": ["SWAT"],
+      "description": "Distance: 7-yard line\nRounds/Time: 4 rounds in 5 seconds\nOn command, 2 rounds rifle HTC, transition to pistol, 2 rounds HTC (close bolt on empty chamber)",
       "sequence":[
         {
           "step": 1,
@@ -602,7 +1169,8 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 12", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 12", "builtIn": true, "qualifications": ["SWAT"],
+      "description": "Distance: 7-yard line\nRounds/Time: 2 rounds in 4 seconds\nOn command, attempt rifle fire, transition to pistol, 2 rounds HTC strong hand only",
       "sequence":[
         {
           "step": 1,
@@ -619,7 +1187,8 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 13", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 13", "builtIn": true, "qualifications": ["SWAT"],
+      "description": "Distance: 7-yard line\nRounds/Time: 2 rounds in 3 seconds\nOn command, rifle slung, pistol support hand only from low ready, 2 rounds HTC",
       "sequence":[
         {
           "step": 1,
@@ -636,7 +1205,8 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 14", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 14", "builtIn": true, "qualifications": ["SWAT"],
+      "description": "Distance: 7-yard line\nRounds/Time: 4 rounds in 8 seconds\nOn command, attempt rifle fire, transition to pistol, 2 rounds HTC, reload, 2 rounds HTC",
       "sequence":[
         {
           "step": 1,
@@ -653,7 +1223,8 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 15", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 15", "builtIn": true, "qualifications": ["SWAT"],
+      "description": "Movement: Walk 7yd to 4yd\nRounds/Time: 2 rounds in 4 seconds\nOn command, attempt rifle fire, transition to pistol, 2 rounds HTC",
       "sequence":[
         {
           "step": 1,
@@ -670,7 +1241,8 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 16", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 16", "builtIn": true, "qualifications": ["SWAT"],
+      "description": "Distance: 4-yard line\nRounds/Time: 4 rounds in 5 seconds\nOn command, attempt rifle fire, transition to pistol, 4 rounds HTC",
       "sequence":[
         {
           "step": 1,
@@ -687,7 +1259,8 @@
         }
       ]
     },
-    { "drillName": "SWAT Qual Stage 17", "builtIn": true,
+    { "drillName": "SWAT Qual Stage 17", "builtIn": true, "qualifications": ["SWAT"],
+      "description": "Distance: 4-yard line\nRounds/Time: 2 rounds in 3 seconds\nOn command, attempt rifle fire, transition to pistol, 2 rounds head",
       "sequence":[
             {
               "step": 1,
@@ -705,7 +1278,8 @@
           ]
     },
     {
-      "drillName": "SWAT Qual Full Drill", "builtIn": true,
+      "drillName": "SWAT Qual Full Drill", "builtIn": true, "qualifications": ["SWAT"],
+      "description": "Full kit (belt, plate carrier, helmet)\nAmmunition: Pistol 2 magazines of 10 rounds / Rifle 3 magazines of 10 rounds\nTarget: ANT4-CPD-P 23\"x35\"\nQualifying score: 90\n2 points for hits in the high thoracic cavity box or head circle\n1 point for hits in the body but outside of the designated target area (HTC or head)\nAUTOMATIC DQ FOR TOTAL BODY MISS",
       "sequence":[
         {
           "step": 1,
@@ -713,7 +1287,7 @@
         },
         {
           "step": 2,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 3,
@@ -721,7 +1295,7 @@
         },
         {
           "step": 4,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 5,
@@ -729,7 +1303,7 @@
         },
         {
           "step": 6,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 7,
@@ -737,7 +1311,7 @@
         },
         {
           "step": 8,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 9,
@@ -745,7 +1319,7 @@
         },
         {
           "step": 10,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 11,
@@ -753,7 +1327,7 @@
         },
         {
           "step": 12,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 13,
@@ -761,7 +1335,7 @@
         },
         {
           "step": 14,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 15,
@@ -769,7 +1343,7 @@
         },
         {
           "step": 16,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 17,
@@ -777,7 +1351,7 @@
         },
         {
           "step": 18,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 19,
@@ -785,7 +1359,7 @@
         },
         {
           "step": 20,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 21,
@@ -793,7 +1367,7 @@
         },
         {
           "step": 22,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 23,
@@ -801,7 +1375,7 @@
         },
         {
           "step": 24,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 25,
@@ -809,7 +1383,7 @@
         },
         {
           "step": 26,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 27,
@@ -817,7 +1391,7 @@
         },
         {
           "step": 28,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 29,
@@ -825,7 +1399,7 @@
         },
         {
           "step": 30,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 31,
@@ -833,7 +1407,7 @@
         },
         {
           "step": 32,
-          "action": "pause"
+          "action": "yield"
         },
         {
           "step": 33,

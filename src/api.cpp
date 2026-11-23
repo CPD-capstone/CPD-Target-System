@@ -87,7 +87,28 @@ static void handleGetDrills(AsyncWebServerRequest* request) {
     sendJson(request, 200, out);
 }
 
-// POST /api/drills  {drillName, sequence}
+// AI-generated (Claude): longest drill description accepted, in bytes (UTF-8)
+static constexpr size_t DRILL_DESCRIPTION_MAX = 2000;
+
+/// @brief AI-generated (Claude): reads the optional "description" of a drill body.
+/// @param out set to the text, or nullptr when the field is missing
+/// @return false (after sending a 400) if the field is not a string or is too long
+static bool readDrillDescription(AsyncWebServerRequest* request, JsonVariant& json, const char*& out) {
+    out = nullptr;
+    if (json["description"].isNull()) return true;
+    if (!json["description"].is<const char*>()) {
+        sendError(request, 400, "description must be text");
+        return false;
+    }
+    out = json["description"].as<const char*>();
+    if (strlen(out) > DRILL_DESCRIPTION_MAX) {
+        sendError(request, 400, "description is too long (2000 characters at most)");
+        return false;
+    }
+    return true;
+}
+
+// POST /api/drills  {drillName, sequence, qualifications?, description?}
 static void handleAddDrill(AsyncWebServerRequest* request, JsonVariant& json) {
     const char* name = json["drillName"] | "";
     JsonArrayConst sequence = json["sequence"].as<JsonArrayConst>();
@@ -97,14 +118,17 @@ static void handleAddDrill(AsyncWebServerRequest* request, JsonVariant& json) {
     if (!json["qualifications"].isNull() && !json["qualifications"].is<JsonArray>()) {
         return sendError(request, 400, "qualifications must be an array");
     }
-    if (!addDrill(name, sequence, json["qualifications"].as<JsonArrayConst>())) {
+    const char* description;
+    if (!readDrillDescription(request, json, description)) return;
+    if (!addDrill(name, sequence, json["qualifications"].as<JsonArrayConst>(), description)) {
         return sendError(request, 400, "Drill rejected: name taken or invalid sequence");
     }
     sendOk(request);
 }
 
 // AI-modified (Claude): also renames the drill when the body has a new drillName
-// PUT /api/drills?name=<n>  {sequence?, drillName?}   (at least one; drillName renames the drill)
+// PUT /api/drills?name=<n>  {sequence?, drillName?, qualifications?, description?}
+//   (sequence or drillName required; drillName renames the drill; description needs sequence)
 static void handleEditDrill(AsyncWebServerRequest* request, JsonVariant& json) {
     String name;
     if (!getQueryString(request, "name", name)) return sendError(request, 400, "name is required");
@@ -116,6 +140,11 @@ static void handleEditDrill(AsyncWebServerRequest* request, JsonVariant& json) {
     }
     if (!json["qualifications"].isNull() && sequence.isNull()) {
         return sendError(request, 400, "sequence is required when assigning qualifications");
+    }
+    const char* description;
+    if (!readDrillDescription(request, json, description)) return;
+    if (description && sequence.isNull()) {
+        return sendError(request, 400, "sequence is required when changing the description");
     }
     if (sequence.isNull() && newNameField.isNull()) {
         return sendError(request, 400, "sequence or drillName is required");
@@ -133,7 +162,7 @@ static void handleEditDrill(AsyncWebServerRequest* request, JsonVariant& json) {
     if (renaming) {
         if (newName.isEmpty()) return sendError(request, 400, "drillName cannot be empty");
         if (isReservedDrillName(newName.c_str())) {
-            return sendError(request, 400, "drillName cannot be present, hide, pause or delay");
+            return sendError(request, 400, "drillName cannot be present, hide, yield, pause or delay");
         }
         if (getDrill(newName.c_str(), existing)) {
             return sendError(request, 409, "A drill with that name already exists");
@@ -142,7 +171,7 @@ static void handleEditDrill(AsyncWebServerRequest* request, JsonVariant& json) {
 
     // The sequence is saved under the old name, then the rename updates it and every Full Drill
     // that includes it
-    if (!sequence.isNull() && !editDrill(name.c_str(), sequence, json["qualifications"].as<JsonArrayConst>())) {
+    if (!sequence.isNull() && !editDrill(name.c_str(), sequence, json["qualifications"].as<JsonArrayConst>(), description)) {
         return sendError(request, 400, "Edit rejected: invalid sequence");
     }
     if (renaming && !renameDrill(name.c_str(), newName.c_str())) {
@@ -259,16 +288,34 @@ static void handleAddQualScore(AsyncWebServerRequest* request, JsonVariant& json
     sendOk(request);
 }
 
-// AI-generated (Claude): PUT /api/officers?badge=<n>  {Name}   renames an officer (editOfficer)
+// AI-generated (Claude): PUT /api/officers?badge=<n>  {Name?, BadgeNum?}   renames an officer and/or
+// changes their badge number (editOfficer); at least one field is required
 static void handleEditOfficer(AsyncWebServerRequest* request, JsonVariant& json) {
     int badge;
     if (!getQueryInt(request, "badge", badge)) return sendError(request, 400, "Badge is required");
-    String name;
-    if (const char* error = checkOfficerName(json["Name"] | "", name)) { // AI-modified (Claude)
-        return sendError(request, 400, error);
+    if (json["Name"].isNull() && json["BadgeNum"].isNull()) {
+        return sendError(request, 400, "Name or BadgeNum is required");
     }
-    if (!editOfficer(badge, name.c_str())) return sendError(request, 404, "Officer not found");
-    sendOk(request);
+    String name;
+    if (!json["Name"].isNull()) {
+        if (const char* error = checkOfficerName(json["Name"] | "", name)) { // AI-modified (Claude)
+            return sendError(request, 400, error);
+        }
+    }
+    int newBadge = 0;
+    if (!json["BadgeNum"].isNull()) {
+        if (!json["BadgeNum"].is<int>() || json["BadgeNum"].as<int>() <= 0) {
+            return sendError(request, 400, "BadgeNum must be a positive whole number");
+        }
+        newBadge = json["BadgeNum"].as<int>();
+    }
+    switch (editOfficer(badge, json["Name"].isNull() ? nullptr : name.c_str(), newBadge)) {
+        case OfficerEditResult::Saved:      return sendOk(request);
+        case OfficerEditResult::NotFound:   return sendError(request, 404, "Officer not found");
+        case OfficerEditResult::BadgeTaken: return sendError(request, 409, "Another officer already has that badge number");
+        case OfficerEditResult::SaveFailed: break;
+    }
+    sendError(request, 500, "Could not save the change");
 }
 
 // DELETE /api/officers?badge=<n>
@@ -365,12 +412,36 @@ static void handleResumeDrill(AsyncWebServerRequest* request) {
 
 // POST /api/drill/reset-stage: rewind the stage and wait for Resume (AI-assisted with Codex).
 // Acceptance is asynchronous; status reports stageResetPending until the hide/rewind completes.
-static void handleResetStage(AsyncWebServerRequest* request) {
-    switch (resetDrillStage()) {
+// AI-modified (Claude): shared by reset-stage (Redo), previous-stage (Back) and next-stage (Skip)
+static void handleStageJump(AsyncWebServerRequest* request, StageJump jump) {
+    switch (jumpToStage(jump)) {
         case StageResetResult::Accepted:    return sendOk(request);
-        case StageResetResult::NotPaused:   return sendError(request, 409, "Pause the full drill before redoing a stage");
-        case StageResetResult::NoStage:     return sendError(request, 409, "No full-drill stage is available to redo");
-        case StageResetResult::Busy:        return sendError(request, 409, "A stage redo or Resume is already pending");
+        case StageResetResult::NotPaused:
+        case StageResetResult::NoDrill:     return sendError(request, 409, "No drill is running");
+        case StageResetResult::NoStage:
+            return sendError(request, 409, jump == StageJump::Previous ? "There is no earlier stage to go back to"
+                                         : jump == StageJump::Next ? "There is no later stage to skip to"
+                                         : "There is no stage to redo here");
+        case StageResetResult::Busy:        return sendError(request, 409, "A stage change or Resume is already pending");
+        case StageResetResult::Stopped:     return sendError(request, 409, "Targets are stopped; press Reset first");
+        case StageResetResult::HalNotReady: return sendError(request, 503, "Target hardware is not ready");
+    }
+    sendError(request, 500, "Unknown error");
+}
+
+static void handleResetStage(AsyncWebServerRequest* request) { handleStageJump(request, StageJump::Current); }
+
+// AI-generated (Claude): POST /api/drill/jump  {stage, part?}  (1-based; part defaults to 1)
+static void handleJumpToStagePart(AsyncWebServerRequest* request, JsonVariant& json) {
+    if (!json["stage"].is<int>() || (!json["part"].isNull() && !json["part"].is<int>())) {
+        return sendError(request, 400, "stage (and optional part) must be whole numbers");
+    }
+    switch (jumpToStagePart(json["stage"].as<int>(), json["part"] | 1)) {
+        case StageResetResult::Accepted:    return sendOk(request);
+        case StageResetResult::NotPaused:
+        case StageResetResult::NoDrill:     return sendError(request, 409, "No drill is running");
+        case StageResetResult::NoStage:     return sendError(request, 409, "That stage or part does not exist in this drill");
+        case StageResetResult::Busy:        return sendError(request, 409, "A stage change or Resume is already pending");
         case StageResetResult::Stopped:     return sendError(request, 409, "Targets are stopped; press Reset first");
         case StageResetResult::HalNotReady: return sendError(request, 503, "Target hardware is not ready");
     }
@@ -399,7 +470,8 @@ static void handleReset(AsyncWebServerRequest* request) {
 // GET /api/drill/status
 //   -> {state, drillName, step, stepCount, stepAction, targets: [n, ...], lastOutcome, stopped,
 //       hardwareReady, facing: [n, ...], delayMs, delayRemainingMs, stageName, stageIndex,
-//       betweenStages, canResetStage, stageResetPending, stageRestartReady, finalStageComplete}
+//       betweenStages, canResetStage, stageResetPending, stageRestartReady, finalStageComplete,
+//       stageCount, stagesAreParts, partIndex, partCount, canGoBack, canSkip}
 // While idle, drillName/stepCount/targets describe the last drill run (step is 0).
 // stopped = emergency stop is latched; only /api/reset moves targets until it is cleared.
 static void handleDrillStatus(AsyncWebServerRequest* request) {
@@ -427,6 +499,13 @@ static void handleDrillStatus(AsyncWebServerRequest* request) {
     doc["stageResetPending"] = status.stageResetPending;
     doc["stageRestartReady"] = status.stageRestartReady;
     doc["finalStageComplete"] = status.finalStageComplete;
+    // AI-generated (Claude): stage navigation (see DrillStatus)
+    doc["stageCount"] = status.stageCount;
+    doc["stagesAreParts"] = status.stagesAreParts;
+    doc["partIndex"] = status.partIndex;
+    doc["partCount"] = status.partCount;
+    doc["canGoBack"] = status.canGoBack && hal_isReady();
+    doc["canSkip"] = status.canSkip && hal_isReady();
 
     addSignal(doc, request);
     sendJson(request, 200, doc);
@@ -462,6 +541,26 @@ static void handleTargetState(AsyncWebServerRequest* request) {
 
 // WiFi -------------------------------------------------------------------------------------------
 
+// AI-generated (Claude): GET /api/settings/target-flip -> {faceTravelMs, maxMs, defaultMs}
+static void handleGetTargetFlip(AsyncWebServerRequest* request) {
+    JsonDocument doc;
+    doc["faceTravelMs"] = getFaceTravelMs();
+    doc["maxMs"] = FACE_TRAVEL_MAX_MS;
+    doc["defaultMs"] = TARGET_FACE_TRAVEL_MS;
+    sendJson(request, 200, doc);
+}
+
+// AI-generated (Claude): PUT /api/settings/target-flip  {faceTravelMs}   saved in NVS
+static void handleSetTargetFlip(AsyncWebServerRequest* request, JsonVariant& json) {
+    if (!json["faceTravelMs"].is<uint32_t>() || json["faceTravelMs"].as<uint32_t>() > FACE_TRAVEL_MAX_MS) {
+        return sendError(request, 400, "faceTravelMs must be a whole number from 0 to 5000");
+    }
+    if (!setFaceTravelMs(json["faceTravelMs"].as<uint32_t>())) {
+        return sendError(request, 500, "Could not save the target flip delay");
+    }
+    sendOk(request);
+}
+
 // AI-generated (Claude): POST /api/wifi/password  {currentPassword, newPassword}
 // Replies first; the access point restarts with the new password about a second later, so every
 // phone (including this one) has to rejoin with it.
@@ -488,9 +587,15 @@ void registerApiRoutes(AsyncWebServer& server) {
 
     // Drill control
     onJsonBody(server, "/api/drill/start", HTTP_POST, handleStartDrill);
+    onJsonBody(server, "/api/drill/jump", HTTP_POST, handleJumpToStagePart); // AI-generated (Claude)
     server.on("/api/drill/pause", HTTP_POST, handlePauseDrill);
     server.on("/api/drill/resume", HTTP_POST, handleResumeDrill);
     server.on("/api/drill/reset-stage", HTTP_POST, handleResetStage);
+    // AI-generated (Claude): Back / Skip a stage
+    server.on("/api/drill/previous-stage", HTTP_POST,
+              [](AsyncWebServerRequest* request) { handleStageJump(request, StageJump::Previous); });
+    server.on("/api/drill/next-stage", HTTP_POST,
+              [](AsyncWebServerRequest* request) { handleStageJump(request, StageJump::Next); });
     server.on("/api/drill/status", HTTP_GET, handleDrillStatus);
 
     // Manual target control (before /api/targets)
@@ -512,6 +617,22 @@ void registerApiRoutes(AsyncWebServer& server) {
         }
         sendOk(request);
     });
+    // AI-generated (Claude): DELETE /api/qualifications?name=<n>   (custom ones without scores)
+    server.on("/api/qualifications", HTTP_DELETE, [](AsyncWebServerRequest* request) {
+        String name;
+        if (!getQueryString(request, "name", name)) return sendError(request, 400, "name is required");
+        int scores = 0;
+        switch (deleteQualification(name.c_str(), scores)) {
+            case QualificationDeleteResult::Deleted:    return sendOk(request);
+            case QualificationDeleteResult::NotFound:   return sendError(request, 404, "Qualification not found");
+            case QualificationDeleteResult::BuiltIn:    return sendError(request, 409, "Pistol, Rifle and SWAT are built in and cannot be deleted");
+            case QualificationDeleteResult::HasScores:
+                return sendError(request, 409, (String(scores) + (scores == 1 ? " score is" : " scores are")
+                    + " recorded under " + name + ". It can only be deleted once it has no scores.").c_str());
+            case QualificationDeleteResult::SaveFailed: break;
+        }
+        sendError(request, 500, "Could not save the change");
+    });
     server.on("/api/drills", HTTP_GET, handleGetDrills);
     onJsonBody(server, "/api/drills", HTTP_POST, handleAddDrill);
     onJsonBody(server, "/api/drills", HTTP_PUT, handleEditDrill);
@@ -530,6 +651,10 @@ void registerApiRoutes(AsyncWebServer& server) {
 
     // WiFi (AI-generated, Claude)
     onJsonBody(server, "/api/wifi/password", HTTP_POST, handleChangeWiFiPassword);
+
+    // Target flip delay (AI-generated, Claude)
+    server.on("/api/settings/target-flip", HTTP_GET, handleGetTargetFlip);
+    onJsonBody(server, "/api/settings/target-flip", HTTP_PUT, handleSetTargetFlip);
 
     // Anything else under /api gets a JSON 404 instead of falling through to onNotFound (which
     // serves targets.html). This also catches JSON routes called without the JSON Content-Type.

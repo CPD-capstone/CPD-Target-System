@@ -10,10 +10,12 @@
 // Step actions:  "present" -> selected targets face the shooter
 //                "hide"    -> selected targets turn away
 //                "delay"   -> wait timeMs
-//                "pause"   -> hold until resumeDrill() (operator continues the drill)
+//                "yield"   -> hold until resumeDrill() (hands control back to the operator, who
+//                             continues the drill). AI-modified (Claude): was "pause", which is
+//                             still accepted for drills saved before the rename.
 //                <drill name> -> run that drill's steps in place
 // A delay after "present" starts once every selected target is fully facing the shooter
-// (solenoid fired + TARGET_FACE_TRAVEL_MS in hal.h). Timing is accurate to ~10 ms (HAL loop
+// (solenoid fired + the target flip delay: getFaceTravelMs(), default TARGET_FACE_TRAVEL_MS in hal.h). Timing is accurate to ~10 ms (HAL loop
 // period). The HAL enforces a 500 ms per-target cooldown (MECHANICAL_BUFFER), so a target
 // flipped again sooner than that is held until its cooldown expires.
 //
@@ -28,7 +30,7 @@
 enum class DrillState : uint8_t {
     Idle,     // no drill running
     Running,  // executing steps
-    Paused    // waiting for resumeDrill(), at a "pause" step or after pauseDrill()
+    Paused    // waiting for resumeDrill(), at a "yield" step or after pauseDrill()
 };
 
 // AI-assisted (Claude): result/status types so the web API can tell the operator *why*
@@ -67,7 +69,17 @@ enum class TargetCommandResult : uint8_t {
 };
 
 // Results for stage reset requests (AI-assisted with Codex).
-enum class StageResetResult : uint8_t { Accepted, NotPaused, NoStage, Busy, Stopped, HalNotReady };
+// AI-modified (Claude): also returned by jumpToStage(); NoDrill = no drill is running or paused.
+enum class StageResetResult : uint8_t { Accepted, NotPaused, NoStage, Busy, Stopped, HalNotReady, NoDrill };
+
+/// AI-generated (Claude): where jumpToStage() moves a running or paused drill.
+///   Current  = restart the stage being run (between stages: the stage just completed)
+///   Previous = the stage before that
+///   Next     = the stage after the one being run (between stages: skip the upcoming one)
+/// "Stages" are a full drill's stages; a drill without stages is split into parts at its
+/// pause steps, and those parts are used instead (see DrillStatus::stagesAreParts).
+/// A given stage and part is reached with jumpToStagePart() instead.
+enum class StageJump : uint8_t { Current, Previous, Next };
 
 /// longest drill name kept for status display (longer names are truncated)
 constexpr size_t DRILL_NAME_MAX = 48;
@@ -79,7 +91,7 @@ struct DrillStatus {
     char drillName[DRILL_NAME_MAX];
     uint16_t step;            // 1-based step being run (nested drills already inlined); 0 when idle
     uint16_t stepCount;       // total steps in the drill
-    const char* stepAction;   // "present" / "hide" / "delay" / "pause"; "" when idle
+    const char* stepAction;   // "present" / "hide" / "delay" / "yield"; "" when idle
     uint32_t targetMask;      // targets the drill uses, after excluding non-working ones
     DrillOutcome lastOutcome; // how the most recent drill ended
     bool stopped;             // emergency stop is latched (cleared by resetTargets())
@@ -97,6 +109,14 @@ struct DrillStatus {
     // AI-generated (Claude): a full drill's last stage has finished and the controller is holding
     // (targets hidden) so it can be redone. Reset stage replays it; Resume ends the drill.
     bool finalStageComplete;
+    // AI-generated (Claude): stage navigation for the web UI.
+    uint16_t stageCount;      // stages (or parts, see stagesAreParts) in the drill; 0 when idle
+    bool stagesAreParts;      // the drill has no stages, so stageName/stageIndex/stageCount are its parts
+    uint16_t partIndex;       // 1-based part within the current stage (parts are split at pause
+                              // steps); at a pause inside the stage, the part just completed. 0 if none
+    uint16_t partCount;       // parts in the current stage (1 = no pauses); 0 if none
+    bool canGoBack;           // jumpToStage(Previous) would be accepted now
+    bool canSkip;             // jumpToStage(Next) would be accepted now
 };
 
 /// @brief This function executes the drill that is passed into its arg by finding it in the json drills list and converting it to the FreeRTOS cmd queue
@@ -113,7 +133,7 @@ DrillStartResult executeDrill(const String& drillName, uint32_t targetMask = 0);
 /// @return true if a running drill was told to pause, false if no drill is running (or already paused)
 bool pauseDrill();
 
-/// @brief continues a paused drill, whether it was paused by a "pause" step or by pauseDrill().
+/// @brief continues a paused drill, whether it stopped at a "yield" step or was paused by pauseDrill().
 ///        A delay that was interrupted continues with the time it had left.
 /// @return true if Resume was accepted; false if not paused, stopped, or reset/Resume is pending
 bool resumeDrill();
@@ -121,8 +141,27 @@ bool resumeDrill();
 /// @brief Hide targets and rewind the paused full drill's current/completed stage (AI-assisted with Codex).
 ///        Remains paused until Resume. AI-modified (Claude): this includes the last stage, since a
 ///        full drill holds paused after it (see DrillStatus::finalStageComplete).
+///        AI-modified (Claude): same as jumpToStage(StageJump::Current), so it also works while
+///        the drill is running.
 /// @return Accepted if queued/already rewound; otherwise why reset is unavailable
 StageResetResult resetDrillStage();
+
+/// @brief AI-generated (Claude): moves a running or paused drill to another stage (or part). The
+///        runner hides the drill's targets, waits out the mechanical buffer, moves to the first step
+///        of that stage and pauses there (stageRestartReady) until resumeDrill().
+/// @param jump which stage to move to, relative to the current one (see StageJump)
+/// @return Accepted if the move was queued; NoStage if there is no such stage (or the drill is not
+///         in one); NoDrill, Busy, Stopped or HalNotReady otherwise
+StageResetResult jumpToStage(StageJump jump);
+
+/// @brief AI-generated (Claude): like jumpToStage(), but to a given stage and part instead of one
+///        relative to the current stage (the web UI's "jump to any stage" list and part chips).
+/// @param stage 1-based stage (or part, for a drill without stages; see DrillStatus::stagesAreParts)
+/// @param part 1-based part of that stage, split at its pause steps (1 = the stage's start; only 1
+///        is valid when stagesAreParts)
+/// @return Accepted if the move was queued; NoStage if there is no such stage or part; NoDrill, Busy,
+///         Stopped or HalNotReady otherwise
+StageResetResult jumpToStagePart(int stage, int part);
 
 /// @brief EMERGENCY STOP. Freezes every target where it is (see hal_hold()), ends any running
 ///        drill WITHOUT hiding its targets, and latches: drills and manual moves are refused until
@@ -142,6 +181,26 @@ DrillState getDrillState();
 
 /// @brief full snapshot of the drill runner (name, progress, last outcome, stop latch), for status display
 DrillStatus getDrillStatus();
+
+// AI-generated (Claude): target flip delay (Settings page) --------------------------------------------
+
+/// longest target flip delay accepted, in ms
+constexpr uint32_t FACE_TRAVEL_MAX_MS = 5000;
+
+/// @brief loads the saved target flip delay from NVS (namespace "drill_config", key "face_ms");
+///        TARGET_FACE_TRAVEL_MS (hal.h) if none is saved. Call once in setup().
+void loadDrillSettings();
+
+/// @brief the target flip delay in use: how long after a present step's targets have fired the
+///        runner waits for them to turn fully flat before the next delay starts counting
+/// @return milliseconds
+uint32_t getFaceTravelMs();
+
+/// @brief changes the target flip delay and saves it in NVS (it survives reboots and uploadfs).
+///        Takes effect at the next present step, including in a drill that is running.
+/// @param ms 0 to FACE_TRAVEL_MAX_MS
+/// @return false if out of range or it could not be saved (the old value stays in use)
+bool setFaceTravelMs(uint32_t ms);
 
 /// @brief manually presents or hides targets outside a drill. Refused while a drill is running
 ///        so it can't fight the runner, and while the emergency stop is latched.

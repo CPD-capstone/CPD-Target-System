@@ -48,7 +48,27 @@ export async function createControllerTest() {
         .filter((target) => target.working !== false && (!requested?.length || requested.includes(target.id)))
         .map((target) => target.id);
     const stage = () => run.stages.filter((item) => item.first <= run.index
-        && (run.index < item.end || run.steps[run.index]?.action === 'pause')).pop();
+        && (run.index < item.end || run.steps[run.index]?.action === 'yield')).pop();
+    // AI-generated (Claude): mirrors stageJumpTarget() and the part counts in target_manager.cpp.
+    // AI-modified (Claude): returns the step index to jump to
+    const jumpTarget = (jump) => {
+        const current = stage();
+        if (!current) return -1;
+        const index = run.stages.indexOf(current);
+        const target = jump === 'current' ? index : jump === 'previous' ? index - 1
+            : index + (run.index >= current.end ? 2 : 1);
+        return target >= 0 && target < run.stages.length ? run.stages[target].first : -1;
+    };
+    const partsOf = (current) => {
+        if (!current || run.stagesAreParts) return { partIndex: 0, partCount: 0 };
+        let before = 0, total = 0;
+        for (let index = current.first; index < current.end; index++) {
+            if (run.steps[index].action !== 'yield') continue;
+            total++;
+            if (index < run.index) before++;
+        }
+        return { partIndex: before + 1, partCount: total + 1 };
+    };
     const move = (targets, present) => {
         status.facing = [...new Set([...status.facing.filter((id) => !targets.includes(id)), ...(present ? targets : [])])];
     };
@@ -65,7 +85,7 @@ export async function createControllerTest() {
         run.at = now;
         if (status.stageResetPending && now >= run.resetUntil) {
             move(status.targets, false);
-            run.index = stage().first;
+            run.index = run.jumpTo;
             run.remaining = null;
             status.stageResetPending = false;
             status.stageRestartReady = true;
@@ -83,7 +103,7 @@ export async function createControllerTest() {
                 if (run.remaining > 0) break;
                 elapsed = -run.remaining;
                 run.remaining = null;
-            } else if (step.action === 'pause') {
+            } else if (step.action === 'yield') {
                 status.state = 'paused';
                 break;
             } else {
@@ -107,10 +127,11 @@ export async function createControllerTest() {
         const drill = database.drills.find((item) => item.drillName === name);
         if (!drill?.sequence?.length) refuse('Drill not found or empty.');
         for (const step of drill.sequence) {
-            if (['present', 'hide', 'pause', 'delay'].includes(step.action)) {
+            // AI-modified (Claude): "yield" (old name "pause", read as yield)
+            if (['present', 'hide', 'yield', 'pause', 'delay'].includes(step.action)) {
                 if (step.action === 'delay' && (!Number.isInteger(step.timeMs) || step.timeMs < 0)) refuse('Invalid delay.');
                 if (step.targets?.some((id) => !workingTargets().includes(id))) refuse('Drill contains a defective target.');
-                run.steps.push(step);
+                run.steps.push(step.action === 'pause' ? { ...step, action: 'yield' } : step);
             } else {
                 const first = run.steps.length;
                 expand(step.action, depth + 1);
@@ -120,21 +141,41 @@ export async function createControllerTest() {
     };
 
     // TEMPORARY TESTING BANNER AND NAVIGATION: KEEP THE BYPASS VISIBLE ON EVERY PAGE.
+    // AI-modified (Claude): a small pill fixed to the bottom-left corner instead of a full-width
+    // alert under the status bar, so the page looks as it will on the controller. Sits above the
+    // Stop bar when that is showing. (Its id is not controllerTestBanner on purpose: script.js
+    // would otherwise place the connection banner after it.)
+    const badgeStyle = document.createElement('style');
+    badgeStyle.textContent = `
+        .controller-test-badge { position: fixed; left: calc(0.75rem + env(safe-area-inset-left, 0px));
+            bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px)); z-index: 1042; display: flex;
+            align-items: center; gap: 0.5rem; padding: 0.3rem 0.65rem; border: 1px solid #e0b100;
+            border-radius: 2rem; background: #fff3cd; color: #664d03; font: 600 0.75rem/1.2 system-ui, sans-serif;
+            box-shadow: 0 0.15rem 0.5rem rgba(0, 0, 0, 0.15); opacity: 0.92; }
+        body.has-action-bar .controller-test-badge { bottom: calc(5.4rem + env(safe-area-inset-bottom, 0px)); }
+        .controller-test-badge button, .controller-test-badge a { padding: 0; border: 0; background: none;
+            color: #664d03; font: inherit; text-decoration: underline; }
+        @media print { .controller-test-badge { display: none; } }`;
+    document.head.append(badgeStyle);
     const banner = document.createElement('aside');
-    banner.className = 'alert alert-warning m-3';
-    banner.id = 'controllerTestBanner';
-    banner.textContent = 'TEMPORARY WEBPAGE TEST MODE — Controller bypassed. No hardware commands are sent. ';
+    banner.className = 'controller-test-badge';
+    banner.id = 'controllerTestBadge';
+    banner.title = 'Temporary webpage test mode: the controller is bypassed and no hardware commands are sent.';
+    const label = document.createElement('strong');
+    label.textContent = 'TEST MODE';
     const clear = document.createElement('button');
-    clear.className = 'btn btn-sm btn-outline-dark me-2';
-    clear.textContent = 'Clear test data';
+    clear.type = 'button';
+    clear.textContent = 'Clear';
+    clear.title = 'Clear test data (back to database.json)';
     clear.onclick = () => { sessionStorage.removeItem(storageKey); location.reload(); };
     const exit = document.createElement('a');
     const normalUrl = new URL(location.href);
     normalUrl.searchParams.delete('test');
     exit.href = normalUrl.href;
-    exit.textContent = 'Exit test mode';
-    banner.append(clear, exit);
-    (document.getElementById('drillStatus') || document.body.firstElementChild).after(banner);
+    exit.textContent = 'Exit';
+    exit.title = 'Exit test mode';
+    banner.append(label, clear, exit);
+    document.body.append(banner);
     document.querySelectorAll('a[href]').forEach((link) => {
         const url = new URL(link.href);
         if (link !== exit && url.origin === location.origin && url.pathname.endsWith('.html')) {
@@ -159,6 +200,8 @@ export async function createControllerTest() {
                 if (route === '/api/drills') return json(database.drills);
                 if (route === '/api/qualifications') return json(database.qualifications || ['Pistol', 'Rifle', 'SWAT']);
                 if (route === '/api/targets/state') return json({ facing: status.facing });
+                // AI-generated (Claude): target flip delay (kept with the test data)
+                if (route === '/api/settings/target-flip') return json({ faceTravelMs: database.faceTravelMs ?? 300, maxMs: 5000, defaultMs: 300 });
                 if (route === '/api/officers') return json(officersWithStats(url.searchParams.get('today') || new Date().toISOString().slice(0, 10)));
                 if (route === '/api/drill/status') {
                     const active = status.state !== 'idle';
@@ -169,7 +212,11 @@ export async function createControllerTest() {
                         delayRemainingMs: run.remaining || 0, stageName: current?.name || '',
                         stageIndex: current ? run.stages.indexOf(current) + 1 : 0,
                         betweenStages: Boolean(current && run.index >= current.end),
-                        canResetStage: Boolean(current && status.state === 'paused' && !status.stageResetPending),
+                        canResetStage: active && !status.stageResetPending && jumpTarget('current') >= 0,
+                        canGoBack: active && !status.stageResetPending && jumpTarget('previous') >= 0,
+                        canSkip: active && !status.stageResetPending && jumpTarget('next') >= 0,
+                        stageCount: active ? run.stages.length : 0, stagesAreParts: Boolean(run.stagesAreParts),
+                        ...partsOf(active ? current : null), finalStageComplete: false,
                         ...testSignal });
                 }
                 return json({ error: 'Unknown temporary test endpoint.' }, 404);
@@ -178,6 +225,17 @@ export async function createControllerTest() {
                 run.steps = [];
                 run.stages = [];
                 expand(body.drillName);
+                // AI-generated (Claude): a drill without stages moves by parts (between pauses)
+                run.stagesAreParts = !run.stages.length;
+                if (run.stagesAreParts) {
+                    let first = 0;
+                    run.steps.forEach((step, index) => {
+                        if (step.action !== 'yield') return;
+                        if (index > first) run.stages.push({ name: '', first, end: index });
+                        first = index + 1;
+                    });
+                    if (run.steps.length > first) run.stages.push({ name: '', first, end: run.steps.length });
+                }
                 const targets = workingTargets(body.targets);
                 if (!targets.length) refuse('No working targets selected.');
                 Object.assign(status, idleStatus, { state: 'running', drillName: body.drillName, targets });
@@ -187,13 +245,39 @@ export async function createControllerTest() {
                 status.state = 'paused';
             } else if (route === '/api/drill/resume') {
                 if (status.state !== 'paused' || status.stageResetPending) refuse('No paused drill is ready to resume.');
-                if (!status.stageRestartReady && run.steps[run.index].action === 'pause') run.index++;
+                if (!status.stageRestartReady && run.steps[run.index].action === 'yield') run.index++;
                 status.stageRestartReady = false;
                 status.state = 'running';
-            } else if (route === '/api/drill/reset-stage') {
-                if (status.state !== 'paused' || !stage() || status.stageResetPending) refuse('Pause a full-drill stage before resetting it.');
-                if (!status.stageRestartReady) {
+            } else if (route === '/api/drill/jump') {
+                // AI-generated (Claude): a given stage and part (1-based), while running or paused
+                if (status.state === 'idle' || status.stageResetPending) refuse('No drill is running, or a stage change is pending.');
+                const target = run.stages[body.stage - 1];
+                let step = -1;
+                if (target && (body.part ?? 1) === 1) step = target.first;
+                else if (target && !run.stagesAreParts) {
+                    let pauses = 0;
+                    for (let index = target.first; index < target.end; index++) {
+                        if (pauses === body.part - 1) { step = index; break; }
+                        if (run.steps[index].action === 'yield') pauses++;
+                    }
+                }
+                if (step < 0) refuse('That stage or part does not exist in this drill');
+                if (!(status.stageRestartReady && step === run.index)) {
+                    Object.assign(status, { state: 'paused', stageRestartReady: false, stageResetPending: true });
+                    Object.assign(run, { jumpTo: step, remaining: null, resetUntil: Date.now() + 600 });
+                }
+            } else if (['/api/drill/reset-stage', '/api/drill/previous-stage', '/api/drill/next-stage'].includes(route)) {
+                // AI-modified (Claude): Back / Redo / Skip a stage, while running or paused
+                const jump = { 'reset-stage': 'current', 'previous-stage': 'previous', 'next-stage': 'next' }[route.split('/').pop()];
+                if (status.state === 'idle' || status.stageResetPending) refuse('No drill is running, or a stage change is pending.');
+                const target = jumpTarget(jump);
+                if (target < 0) refuse('There is no stage to move to.');
+                if (!(status.stageRestartReady && target === run.index)) {
+                    status.state = 'paused';
+                    status.stageRestartReady = false;
                     status.stageResetPending = true;
+                    run.jumpTo = target;
+                    run.remaining = null;
                     run.resetUntil = Date.now() + 600;
                 }
             } else if (route === '/api/stop') {
@@ -229,6 +313,46 @@ export async function createControllerTest() {
                     const histories = officer.qualificationScores || {};
                     officer.qualificationScores = { ...histories, [name]: [entry, ...(Object.hasOwn(histories, name) ? histories[name] : [])] };
                 }
+            } else if (route === '/api/settings/target-flip' && method === 'PUT') {
+                if (!Number.isInteger(body.faceTravelMs) || body.faceTravelMs < 0 || body.faceTravelMs > 5000) refuse('faceTravelMs must be a whole number from 0 to 5000');
+                database.faceTravelMs = body.faceTravelMs;
+            } else if (route === '/api/officers') {
+                // AI-generated (Claude): add / edit (name, badge) / delete officers in test mode
+                const badge = Number(url.searchParams.get('badge'));
+                const index = database.Officers.findIndex((item) => item.BadgeNum === badge);
+                const nameOk = (name) => typeof name === 'string' && name.trim() && name.trim().length <= 64;
+                if (method === 'POST') {
+                    if (!Number.isInteger(body.BadgeNum) || body.BadgeNum < 1 || !nameOk(body.Name)) refuse('Enter a name and a positive badge number.');
+                    if (database.Officers.some((item) => item.BadgeNum === body.BadgeNum)) refuse('An officer with that badge number already exists');
+                    database.Officers.push({ Name: body.Name.trim(), BadgeNum: body.BadgeNum, qualificationScores: {},
+                        pistolQualScores: [], rifleQualScores: [], swatQualScores: [] });
+                } else if (method === 'PUT') {
+                    if (index < 0) refuse('Officer not found');
+                    if (body.Name !== undefined && !nameOk(body.Name)) refuse('Name is required');
+                    if (body.BadgeNum !== undefined) {
+                        if (!Number.isInteger(body.BadgeNum) || body.BadgeNum < 1) refuse('BadgeNum must be a positive whole number');
+                        if (body.BadgeNum !== badge && database.Officers.some((item) => item.BadgeNum === body.BadgeNum)) refuse('Another officer already has that badge number');
+                        database.Officers[index].BadgeNum = body.BadgeNum;
+                    }
+                    if (body.Name !== undefined) database.Officers[index].Name = body.Name.trim();
+                } else if (method === 'DELETE') {
+                    if (index < 0) refuse('Officer not found');
+                    database.Officers.splice(index, 1);
+                }
+            } else if (route === '/api/qualifications' && method === 'DELETE') {
+                // AI-generated (Claude): mirrors deleteQualification() in database.cpp
+                const name = (url.searchParams.get('name') || '').trim();
+                const names = database.qualifications || ['Pistol', 'Rifle', 'SWAT'];
+                const same = (other) => String(other).toLowerCase() === name.toLowerCase();
+                if (['pistol', 'rifle', 'swat'].includes(name.toLowerCase())) refuse('Pistol, Rifle and SWAT are built in and cannot be deleted');
+                if (!names.some(same)) refuse('Qualification not found');
+                const scores = database.Officers.reduce((total, officer) => total + Object.entries(officer.qualificationScores || {})
+                    .filter(([key]) => same(key)).reduce((sum, [, history]) => sum + (history?.length || 0), 0), 0);
+                if (scores) refuse(`${scores} ${scores === 1 ? 'score is' : 'scores are'} recorded under ${name}. It can only be deleted once it has no scores.`);
+                database.qualifications = names.filter((other) => !same(other));
+                database.drills.forEach((drill) => {
+                    if (Array.isArray(drill.qualifications)) drill.qualifications = drill.qualifications.filter((other) => !same(other));
+                });
             } else if (route === '/api/qualifications' && method === 'POST') {
                 const name = typeof body.name === 'string' ? body.name.trim() : '';
                 const names = database.qualifications || ['Pistol', 'Rifle', 'SWAT'];

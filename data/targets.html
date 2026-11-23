@@ -13,7 +13,7 @@
     <meta name="apple-mobile-web-app-title" content="CPD Range">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="theme-color" content="#0057b8">
-    <title>Targets</title>
+    <title>Range Control</title>
     <!-- AI-modified (Claude): Bootstrap, Bootstrap Icons and the banner font are served from
          data/vendor/ (LittleFS) instead of a CDN, because phones on the "CPD Range Control"
          access point have no internet. The .css/.js files are stored gzipped; serveStatic()
@@ -22,6 +22,10 @@
     <link rel="stylesheet" href="vendor/bootstrap-icons.min.css">
     <link rel="stylesheet" href="vendor/barlow-condensed.css">
     <link rel="stylesheet" href="style.css">
+    <!-- AI-generated (Claude): Tactical theme (Settings > Theme, saved per phone). The script applies
+         the saved theme before the page draws, so it never flashes the normal colors first. -->
+    <link rel="stylesheet" href="tactical.css?v=2">
+    <script>try{if(localStorage.getItem('cpd-theme')==='tactical'){document.documentElement.classList.add('theme-tactical');document.documentElement.setAttribute('data-bs-theme','dark');}}catch(e){}</script>
 </head>
 <body class="target-page">
     <!--Header area with text (moved above sidebar) -->
@@ -45,29 +49,20 @@
     <div class="control-bar mx-3 mb-3">
         <section class="control-section" aria-labelledby="drillPanelTitle">
             <h2 class="control-section-title" id="drillPanelTitle">Run a drill</h2>
-            <!-- AI-assisted drill start controls. -->
+            <!-- AI-assisted drill start controls. AI-modified (Claude): the buttons stay hidden
+                 until a drill is selected (script.js updateDrillStatus). -->
             <div class="drill-launch-bar" role="group" aria-label="Start a drill">
                 <label class="visually-hidden" for="drillSelect">Select a drill</label>
                 <select class="form-select" id="drillSelect" aria-label="Select a drill">
                     <option value="">Select a drill</option>
                 </select>
-                <button class="btn btn-primary" id="startDrillButton" type="button" disabled>
+                <button class="btn btn-primary" id="startDrillButton" type="button" disabled hidden>
                     <i class="bi bi-play-fill" aria-hidden="true"></i>
                     <span id="startDrillLabel">Start drill</span>
                 </button>
-                <button class="btn btn-outline-secondary" id="pauseDrillButton" type="button" aria-label="Pause drill" title="Pause drill" disabled>
+                <button class="btn btn-outline-secondary" id="pauseDrillButton" type="button" aria-label="Pause drill" title="Pause drill" disabled hidden>
                     <i class="bi bi-pause-fill" aria-hidden="true"></i>
                     Pause
-                </button>
-                <!-- Replay the paused stage without ending the drill (AI-assisted with Codex). -->
-                <button class="btn btn-outline-secondary" id="resetStageButton" type="button" aria-describedby="resetStageHint" disabled>
-                    <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
-                    Redo stage
-                </button>
-                <!-- AI-generated (Claude): stop button for the active drill. -->
-                <button class="btn btn-danger" id="stopDrillButton" type="button" aria-label="Stop drill" title="Stop drill" disabled>
-                    <i class="bi bi-stop-fill" aria-hidden="true"></i>
-                    Stop
                 </button>
                 <!-- AI-generated (Claude): start delay countdown (Settings > Drill start delay), shown
                      after Start drill / Resume. The command goes to the controller only when it
@@ -76,15 +71,67 @@
                     <i class="bi bi-stopwatch" aria-hidden="true"></i>
                     <span id="startCountdownNumber">3.00</span>&nbsp;s
                 </span>
-                <!-- AI-generated (Claude): shown only after Stop (emergency stop latched); clears the
-                     stop and hides every target. script.js shows/hides it from /api/drill/status. -->
-                <button class="btn btn-warning" id="resetTargetsButton" type="button" aria-label="Reset: hide all targets" title="Reset: hide all targets" hidden>
-                    <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
-                    Reset
-                </button>
             </div>
-            <!-- Show which stage will replay and when it is ready (AI-assisted with Codex). -->
-            <p class="small text-muted mb-0" id="resetStageHint" aria-live="polite" hidden></p>
+            <!-- AI-generated (Claude): what Start / Resume do (Settings > Drill start delay, saved
+                 per phone), with a link to change it. script.js fills the text. AI-modified (Claude): right under
+                 the Start / Resume button it describes. -->
+            <p class="start-delay-note" id="startDelayNote">
+                <i class="bi bi-stopwatch" aria-hidden="true"></i>
+                <span id="startDelayNoteText">Start and Resume: 3-second delay first</span>
+                <a href="settings.html#startDelay">Change</a>
+            </p>
+            <!-- AI-generated (Claude): compact stage control while a drill is running or paused:
+                 ‹ previous stage | current stage (tap for the jump list) | next stage › | Redo,
+                 and below it one chip per part of the current stage (tap to jump to that part).
+                 Every move hides the targets and waits at the start of that stage or part for
+                 Resume. script.js fills it from /api/drill/status. A drill without stages moves
+                 by part with the arrows instead. Redo is reset-stage (AI-assisted with Codex). -->
+            <div class="stage-control" id="stageControl" hidden>
+                <div class="stage-control-row" role="group" aria-label="Change stage">
+                    <button class="btn btn-outline-secondary stage-arrow" id="previousStageButton" type="button" aria-label="Back a stage" disabled>
+                        <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary stage-current" id="stageJumpListButton" type="button" aria-haspopup="dialog" title="Jump to any stage or part" disabled>
+                        <span id="stageCurrentLabel">Stage</span>
+                        <i class="bi bi-list-ul ms-1" aria-hidden="true"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary stage-arrow" id="nextStageButton" type="button" aria-label="Skip a stage" disabled>
+                        <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary" id="resetStageButton" type="button" disabled>
+                        <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+                        <span id="resetStageLabel">Redo</span>
+                    </button>
+                </div>
+                <div class="part-chips" id="partChips" role="group" aria-label="Parts of this stage" hidden>
+                    <span class="part-chips-label">Part</span>
+                    <span class="part-chips-buttons" id="partChipButtons"></span>
+                </div>
+            </div>
+            <!-- AI-generated (Claude): the targets confirmed in the picker for the selected drill
+                 (drills that ask which targets to use). script.js fills it. -->
+            <p class="drill-target-summary" id="drillTargetSummary" aria-live="polite" hidden>
+                <i class="bi bi-bullseye" aria-hidden="true"></i>
+                <span id="drillTargetSummaryText"></span>
+                <button class="btn btn-link btn-sm p-0" id="changeDrillTargets" type="button">Change</button>
+            </p>
+            <!-- AI-generated (Claude): drill description for briefing the shooter. Shown with a drill
+                 selected (before it starts) and while it is paused; for a full drill, the stage that
+                 is about to run. script.js fills it. -->
+            <!-- AI-modified (Claude): collapsible; collapsed it keeps one line naming what it
+                 describes. The choice lasts for the tab (sessionStorage). -->
+            <section class="drill-description" id="drillDescription" aria-label="Drill description" hidden>
+                <div class="drill-description-header">
+                    <span class="drill-description-summary" id="drillDescriptionSummary"></span>
+                    <button class="btn btn-link btn-sm p-0 drill-description-toggle" id="drillDescriptionToggle" type="button" aria-expanded="true" aria-controls="drillDescriptionBody">Hide</button>
+                </div>
+                <div id="drillDescriptionBody">
+                    <h3 class="drill-description-title" id="drillDescriptionTitle"></h3>
+                    <div class="drill-description-text" id="drillDescriptionText"></div>
+                    <h3 class="drill-description-title mt-2" id="drillStageDescriptionTitle" hidden></h3>
+                    <div class="drill-description-text" id="drillStageDescriptionText" hidden></div>
+                </div>
+            </section>
             <!-- AI-generated (Claude): drill timer. Time left in the delay step being run, shown only
                  while a drill is running or paused. script.js drives it from /api/drill/status. -->
             <div class="drill-timer" id="drillTimer" role="timer" hidden>
@@ -101,14 +148,12 @@
                     <i class="bi bi-hand-index-thumb" aria-hidden="true"></i>
                     <span id="manualModeLabel">Turn on manual mode</span>
                 </button>
-                <div class="btn-group target-filter-group" role="group" aria-label="Target groups and number filter" aria-describedby="manualModeHint">
+                <!-- AI-modified (Claude): hidden until manual mode is turned on (script.js). -->
+                <div class="btn-group target-filter-group" role="group" aria-label="Toggle target groups" aria-describedby="manualModeHint" hidden>
                     <button class="btn btn-outline-dark target-toggle" type="button" data-toggle-set="all" disabled>All</button>
                     <button class="btn btn-outline-dark target-toggle" type="button" data-toggle-set="odd" disabled>Odd</button>
                     <button class="btn btn-outline-dark target-toggle" type="button" data-toggle-set="even" disabled>Even</button>
                     <button class="btn btn-outline-dark target-toggle" type="button" data-toggle-set="random" disabled>Random</button>
-                    <button class="btn btn-outline-dark" id="targetNumberFilterButton" type="button" data-bs-toggle="modal" data-bs-target="#targetNumberFilterModal" aria-controls="targetNumberFilterModal" aria-pressed="false" aria-label="Filter by number" title="Filter by number" disabled>
-                        <i class="bi bi-funnel me-1" aria-hidden="true"></i>Number
-                    </button>
                 </div>
             </div>
             <!-- AI-generated (Claude): says whether target toggling is locked; script.js updates it. -->
@@ -116,14 +161,19 @@
                 <i class="bi bi-lock-fill" id="manualModeHintIcon" aria-hidden="true"></i>
                 <span id="manualModeHintText">Locked: turn on manual mode to toggle targets.</span>
             </p>
-            <div class="target-number-filter-status mt-2" id="targetNumberFilterStatus" hidden>
-                <span id="targetNumberFilterSummary" role="status" aria-live="polite"></span>
-                <button class="btn btn-link btn-sm p-0" id="clearTargetNumberFilter" type="button">Clear filter</button>
-            </div>
         </section>
 
         <section class="control-section" aria-labelledby="viewPanelTitle">
-            <h2 class="control-section-title" id="viewPanelTitle">View</h2>
+            <!-- AI-modified (Claude): the View card collapses; the heading is the toggle. script.js
+                 remembers the choice per phone and shows "Filtered" while a filter is on. -->
+            <h2 class="control-section-title mb-0" id="viewPanelTitle">
+                <button class="control-section-toggle" id="viewPanelToggle" type="button" aria-expanded="false" aria-controls="viewPanelBody">
+                    <span>View</span>
+                    <span class="badge text-bg-primary" id="viewFilterBadge" hidden>Filtered</span>
+                    <i class="bi bi-chevron-down control-section-chevron" aria-hidden="true"></i>
+                </button>
+            </h2>
+            <div class="control-section-body" id="viewPanelBody" hidden>
             <div class="control-row">
                 <!-- AI-generated (Claude): hides defective and unavailable targets from the grid. -->
                 <div class="form-check form-switch mb-0">
@@ -139,6 +189,16 @@
                         <i class="bi bi-list-ul" aria-hidden="true"></i>
                     </button>
                 </div>
+                <!-- AI-modified (Claude): number filter moved here from Manual control. It only
+                     changes which cards are shown, so it works in and out of manual mode. -->
+                <button class="btn btn-outline-dark" id="targetNumberFilterButton" type="button" data-bs-toggle="modal" data-bs-target="#targetNumberFilterModal" aria-controls="targetNumberFilterModal" aria-pressed="false">
+                    <i class="bi bi-funnel me-1" aria-hidden="true"></i>Filter targets
+                </button>
+            </div>
+            <div class="target-number-filter-status mt-2" id="targetNumberFilterStatus" hidden>
+                <span id="targetNumberFilterSummary" role="status" aria-live="polite"></span>
+                <button class="btn btn-link btn-sm p-0" id="clearTargetNumberFilter" type="button">Clear filter</button>
+            </div>
             </div>
         </section>
     </div>
@@ -153,7 +213,7 @@
         <div class="offcanvas-body">
             <div class="d-grid gap-2">
                 <!-- AI-modified (Claude): same menu on every page, current page highlighted. -->
-                <a class="btn btn-outline-primary text-start active" href="targets.html" aria-current="page">Targets</a>
+                <a class="btn btn-outline-primary text-start active" href="targets.html" aria-current="page">Range Control</a>
                 <a class="btn btn-outline-primary text-start" href="drills.html">Drills</a>
                 <a class="btn btn-outline-primary text-start" href="Performance.html">Performance</a>
                 <!-- AI-generated (Claude): start delay and WiFi password settings. -->
@@ -162,7 +222,8 @@
         </div>
     </div>
 
-    <div class="container-fluid mt-3">
+    <!-- AI-modified (Claude): target-grid-area adds room below the last row (style.css). -->
+    <div class="container-fluid mt-3 target-grid-area">
         <!-- Keep two targets per row on phones, including landscape screens. -->
         <div class="row row-cols-2 row-cols-lg-3 row-cols-xl-4 g-2 row-gap-5" id="targetGrid"></div>
         <p class="text-secondary text-center m-3" id="targetFilterEmpty" role="status" hidden>No targets match the current filters.</p>
@@ -172,7 +233,7 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="targetNumberFilterTitle">Filter targets by number</h5>
+                    <h5 class="modal-title" id="targetNumberFilterTitle">Filter targets</h5>
                     <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close number filter"></button>
                 </div>
                 <div class="modal-body">
@@ -180,7 +241,7 @@
                         <label class="form-label" for="targetNumbersInput">Target numbers</label>
                         <input class="form-control" id="targetNumbersInput" type="text" placeholder="e.g. 1, 3, 5-8" maxlength="120" autocomplete="off" spellcheck="false" aria-describedby="targetNumbersHint targetNumbersError">
                         <div class="invalid-feedback" id="targetNumbersError" role="alert"></div>
-                        <p class="form-text mb-0" id="targetNumbersHint">Enter numbers separated by commas, or ranges such as 5-8. Leave blank to show all targets. This filters the view only; manual group buttons and drill assignments are unchanged.</p>
+                        <p class="form-text mb-0" id="targetNumbersHint">Enter numbers separated by commas, or ranges such as 5-8. Leave blank to show all targets. This only changes which targets are shown; drills and the manual group buttons still use every target.</p>
                     </form>
                 </div>
                 <div class="modal-footer">
@@ -201,8 +262,9 @@
                 </div>
                 <div class="modal-body">
                     <p class="text-muted small mb-3">
-                        Choose the targets in use for <strong id="drillTargetPickerDrillName"></strong>. Steps set to
-                        All targets use every target checked here; custom steps use theirs, if checked here.
+                        Choose the targets in use for <strong id="drillTargetPickerDrillName"></strong>, then confirm
+                        and press Start drill. Steps set to All targets use every target checked here; custom steps
+                        use theirs, if checked here.
                     </p>
                     <div class="alert alert-warning py-2" id="drillTargetPickerError" role="alert" hidden></div>
                     <!-- AI-generated (Claude): select all / odd / even targets in one click. -->
@@ -216,10 +278,27 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <!-- AI-modified (Claude): confirms the targets only; Start drill on the page runs it. -->
                     <button type="button" class="btn btn-primary" id="drillTargetPickerStart">
-                        <i class="bi bi-play-fill" aria-hidden="true"></i>
-                        Start drill
+                        <i class="bi bi-check-lg" aria-hidden="true"></i>
+                        Confirm targets
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI-generated (Claude): jump to any stage, or any part of a stage, of the running drill. -->
+    <div class="modal fade" id="stageJumpModal" tabindex="-1" aria-labelledby="stageJumpModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="stageJumpModalTitle">Jump to</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted">The targets hide and the drill waits at the start of the stage or part you pick until you press Resume.</p>
+                    <ol class="stage-jump-list list-unstyled mb-0" id="stageJumpList"></ol>
                 </div>
             </div>
         </div>
@@ -270,10 +349,25 @@
         </div>
     </div>
 
+    <!-- AI-generated (Claude): Stop pinned to the bottom of the screen whenever it can act (a drill
+         running or paused, or a start delay counting down; not in manual mode): it is the only emergency
+         stop, so it is always in the same place. After a Stop the same spot holds Reset, which
+         clears the stop and hides every target. script.js shows one or the other. -->
+    <div class="drill-action-bar" id="drillActionBar" hidden>
+        <button class="btn btn-danger btn-lg" id="stopDrillButton" type="button" aria-label="Stop drill" disabled hidden>
+            <i class="bi bi-stop-fill" aria-hidden="true"></i>
+            STOP
+        </button>
+        <button class="btn btn-warning btn-lg" id="resetTargetsButton" type="button" aria-label="Reset: hide all targets" hidden>
+            <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+            Reset: hide all targets
+        </button>
+    </div>
+
     <!-- Bootstrap JS -->
     <script src="vendor/bootstrap.bundle.min.js"></script>
     <!-- Fetch the updated target controls when this page reloads. -->
-    <script src="script.js?v=connection-rssi-5"></script>
+    <script src="script.js?v=ui-changes-33"></script>
 
 </body>
 </html>

@@ -1,16 +1,3 @@
-.login-page {
-    min-height: 100vh;
-    display: grid;
-    place-items: center;
-    padding: 1.5rem;
-    background: #f8f9fa;
-}
-
-.login-modal {
-    border-top: 4px solid #0d6efd;
-    box-shadow: 0 0.75rem 2rem rgba(33, 37, 41, 0.12);
-}
-
 .login-modal .modal-header {
     padding-bottom: 0;
     border-bottom: 0;
@@ -113,35 +100,41 @@
 }
 
 /* AI-modified: use a readable system font for the shared status banner. */
+/* AI-modified (Claude): two lines, the drill name small and the state large (see script.js). */
 .drill-status-bar {
-    padding: 0.6rem 1rem;
+    padding: 0.5rem 1rem;
     border-bottom: 4px solid var(--bs-secondary);
     font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
-    font-size: clamp(1.35rem, 4.5vw, 2.25rem);
     font-weight: 700;
     line-height: 1.15;
-    letter-spacing: 0.06em;
     text-align: center;
-    text-transform: uppercase;
     overflow-wrap: anywhere;
 }
 
-.page-readout {
-    max-width: 19rem;
-    margin: auto auto 1.5rem;
-    padding: 0.65rem 0.85rem;
-    border-top: 2px solid #0d6efd;
-    border-bottom: 1px solid #adb5bd;
-    color: #495057;
-    font: 700 0.75rem/1.2 monospace;
-    letter-spacing: 0.08em;
+.drill-status-name {
+    display: block;
+    margin-bottom: 0.1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    opacity: 0.9;
+}
+
+.drill-status-state {
+    display: block;
+    font-size: clamp(1.15rem, 4.2vw, 1.85rem);
+    letter-spacing: 0.05em;
     text-transform: uppercase;
 }
 
-.page-readout strong {
-    color: #0d6efd;
-    font-size: 0.95rem;
-    letter-spacing: 0.12em;
+/* AI-generated (Claude): while a drill is running or paused (or Stop is latched) the status bar
+   sticks to the top of the screen so the current stage stays visible while scrolling. Below
+   Bootstrap's offcanvas/modals (1045+) so menus and dialogs still cover it. */
+.drill-status-bar.is-pinned {
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+    box-shadow: 0 0.25rem 0.75rem rgba(33, 37, 41, 0.25);
 }
 
 .drill-ticket {
@@ -398,6 +391,39 @@
     letter-spacing: 0.06em;
 }
 
+/* AI-generated (Claude): collapsible section heading (Targets page View card). */
+.control-section-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-height: 2rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+}
+
+.control-section-toggle .badge {
+    letter-spacing: 0.03em;
+}
+
+.control-section-chevron {
+    margin-left: auto;
+    transition: transform 0.15s ease;
+}
+
+.control-section-toggle[aria-expanded="true"] .control-section-chevron {
+    transform: rotate(180deg);
+}
+
+.control-section-body {
+    margin-top: 0.5rem;
+}
+
 .control-row {
     display: flex;
     flex-wrap: wrap;
@@ -405,11 +431,11 @@
     gap: 0.5rem;
 }
 
-/* Keep all five target controls joined and readable on narrow screens. */
+/* Keep the four manual group buttons joined and readable on narrow screens. */
 @media (max-width: 575.98px) {
     .target-filter-group {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         width: 100%;
     }
 
@@ -454,14 +480,6 @@
     font-weight: 600;
 }
 
-.toolbar-label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #495057;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-
 /* AI-generated (Claude): All / Odd / Even / Clear row above a target checkbox list. */
 .target-quick-select {
     display: flex;
@@ -492,6 +510,318 @@
 .drill-launch-bar .btn {
     flex: 0 0 auto;
     white-space: nowrap;
+}
+
+/* AI-generated (Claude): Start / Resume (and Pause, which takes its place while a drill runs)
+   is the main action: a large button on its own full-width row under the drill picker */
+.drill-launch-bar #startDrillButton,
+.drill-launch-bar #pauseDrillButton {
+    display: inline-flex;
+    flex: 1 1 100%;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 3.5rem;
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.drill-launch-bar #startDrillButton .bi,
+.drill-launch-bar #pauseDrillButton .bi {
+    font-size: 1.5rem;
+}
+
+/* AI-generated (Claude): start delay note under the drill buttons, and its Settings target. */
+.start-delay-note {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4rem;
+    margin: 0.5rem 0 0;
+    color: #6c757d;
+    font-size: 0.85rem;
+}
+
+.settings-anchor {
+    scroll-margin-top: 1rem;
+}
+
+/* AI-generated (Claude): Settings card titles are toggles; the body opens below them */
+.settings-card-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: 100%;
+    min-height: 2.25rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+}
+
+.settings-card-chevron {
+    display: inline-block;
+    flex: none;
+    color: #6c757d;
+    transition: transform 0.15s ease;
+}
+
+.settings-card-toggle[aria-expanded="true"] .settings-card-chevron {
+    transform: rotate(180deg);
+}
+
+.settings-card-body {
+    margin-top: 0.75rem;
+}
+
+/* AI-generated (Claude): "Targets: 1-5 (5)  Change" line under the drill buttons. */
+.drill-target-summary:not([hidden]) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4rem;
+    margin: 0.5rem 0 0;
+    color: #495057;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+/* AI-generated (Claude): drill description panel on Targets (briefing text keeps its line breaks). */
+.drill-description {
+    max-width: 48rem;
+    margin-top: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    border-left: 4px solid #0057b8;
+    border-radius: 0.375rem;
+    background: #f1f6fc;
+}
+
+/* AI-generated (Claude): Hide / Show row at the top of the description */
+.drill-description-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.drill-description-summary {
+    min-width: 0;
+    color: #495057;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+}
+
+.drill-description-toggle {
+    flex: none;
+    font-size: 0.85rem;
+}
+
+#drillDescriptionBody {
+    margin-top: 0.35rem;
+}
+
+.drill-description-title {
+    margin-bottom: 0.25rem;
+    color: #0057b8;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.drill-description-text {
+    color: #212529;
+    font-size: 0.95rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.drill-description-line {
+    display: block;
+}
+
+/* AI-generated (Claude): the "Part n" section that runs next */
+.drill-description-line.is-next-part {
+    margin: 0.15rem -0.35rem;
+    padding: 0.15rem 0.35rem;
+    border-left: 3px solid #0057b8;
+    border-radius: 0.25rem;
+    background: #dce8f7;
+}
+
+.drill-description-next {
+    color: #0057b8;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+}
+
+/* AI-generated (Claude): description preview on the Drills page cards. */
+.drill-ticket-description {
+    display: -webkit-box;
+    margin: -0.75rem 0 1rem;
+    overflow: hidden;
+    color: #495057;
+    font-size: 0.85rem;
+    white-space: pre-line;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+}
+
+.drill-ticket-description.is-expanded {
+    display: block;
+    margin-bottom: 0.25rem;
+    -webkit-line-clamp: unset;
+}
+
+.drill-ticket-description:not(.is-expanded) + .drill-ticket-description-toggle:not([hidden]) {
+    margin-top: -0.75rem;
+}
+
+/* AI-generated (Claude): Performance page section headings with a Hide / Show button */
+.section-heading-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.section-collapse-toggle {
+    white-space: nowrap;
+}
+
+.section-collapse-toggle .bi {
+    display: inline-block; /* transforms don't apply to inline elements */
+    transition: transform 0.15s ease;
+}
+
+.section-collapse-toggle[aria-expanded="false"] .bi {
+    transform: rotate(180deg);
+}
+
+/* AI-generated (Claude): Stop / Reset bar pinned to the bottom of the Targets page. Above the
+   page and the help button, below Bootstrap's offcanvas/modals (1045+). */
+.drill-action-bar {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1041;
+    padding: 0.6rem calc(1rem + env(safe-area-inset-right, 0px)) calc(0.6rem + env(safe-area-inset-bottom, 0px)) calc(1rem + env(safe-area-inset-left, 0px));
+    background: #ffffff;
+    box-shadow: 0 -0.25rem 0.75rem rgba(33, 37, 41, 0.18);
+}
+
+.drill-action-bar .btn {
+    display: block;
+    width: 100%;
+    max-width: 40rem;
+    min-height: 3.5rem;
+    margin-inline: auto;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+
+body.has-action-bar {
+    padding-bottom: 5.5rem;
+}
+
+/* AI-generated (Claude): room under the last row of targets so it clears the bottom of the
+   screen and the floating help button (the Stop bar adds its own padding when shown). */
+.target-grid-area {
+    padding-bottom: 5rem;
+}
+
+body.has-action-bar .faq-help-button {
+    bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* AI-generated (Claude): compact stage control: ‹ | current stage | › | Redo, then part chips. */
+.stage-control {
+    margin-top: 0.6rem;
+}
+
+.stage-control-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    gap: 0.4rem;
+}
+
+.stage-control-row .btn {
+    min-height: 44px;
+}
+
+.stage-arrow {
+    min-width: 44px;
+    font-size: 1.15rem;
+}
+
+.stage-current {
+    overflow: hidden;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stage-current:disabled {
+    color: #212529;
+    opacity: 1;
+}
+
+.part-chips:not([hidden]) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.45rem;
+}
+
+.part-chips-label {
+    color: #6c757d;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.part-chips-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.part-chip {
+    min-width: 44px;
+    min-height: 40px;
+    font-weight: 700;
+}
+
+.part-chip.is-done {
+    color: #6c757d;
+}
+
+/* AI-generated (Claude): jump list (stage rows with part buttons) */
+.stage-jump-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.stage-jump-row .stage-jump-stage {
+    flex: 1 1 9rem;
+    text-align: left;
+}
+
+.stage-jump-row.is-current .stage-jump-stage {
+    font-weight: 700;
 }
 
 #targetGrid [data-target-number] {
@@ -703,10 +1033,11 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
     color: #ffffff;
 }
 
+/* AI-modified (Claude): soft blue instead of yellow, so strong colors stay for Stop and alerts */
 .drill-timer.is-paused {
-    border: 1px solid #ffda6a;
-    background: #ffe69c;
-    color: #664d03;
+    border: 1px solid #b6cce6;
+    background: #e8f0fa;
+    color: #1f3a5f;
 }
 
 .drill-timer.is-paused .drill-timer-value {
@@ -742,6 +1073,41 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
     border-top: 1px solid #dee2e6;
 }
 
+/* AI-generated (Claude): the officer list scrolls on its own, about five officers tall */
+.officer-list {
+    max-height: 15.5rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0 0.75rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+}
+
+.officer-list .officer-row:last-child {
+    border-bottom: 0;
+}
+
+/* AI-generated (Claude): on phones Edit / Delete are icon-only so each officer fits on one line
+   (their aria-labels still say "Edit <name>" / "Delete <name>") */
+@media (max-width: 575.98px) {
+    .officer-row:not(:has(input)) {
+        flex-wrap: nowrap;
+    }
+
+    .officer-row:not(:has(input)) .officer-button-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+    }
+
+    .officer-row:not(:has(input)) .officer-row-badge {
+        white-space: nowrap;
+    }
+}
+
 .officer-row {
     display: flex;
     flex-wrap: wrap;
@@ -767,11 +1133,21 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
     flex: 1 1 10rem;
 }
 
+/* AI-generated (Claude): badge number field while editing an officer */
+.officer-row .officer-row-badge-input {
+    flex: 0 1 7rem;
+}
+
 .officer-add-fields {
     display: grid;
     grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
     gap: 0.75rem;
     margin-bottom: 0.75rem;
+}
+
+/* AI-generated (Claude): Settings > Target flip delay */
+.target-flip-input {
+    max-width: 12rem;
 }
 
 .start-delay-seconds {
@@ -781,29 +1157,50 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
 
 /* Drill sequence builder (Drills page editor). */
 /* Keep the plus visually small while giving fingers a full-size touch target. */
-.qualification-add-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    padding: 8px;
-    flex: none;
-    text-decoration: none;
+/* AI-generated (Claude): Drills page qualification chips (the page's one filter) */
+.qualification-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.4rem;
 }
 
-.qualification-add-button .bi {
-    display: inline-flex;
+.qualification-chips .btn {
+    min-height: 40px;
+    border-radius: 2rem;
+}
+
+.qualification-chip-count {
+    margin-left: 0.3rem;
+    opacity: 0.75;
+    font-size: 0.85em;
+}
+
+/* AI-generated (Claude): Manage qualifications list */
+.qualification-manage-list li {
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    font-size: 0.875rem;
+    gap: 0.5rem;
+    padding: 0.45rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.qualification-manage-name {
+    flex: 1 1 8rem;
+    min-width: 0;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.qualification-manage-meta {
+    color: #6c757d;
+    font-size: 0.8rem;
 }
 
 .block-palette {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0.5rem;
 }
 
@@ -829,8 +1226,14 @@ body.is-manual-mode #targetGrid.is-list-view > [data-target-number]:not(:has(.is
 .seq-block--delay { --seq-color: #495057; --seq-tint: #e2e3e5; }
 .seq-palette-block--hide,
 .seq-block--hide { --seq-color: #dc3545; --seq-tint: #f8e8ea; }
-.seq-palette-block--pause,
-.seq-block--pause { --seq-color: #997404; --seq-tint: #fff3cd; }
+/* AI-modified (Claude): the Pause block is now Yield */
+/* AI-generated (Claude): reminder in Run drill blocks to add a Yield between drills */
+.seq-block-tip {
+    color: #8a5a00;
+}
+
+.seq-palette-block--yield,
+.seq-block--yield { --seq-color: #997404; --seq-tint: #fff3cd; }
 .seq-palette-block--drill,
 .seq-block--drill { --seq-color: #495057; --seq-tint: #f1f3f5; }
 
