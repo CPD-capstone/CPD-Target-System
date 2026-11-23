@@ -49,18 +49,24 @@ void initWebserver(){
     // REST API (see api.h). AI-modified (Claude): must be registered before serveStatic
     registerApiRoutes(server);
 
-    // AI-generated (Claude): cache headers. Without them phones guess how long to cache, and a
-    // stale style.css/script.js after an uploadfs makes new pages render wrong. vendor/ (Bootstrap,
-    // fonts) never changes, so it may be cached for a year; everything else is re-checked on
-    // every load ("no-cache" = revalidate, not "don't store").
-    server.serveStatic("/vendor/", LittleFS, "/vendor/").setCacheControl("public, max-age=31536000, immutable");
+    // AI-modified (Codex): these vendor filenames can be replaced during a filesystem upgrade.
+    // Revalidate them too; immutable caching is only appropriate for content-hashed paths.
+    server.serveStatic("/vendor/", LittleFS, "/vendor/").setCacheControl("no-cache");
 
     // Serve static assets (CSS, JS, images)
     server.serveStatic("/", LittleFS, "/").setCacheControl("no-cache");
 
     // Fallback handler
     server.onNotFound([](AsyncWebServerRequest *request){
-        request->send(LittleFS, "/targets.html", "text/html");
+        // AI-generated (Codex): missing assets/methods are errors, not a successful HTML reply.
+        // registerApiRoutes already installs its own JSON /api catchall before static serving.
+        String path = request->url();
+        bool navigation = request->method() == HTTP_GET && !path.startsWith("/api")
+            && (path.lastIndexOf('.') < 0 || path.endsWith(".html"))
+            && request->hasHeader("Accept")
+            && request->getHeader("Accept")->value().indexOf("text/html") >= 0;
+        if (navigation) request->redirect("/targets.html");
+        else request->send(404, "text/plain", "Requested file not found");
     });
 
     // Start listening

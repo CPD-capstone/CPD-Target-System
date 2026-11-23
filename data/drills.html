@@ -2,6 +2,27 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <!-- AI-generated (Codex): release key matches local scripts and release metadata. -->
+    <meta name="cpd-ui-version" content="1.0.0">
+    <!-- AI-generated (Codex): missing required assets leave an explicit reload warning. -->
+    <script>
+    window.addEventListener('error', function(event) {
+        var asset = event.target;
+        if (!asset || !(asset.tagName === 'SCRIPT' || (asset.tagName === 'LINK' && asset.rel === 'stylesheet'))) return;
+        window.cpdAssetFailure = true;
+        var show = function() {
+            if (document.getElementById('requiredAssetWarning')) return;
+            var warning = document.createElement('p');
+            warning.id = 'requiredAssetWarning';
+            warning.className = 'alert alert-warning m-3';
+            warning.setAttribute('role', 'alert');
+            warning.textContent = 'A required page file could not load. Check the controller connection and reload this page.';
+            document.body.prepend(warning);
+        };
+        if (document.body) show();
+        else document.addEventListener('DOMContentLoaded', show, { once: true });
+    }, true);
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Lets staff add the controller to the Home Screen (Share > Add to
          Home Screen); it then opens full-screen with no browser or captive-portal bars, and
@@ -18,13 +39,13 @@
          data/vendor/ (LittleFS) instead of a CDN, because phones on the "CPD Range Control"
          access point have no internet. The .css/.js files are stored gzipped; serveStatic()
          sends the .gz automatically. -->
-    <link rel="stylesheet" href="vendor/bootstrap.min.css">
-    <link rel="stylesheet" href="vendor/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="vendor/barlow-condensed.css">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="vendor/bootstrap.min.css?v=1.0.0">
+    <link rel="stylesheet" href="vendor/bootstrap-icons.min.css?v=1.0.0">
+    <link rel="stylesheet" href="vendor/barlow-condensed.css?v=1.0.0">
+    <link rel="stylesheet" href="style.css?v=1.0.0">
     <!-- AI-generated (Claude): Tactical theme (Settings > Theme, saved per phone). The script applies
          the saved theme before the page draws, so it never flashes the normal colors first. -->
-    <link rel="stylesheet" href="tactical.css?v=2">
+    <link rel="stylesheet" href="tactical.css?v=1.0.0">
     <script>try{if(localStorage.getItem('cpd-theme')==='tactical'){document.documentElement.classList.add('theme-tactical');document.documentElement.setAttribute('data-bs-theme','dark');}}catch(e){}</script>
 </head>
 <body>
@@ -207,8 +228,10 @@
 </body>
 
     <!-- Bootstrap JS -->
-    <script src="vendor/bootstrap.bundle.min.js"></script>
+    <script src="vendor/bootstrap.bundle.min.js?v=1.0.0"></script>
     <!-- SortableJS 1.15.2 (MIT), vendored gzipped, for touch-friendly drag and drop -->
-    <script src="vendor/sortable.min.js"></script>
-    <script src="script.js?v=ui-changes-33"></script>
+    <script src="vendor/sortable.min.js?v=1.0.0"></script>
+    <!-- AI-generated (Codex): shared software-only request validation and health information. -->
+    <script src="controller-client.js?v=1.0.0"></script>
+    <script src="script.js?v=1.0.0"></script>
 </html>

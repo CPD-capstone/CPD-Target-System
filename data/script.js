@@ -209,21 +209,10 @@ document.body.append(faqButton, faqModal);
 faqButton.addEventListener('click', () => {
     bootstrap.Modal.getOrCreateInstance(faqModal).show();
 });
-/*
- * TEMPORARILY DISABLED: local controller bypass for webpage testing.
- * The bypass remains here for repeatable QA, but production always uses the ESP32 API.
- *
- * const controllerTestMode = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
- *     && new URLSearchParams(location.search).get('test') === '1';
- * const controllerTest = controllerTestMode
- *     ? import('./controller-test.js?v=connection-rssi-3').then((module) => module.createControllerTest())
- *     : null;
- * const controllerFetch = async (...args) => controllerTest
- *     ? (await controllerTest)(...args)
- *     : fetch(...args);
- */
+// AI-modified (Codex): deployed pages always contact the controller; tests inject their own adapter.
+const uiAssetVersion = document.querySelector('meta[name="cpd-ui-version"]')?.content || '1.0.0';
 const controllerFetch = (...args) => fetch(...args);
-
+const controllerClient = ControllerClient.createControllerClient(controllerFetch);
 const drillStatus = document.getElementById('drillStatus');
 // AI-generated (Claude): the text inside the status bar.
 const drillStatusText = document.getElementById('drillStatusText') || drillStatus;
@@ -268,7 +257,7 @@ const setConnectionStatus = (state, rssi = null) => {
     // AI-generated (Claude): a new state clears an earlier dismissal so the banner shows again
     connectionState = isPoor || isNone ? state : null;
     if (connectionState !== dismissedConnectionState) dismissedConnectionState = null;
-    const lastBanner = document.getElementById('controllerTestBanner') || drillStatus;
+    const lastBanner = drillStatus;
     lastBanner.insertAdjacentElement('afterend', connectionAlert);
     connectionAlert.hidden = !connectionState || connectionState === dismissedConnectionState;
     connectionAlert.classList.toggle('connection-alert-poor', isPoor);
@@ -291,8 +280,9 @@ const setConnectionStatus = (state, rssi = null) => {
 window.setConnectionStatus = setConnectionStatus;
 const fetchController = async (...args) => {
     try {
-        const response = await controllerFetch(...args);
-        return response;
+        // AI-generated (Codex): retain the existing read-call shape while bounding the body wait.
+        const payload = await controllerClient.requestJson(...args);
+        return { ok: true, json: async () => payload };
     } catch (error) {
         setConnectionStatus('none');
         throw error;
@@ -328,6 +318,8 @@ document.addEventListener('click', (event) => {
 
 const targetViewButtons = document.querySelectorAll('.target-view-button');
 const targetGrid = document.getElementById('targetGrid');
+// AI-generated (Codex): failed availability reads never unlock default targets.
+let targetAvailabilityReady = !targetGrid;
 const targetStatusStorageKey = 'cpd-target-status';
 const targetViewStorageKey = 'cpd-target-view';
 // AI-generated (Claude): manual mode unlocks tapping targets to raise/hide them. Saved so the
@@ -375,9 +367,10 @@ const pollDrillStatus = async () => {
     let reached = false; // the controller answered (even with an error status)
     let status = null;
     try {
-        const response = await controllerFetch('/api/drill/status', { cache: 'no-store', signal: abort.signal });
+        status = await controllerClient.requestJson('/api/drill/status', { signal: abort.signal });
         reached = true;
-        status = response.ok ? await response.json() : null;
+        if (!['idle', 'running', 'paused'].includes(status?.state)
+            || typeof status.hardwareReady !== 'boolean' || !Array.isArray(status.facing)) status = null;
     } catch {
         status = null;
     } finally {
@@ -386,7 +379,7 @@ const pollDrillStatus = async () => {
     if (pollId !== drillStatusPollId) return; // a newer poll started; it owns the page and the timer
 
     controllerStatus = status;
-    if (!reached) {
+    if (!reached || !status) {
         setConnectionStatus('none');
     } else if (status) {
         // A successful reply means we are connected: only a measured weak signal shows a banner
@@ -408,18 +401,19 @@ const pollDrillStatus = async () => {
 // the controller's message if it refuses. Never pass an empty "targets" list: the API reads []
 // as ALL targets.
 const postToController = async (path, body, method = 'POST') => {
-    let response;
-    try {
-        response = await fetchController(path, body === undefined
-            ? { method }
-            : { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    } catch {
-        throw new Error('Could not reach the target controller. Check that you are on the CPD Range Control WiFi.');
+    // AI-generated (Codex): preserve Stop availability even when release metadata differs.
+    if (path !== '/api/stop') {
+        if (window.cpdAssetFailure) throw new Error('A required page file could not load. Reload this page before continuing.');
     }
-    if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error || 'The target controller did not accept the command.');
-    }
+    return controllerClient.mutation(path, body, method);
+};
+
+// AI-generated (Codex): preserve controls' original availability while a form save owns them.
+const lockFormControls = (form, extra = []) => {
+    const controls = [...form.querySelectorAll('input, select, textarea, button'), ...extra];
+    const states = controls.map((control) => [control, control.disabled]);
+    controls.forEach((control) => { control.disabled = true; });
+    return () => states.forEach(([control, disabled]) => { control.disabled = disabled; });
 };
 
 // AI-generated (Claude): today's date on this phone as YYYY-MM-DD (local time, not UTC). The
@@ -718,7 +712,7 @@ const describeDrillProgress = (status) => {
 // AI-modified (Claude): draws the status bar (every page) and, on the Targets page, the drill
 // buttons, from the controller's last status reply instead of the old frontend-only demo
 // state. Card colors are set by the Targets page's own status listener (initializeTargetPage).
-const manualTargetsAvailable = () => manualMode && controllerStatus?.hardwareReady
+const manualTargetsAvailable = () => targetAvailabilityReady && manualMode && controllerStatus?.hardwareReady
     && controllerStatus.state === 'idle' && !controllerStatus.stopped && !cancelStartCountdown;
 
 // AI-generated (Claude): whether the last status reply had a drill running or paused
@@ -777,7 +771,7 @@ const updateDrillStatus = () => {
         manualModeButton.classList.toggle('btn-warning', manualMode);
         manualModeButton.classList.toggle('btn-outline-dark', !manualMode);
         manualModeButton.setAttribute('aria-pressed', String(manualMode));
-        manualModeButton.disabled = !status?.hardwareReady || stopped || Boolean(cancelStartCountdown);
+        manualModeButton.disabled = !targetAvailabilityReady || !status?.hardwareReady || stopped || Boolean(cancelStartCountdown);
         document.getElementById('manualModeLabel').textContent = manualMode ? 'Exit manual mode' : 'Turn on manual mode';
     }
     const manualModeHintText = document.getElementById('manualModeHintText');
@@ -824,7 +818,7 @@ const updateDrillStatus = () => {
     }
     const countingDown = Boolean(cancelStartCountdown);
     // Lock Reset and Resume together without blocking Stop (AI-assisted with Codex).
-    const stageControlsLocked = !status?.hardwareReady || manualMode || stopped || countingDown
+    const stageControlsLocked = !targetAvailabilityReady || !status?.hardwareReady || manualMode || stopped || countingDown
         || stageControlRequestPending || Boolean(status?.stageResetPending);
     if (startDrillButton) {
         startDrillButton.disabled = stageControlsLocked
@@ -1925,23 +1919,18 @@ const initializeTargetPage = (targetIds, unavailableTargetIds = []) => {
 
 if (targetGrid) {
     Promise.all([
-        fetchController('/api/targets', { cache: 'no-store' }),
-        fetchController('/api/drills', { cache: 'no-store' }),
+        controllerClient.requestJson('/api/targets'),
+        controllerClient.requestJson('/api/drills'),
         // AI-generated (Claude): qualification order for the drill groups (best effort)
         fetchController('/api/qualifications', { cache: 'no-store' })
             .then((response) => (response.ok ? response.json() : null)).catch(() => null)
     ])
-        .then(async ([targetsResponse, drillsResponse, qualifications]) => {
-            if (!targetsResponse.ok || !drillsResponse.ok) {
-                throw new Error('The controller did not return target data.');
-            }
+        .then(async ([targets, drills, qualifications]) => {
             if (Array.isArray(qualifications) && qualifications.every((name) => typeof name === 'string')) {
                 targetPageQualifications = qualifications;
             }
-            const [targets, drills] = await Promise.all([
-                targetsResponse.json(),
-                drillsResponse.json()
-            ]);
+            ControllerClient.validateTargets(targets);
+            if (!Array.isArray(drills)) throw new Error('The controller did not return the drill library.');
             targetAssignmentDrills = getTargetDrillLibrary(drills);
             const targetIds = targets
                 .map((target) => Number(target?.id))
@@ -1950,14 +1939,30 @@ if (targetGrid) {
             const unavailableTargetIds = targets
                 .filter((target) => target?.working === false)
                 .map((target) => Number(target.id));
+            targetAvailabilityReady = true;
             initializeTargetPage(
                 targetIds.length ? targetIds : Array.from({ length: 20 }, (_, index) => index + 1),
                 unavailableTargetIds
             );
         })
         .catch((error) => {
-            targetAssignmentDrills = getTargetDrillLibrary();
-            initializeTargetPage(Array.from({ length: 20 }, (_, index) => index + 1));
+            // AI-generated (Codex): unknown availability remains unknown, with a deliberate reload.
+            targetAvailabilityReady = false;
+            targetGrid.replaceChildren();
+            const warning = document.createElement('div');
+            warning.id = 'targetDataWarning';
+            warning.className = 'alert alert-warning mx-3';
+            warning.setAttribute('role', 'alert');
+            const message = document.createElement('p');
+            message.textContent = 'Target availability could not be loaded. Target controls are locked. Check the controller connection, then reload.';
+            const retry = document.createElement('button');
+            retry.className = 'btn btn-outline-secondary';
+            retry.type = 'button';
+            retry.textContent = 'Reload target data';
+            retry.addEventListener('click', () => location.reload());
+            warning.append(message, retry);
+            targetGrid.insertAdjacentElement('beforebegin', warning);
+            updateDrillStatus();
             if (error instanceof TypeError) {
                 setConnectionStatus('none');
             }
@@ -2405,7 +2410,7 @@ if (document.getElementById('performanceRows')) {
             pdfWindow.document.body.textContent = 'Preparing PDF…';
         }
         try {
-            const { createQualificationPdf } = await import('./results-pdf.js?v=1');
+            const { createQualificationPdf } = await import(`./results-pdf.js?v=${encodeURIComponent(uiAssetVersion)}`);
             const pdf = await createQualificationPdf(exportSnapshot);
             if (attempt !== exportAttempt) return;
             const url = URL.createObjectURL(pdf);
@@ -2467,13 +2472,25 @@ if (document.getElementById('performanceRows')) {
         addScoresError.textContent = text;
         addScoresError.hidden = !text;
     };
+    // AI-generated (Codex): a closed/reopened dialog belongs to a new editing session.
+    let scoreSession = 0;
+    let scoresSavePending = false;
     addScoresToggle.addEventListener('click', () => {
-        showAddScoresError('');
+        scoreSession++;
+        showAddScoresError(scoresSavePending
+            ? 'A previous save is still pending. Reload and check the saved scores before entering them again.' : '');
         addScoresDialog.showModal();
         addScoresToggle.setAttribute('aria-expanded', 'true');
     });
     document.getElementById('closeScoresDialog').addEventListener('click', () => addScoresDialog.close());
-    addScoresDialog.addEventListener('close', () => addScoresToggle.setAttribute('aria-expanded', 'false'));
+    addScoresDialog.addEventListener('close', () => {
+        scoreSession++;
+        addScoresToggle.setAttribute('aria-expanded', 'false');
+        if (scoresSavePending) {
+            performanceMessage.hidden = false;
+            performanceMessage.textContent = 'A score save may still complete. Reload and check the saved scores before entering them again.';
+        }
+    });
     document.getElementById('addOfficerButton').addEventListener('click', () => {
         addScoresDialog.close();
         window.location.href = 'settings.html';
@@ -2531,6 +2548,7 @@ if (document.getElementById('performanceRows')) {
 
     addScoresForm.addEventListener('submit', async (event) => {
         event.preventDefault();
+        if (scoresSavePending) return;
         const badgeNum = Number(scoreOfficerSelect.value);
         const officer = performanceOfficers.find((candidate) => Number(candidate?.BadgeNum) === badgeNum);
         if (!scoreOfficerSelect.value || !officer) {
@@ -2554,23 +2572,31 @@ if (document.getElementById('performanceRows')) {
             return;
         }
 
-        saveScoresButton.disabled = true;
+        scoresSavePending = true;
+        const session = scoreSession;
+        const restoreControls = lockFormControls(addScoresForm, [saveScoresButton]);
         showAddScoresError('');
         let saved = 0;
         try {
             // One at a time, so a refusal tells us exactly which ones were stored
             for (const { score, date } of scores) {
+                if (session !== scoreSession) return;
                 await postToController('/api/officers/scores', { BadgeNum: badgeNum, qualType, score: Number(score), date });
                 saved += 1;
             }
         } catch (error) {
+            if (session !== scoreSession) return;
             showAddScoresError(saved
                 ? `${saved} of ${scores.length} scores were saved; score ${saved + 1} was not: ${error.message} Remove the saved rows before trying again.`
                 : error.message);
-            saveScoresButton.disabled = false;
             loadPerformanceData();
             return;
+        } finally {
+            restoreControls();
+            scoresSavePending = false;
         }
+
+        if (session !== scoreSession) return;
 
         const officerName = officer.Name || 'the officer';
         resetAddScoresForm();
@@ -2594,6 +2620,7 @@ if (document.getElementById('performanceRows')) {
                 throw new Error('Unable to load qualification records.');
             }
             const [officers, names] = await Promise.all([officerResponse.json(), qualificationResponse.json()]);
+            if (!Array.isArray(officers) || !Array.isArray(names)) throw new Error('Invalid qualification records');
             renderPerformanceQualifications(names);
             return officers;
         })
@@ -2615,7 +2642,7 @@ if (document.getElementById('performanceRows')) {
                     ))
             );
             scoreOfficerSelect.value = selectedBadge;
-            saveScoresButton.disabled = !performanceOfficers.length;
+            saveScoresButton.disabled = scoresSavePending || !performanceOfficers.length;
             document.getElementById('exportPdfButton').disabled = !performanceOfficers.length;
             renderPerformance();
         })
@@ -2655,6 +2682,7 @@ if (document.getElementById('drillList')) {
     let drills = [];              // [{drillName, sequence}] as stored on the controller
     let editingName = null;       // name of the drill being edited; null while creating one
     let pendingDeleteName = null;
+    let drillDeletePending = false; // AI-generated (Codex): preserve a newer confirmation while a delete completes.
     // AI-modified (Claude): one qualification filter (chips): 'all', 'none' (drills with no
     // qualification) or a lower-case qualification name. Kept for the tab.
     const qualificationFilterStorageKey = 'cpd-drill-qualification-filter';
@@ -3058,7 +3086,20 @@ if (document.getElementById('drillList')) {
         });
     }
 
+    // AI-generated (Codex): ignore completion from an editor the operator has closed.
+    let editorSession = 0;
+    let editorSavePending = false;
+    let restoreEditorControls = null;
+    editorModalElement.addEventListener('hide.bs.modal', () => {
+        editorSession++;
+        if (editorSavePending) showListMessage('A save may still complete. Check the drill list before saving it again.');
+        restoreEditorControls?.();
+        restoreEditorControls = null;
+        editorSavePending = false;
+    });
     const openEditor = (drill) => {
+        editorSession++;
+        saveButton.disabled = false;
         editingName = drill ? drill.drillName : null;
         editorTitle.textContent = drill ? `Edit ${drill.drillName}` : 'New drill';
         nameInput.value = drill ? drill.drillName : '';
@@ -3081,6 +3122,7 @@ if (document.getElementById('drillList')) {
 
     editorForm.addEventListener('submit', async (event) => {
         event.preventDefault();
+        if (editorSavePending) return;
         const name = nameInput.value.trim();
         if (!name) {
             showEditorError('Enter a name for the drill.');
@@ -3110,7 +3152,9 @@ if (document.getElementById('drillList')) {
             return;
         }
 
-        saveButton.disabled = true;
+        editorSavePending = true;
+        const session = editorSession;
+        restoreEditorControls = lockFormControls(editorForm, [saveButton]);
         try {
             const qualifications = Array.from(document.querySelectorAll('#drillEditorQualifications input:checked'), (input) => input.value);
             // AI-modified (Claude): "" clears a description on an edit
@@ -3121,13 +3165,20 @@ if (document.getElementById('drillList')) {
                 // Isaac's rename: a new drillName also updates full drills that include this one
                 await postToController(`/api/drills?name=${encodeURIComponent(editingName)}`, { drillName: name, sequence: steps, qualifications, description }, 'PUT');
             }
+            if (session !== editorSession) return;
+            editorSavePending = false;
             editorModal.hide();
             showListMessage(`${name} saved.`, 'success');
             await loadDrills();
         } catch (saveError) {
-            showEditorError(saveError.message);
+            if (session === editorSession) showEditorError(saveError.message);
+        } finally {
+            if (session === editorSession) {
+                restoreEditorControls?.();
+                restoreEditorControls = null;
+                editorSavePending = false;
+            }
         }
-        saveButton.disabled = false;
     });
 
     // ------------------------------------------------------------------ drill list
@@ -3246,7 +3297,8 @@ if (document.getElementById('drillList')) {
             const response = await fetchController('/api/drills', { cache: 'no-store' });
             if (!response.ok) throw new Error('bad response');
             const payload = await response.json();
-            drills = (Array.isArray(payload) ? payload : [])
+            if (!Array.isArray(payload)) throw new Error('Invalid drill library');
+            drills = payload
                 .filter((drill) => typeof drill?.drillName === 'string' && drill.drillName.trim());
         } catch {
             drills = [];
@@ -3257,16 +3309,19 @@ if (document.getElementById('drillList')) {
     };
 
     document.getElementById('confirmDeleteDrillButton').addEventListener('click', async () => {
+        if (drillDeletePending) return;
         const name = pendingDeleteName;
         deleteModal.hide();
         if (!name) return;
+        pendingDeleteName = null;
+        drillDeletePending = true;
         try {
             await postToController(`/api/drills?name=${encodeURIComponent(name)}`, undefined, 'DELETE');
             showListMessage(`${name} deleted.`, 'success');
         } catch (error) {
             showListMessage(error.message, 'danger');
         }
-        pendingDeleteName = null;
+        drillDeletePending = false;
         loadDrills();
     });
 
@@ -3578,8 +3633,7 @@ if (defectiveTargetList) {
         try {
             const response = await fetchController('/api/targets', { cache: 'no-store' });
             if (!response.ok) throw new Error('bad response');
-            const targets = (await response.json() || [])
-                .filter((target) => Number.isInteger(Number(target?.id)))
+            const targets = ControllerClient.validateTargets(await response.json()).slice()
                 .sort((first, second) => Number(first.id) - Number(second.id));
             if (!targets.length) {
                 defectiveTargetList.textContent = 'No targets found on the controller.';
@@ -3631,6 +3685,10 @@ if (officerList) {
     const deleteModalElement = document.getElementById('deleteOfficerModal');
     const deleteModal = typeof bootstrap === 'undefined' ? null : bootstrap.Modal.getOrCreateInstance(deleteModalElement);
     let pendingDeleteBadge = null;
+    // AI-generated (Codex): in-flight form and load guards keep repeated/stale actions local.
+    let officerAddPending = false;
+    let officerDeletePending = false;
+    let officerLoadAttempt = 0;
 
     const showOfficersMessage = (text, ok) => {
         officersMessage.textContent = text;
@@ -3687,8 +3745,11 @@ if (officerList) {
             const cancelButton = button('Cancel', 'btn-outline-secondary', 'bi-x-lg');
             row.replaceChildren(input, badgeEdit, saveButton, cancelButton);
             input.focus();
+            let editPending = false;
+            let editActive = true;
 
             const save = async () => {
+                if (editPending || !editActive) return;
                 const newName = input.value.trim();
                 const newBadge = Number(badgeEdit.value);
                 if (!newName) {
@@ -3699,23 +3760,33 @@ if (officerList) {
                     showOfficersMessage('Enter a whole-number badge number.', false);
                     return;
                 }
-                saveButton.disabled = true;
+                editPending = true;
+                saveButton.disabled = input.disabled = badgeEdit.disabled = true;
                 try {
                     await postToController(`/api/officers?badge=${officer.BadgeNum}`, { Name: newName, BadgeNum: newBadge }, 'PUT');
+                    if (!editActive || !row.isConnected) return;
                     showOfficersMessage(newBadge === Number(officer.BadgeNum)
                         ? `Saved ${newName}.`
                         : `Saved ${newName} (badge ${newBadge}). Their scores moved with them.`, true);
                     loadOfficers();
                 } catch (error) {
+                    if (!editActive || !row.isConnected) return;
                     showOfficersMessage(error.message, false);
-                    saveButton.disabled = false;
+                } finally {
+                    editPending = false;
+                    if (editActive && row.isConnected) saveButton.disabled = input.disabled = badgeEdit.disabled = false;
                 }
             };
             saveButton.addEventListener('click', save);
-            cancelButton.addEventListener('click', () => loadOfficers());
+            const cancelEdit = () => {
+                editActive = false;
+                if (editPending) showOfficersMessage('The previous edit may still complete. Reload and check the officer before editing again.', false);
+                loadOfficers();
+            };
+            cancelButton.addEventListener('click', cancelEdit);
             [input, badgeEdit].forEach((field) => field.addEventListener('keydown', (event) => {
                 if (event.key === 'Enter') save();
-                if (event.key === 'Escape') loadOfficers();
+                if (event.key === 'Escape') cancelEdit();
             }));
         });
 
@@ -3728,10 +3799,12 @@ if (officerList) {
     };
 
     const loadOfficers = async () => {
+        const attempt = ++officerLoadAttempt;
         try {
-            const response = await fetchController(`/api/officers?today=${localDateString()}`, { cache: 'no-store' });
-            if (!response.ok) throw new Error('bad response');
-            const officers = (await response.json() || [])
+            const payload = await controllerClient.requestJson(`/api/officers?today=${localDateString()}`);
+            if (attempt !== officerLoadAttempt) return;
+            if (!Array.isArray(payload)) throw new Error('Invalid officer data');
+            const officers = payload
                 .filter((officer) => Number.isInteger(Number(officer?.BadgeNum)))
                 .sort((first, second) => String(first.Name).localeCompare(String(second.Name)));
             if (!officers.length) {
@@ -3743,6 +3816,7 @@ if (officerList) {
             }
             officerList.replaceChildren(...officers.map(renderOfficerRow));
         } catch {
+            if (attempt !== officerLoadAttempt) return;
             const failed = document.createElement('li');
             failed.className = 'small text-danger';
             failed.textContent = 'Could not load officers from the controller. Check that you are on the CPD Range Control WiFi.';
@@ -3751,27 +3825,33 @@ if (officerList) {
     };
 
     document.getElementById('confirmDeleteOfficerButton').addEventListener('click', async () => {
+        if (officerDeletePending) return;
         const badge = pendingDeleteBadge;
         deleteModal?.hide();
         if (badge === null) return;
+        officerDeletePending = true;
+        pendingDeleteBadge = null;
         try {
             await postToController(`/api/officers?badge=${badge}`, undefined, 'DELETE');
             showOfficersMessage(`Officer with badge ${badge} deleted.`, true);
         } catch (error) {
             showOfficersMessage(error.message, false);
         }
-        pendingDeleteBadge = null;
+        officerDeletePending = false;
         loadOfficers();
     });
 
     addOfficerForm.addEventListener('submit', async (event) => {
         event.preventDefault();
+        if (officerAddPending) return;
         const name = nameInput.value.trim();
         const badge = Number(badgeInput.value);
         if (!name || !Number.isInteger(badge) || badge < 1) {
             showOfficersMessage('Enter a name and a whole-number badge number.', false);
             return;
         }
+        officerAddPending = true;
+        const restoreControls = lockFormControls(addOfficerForm);
         try {
             await postToController('/api/officers', { Name: name, BadgeNum: badge });
             showOfficersMessage(`${name} added.`, true);
@@ -3780,6 +3860,9 @@ if (officerList) {
             loadOfficers();
         } catch (error) {
             showOfficersMessage(error.message, false);
+        } finally {
+            restoreControls();
+            officerAddPending = false;
         }
     });
 

@@ -4,19 +4,66 @@
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 
+// AI-generated (Codex): shared software database/recovery contract.
+constexpr int DATABASE_SCHEMA_VERSION = 1;
+constexpr size_t DATABASE_MAX_BYTES = 262144;
+
+/// @brief Parses bounded strict JSON before schema validation; rejects duplicate decoded keys.
+/// @param payload exact UTF-8 JSON bytes; a terminator is not required
+/// @param length byte count, at most DATABASE_MAX_BYTES
+/// @param doc parsed output, cleared on failure; no schema migration occurs
+/// @param reason parse/size/depth error on failure
+/// @return true for one complete JSON value with at most ten nested containers
+bool parseDatabaseJson(const char* payload, size_t length, JsonDocument& doc, String& reason);
+
+/// @brief Parses a bounded JSON file using a fixed streaming cache; no schema mutation occurs.
+/// @param path LittleFS source path
+/// @param doc destination, with owned strings copied from the stream
+/// @param reason parse/read error on failure
+/// @return true for complete strict JSON within the supported byte/depth limits
+bool parseDatabaseFile(const char* path, JsonDocument& doc, String& reason);
+
+/// @brief Validates a complete database and optionally migrates absent legacy metadata in memory.
+/// @param doc candidate; optional historical score arrays may remain absent
+/// @param reason empty on success, otherwise the validation error
+/// @param allowLegacy whether absent schemaVersion/catalog can be migrated
+/// @return true for a supported, complete database
+bool validateDatabase(JsonDocument& doc, String& reason, bool allowLegacy = true);
+
+/// @brief Writes and verifies a candidate before replacing live data; retains a validated backup.
+/// @param doc candidate database, migrated in memory if necessary
+/// @return true only after replacement succeeds
+bool saveDatabase(JsonDocument& doc);
+
+/// @brief Validates and saves an explicit restore using the same persistence transaction.
+/// @param doc uploaded candidate
+/// @param reason validation or storage error on failure
+/// @return true when the restore persisted
+bool restoreDatabase(JsonDocument& doc, String& reason);
+
+/// @brief Exports the currently validated live database for an operator backup.
+/// @param out destination document, cleared on failure
+/// @return true if a valid database is available
+bool getDatabaseBackup(JsonDocument& out);
+
+/// @brief Reports cached readiness/migration/recovery from startup and the last database operation.
+///        Polling does not read files or allocate a database document.
+/// @param out destination diagnostics object
+void getDatabaseDiagnostics(JsonDocument& out);
+
 /// @brief This function starts the little file system, which allows persistence of data.
 void startLFS();
 
 // AI-assisted (Claude): declarations for the CRUD functions in database.cpp. Every function
 // loads /database.json, applies the change, and writes it back atomically.
 
-/// @brief Loads the whole of /database.json, restoring it from /database.tmp if a save was
-///        interrupted. Prefer the get* functions below when only one section is needed.
+/// @brief Loads and validates live data, recovering from a validated temporary file or backup.
 /// @param doc document to fill; cleared on failure
-/// @return true if the database was read and parsed
+/// @return true only when a supported database exists at the live path
 bool loadDatabase(JsonDocument& doc);
 
-// AI-assisted (Claude): read functions for the web API. Each loads only the section it needs and
+// AI-modified (Codex): read functions use the exact SHA256 of a fully validated file before
+// parsing the requested section or record directly into the result, and
 // makes the requested data the root of `out`, ready for serializeJson(out, ...). `out` is
 // cleared when they return false.
 
@@ -54,7 +101,7 @@ bool deleteTarget(int id);
 // within the past 12 months (same date last year through today, inclusive) count. The average is
 // rounded to one decimal place; average and top are null when attempts is 0.
 
-/// @brief Checks that a string is a date in "YYYY-MM-DD" form (digits and dashes only).
+/// @brief Checks a Gregorian calendar date in YYYY-MM-DD form, years 0001..9999.
 /// @param date string to check; may be null
 /// @return true if the format is valid
 bool isDateString(const char* date);
@@ -136,6 +183,17 @@ bool addDrill(const char* drillName, JsonArrayConst sequence, JsonArrayConst qua
 /// @return true if the drill exists, the sequence is valid, and the change was saved
 bool editDrill(const char* drillName, JsonArrayConst newSequence, JsonArrayConst qualifications = JsonArrayConst(),
                const char* description = nullptr);
+
+/// @brief AI-generated (Codex): edits and optionally renames a drill and its references in one save.
+/// @param oldName existing drill name
+/// @param newName replacement name, or nullptr to keep it
+/// @param sequence replacement sequence, or null to keep it
+/// @param qualifications replacement assignments, or null to keep them
+/// @param description replacement description; nullptr keeps it, empty removes it
+/// @param reason validation or storage error on failure
+/// @return true only when the complete transaction persisted
+bool editDrillTransaction(const char* oldName, const char* newName, JsonArrayConst sequence,
+                          JsonArrayConst qualifications, const char* description, String& reason);
 
 /// AI-generated (Claude): why deleteQualification() did or didn't delete
 enum class QualificationDeleteResult : uint8_t { Deleted, NotFound, BuiltIn, HasScores, SaveFailed };

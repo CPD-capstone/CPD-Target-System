@@ -1,9 +1,5 @@
-/*
- * TEMPORARILY DISABLED: controller bypass for local webpage testing only.
- * This retained QA harness is not loaded by production pages and does not validate
- * firmware or hardware.
- */
-/*
+// Development-only browser API fixture. Tests inject it; it is never a deployed asset.
+// This mock does not validate firmware or hardware.
 export async function createControllerTest() {
     if (!['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
         || new URLSearchParams(location.search).get('test') !== '1') {
@@ -13,6 +9,11 @@ export async function createControllerTest() {
     const storageKey = 'cpd-temporary-controller-test';
     const saved = JSON.parse(sessionStorage.getItem(storageKey) || 'null');
     const database = saved?.database || await (await fetch('database.json', { cache: 'no-store' })).json();
+    // AI-generated (Codex): malformed development fixtures must fail visibly, never reach an API.
+    if (!Array.isArray(database?.Officers) || !Array.isArray(database?.drills) || !Array.isArray(database?.targets)) {
+        throw new Error('Browser test data is incomplete. Clear test data before continuing.');
+    }
+    const release = await (await fetch('release.json', { cache: 'no-store' })).json();
     const idleStatus = {
         state: 'idle', drillName: '', targets: [], facing: [], lastOutcome: 'none', stopped: false,
         hardwareReady: true, stageResetPending: false, stageRestartReady: false
@@ -29,8 +30,17 @@ export async function createControllerTest() {
         status: code, headers: { 'Content-Type': 'application/json' }
     });
     const refuse = (message) => { throw new Error(message); };
+    const isDate = (date) => {
+        if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+        const [year, month, day] = date.split('-').map(Number);
+        const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+        return year >= 1 && month >= 1 && month <= 12 && day >= 1
+            && day <= [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
+    };
     const officersWithStats = (today) => {
-        const cutoff = `${Number(today.slice(0, 4)) - 1}${today.slice(4)}`;
+        if (!isDate(today)) refuse('Enter a real calendar date.');
+        let cutoff = `${String(Number(today.slice(0, 4)) - 1).padStart(4, '0')}${today.slice(4)}`;
+        if (today.endsWith('-02-29')) cutoff = `${cutoff.slice(0, 8)}28`;
         const stats = (history = []) => {
             const scores = history.filter((entry) => Array.isArray(entry) && Number.isInteger(entry[0])
                 && entry[1] >= cutoff && entry[1] <= today).map((entry) => entry[0]);
@@ -196,6 +206,7 @@ export async function createControllerTest() {
         try {
             if (method === 'GET') {
                 if (route === '/database.json') return json(database);
+                if (route === '/api/database/backup') return json(database);
                 if (route === '/api/targets') return json(database.targets);
                 if (route === '/api/drills') return json(database.drills);
                 if (route === '/api/qualifications') return json(database.qualifications || ['Pistol', 'Rifle', 'SWAT']);
@@ -297,6 +308,7 @@ export async function createControllerTest() {
             } else if (route === '/api/targets' && method === 'PUT') {
                 const target = database.targets.find((item) => item.id === Number(url.searchParams.get('id')));
                 if (!target) refuse('Target not found.');
+                if (typeof body.working !== 'boolean') refuse('working must be a boolean.');
                 target.working = body.working;
             } else if (route === '/api/officers/scores' && method === 'POST') {
                 const officer = database.Officers.find((item) => item.BadgeNum === body.BadgeNum);
@@ -304,7 +316,7 @@ export async function createControllerTest() {
                     typeof body.qualType === 'string' && item.toLowerCase() === body.qualType.toLowerCase()
                 ));
                 if (!officer || !name || !Number.isInteger(body.score) || body.score < 0 || body.score > 2147483647
-                    || !/^\d{4}-\d{2}-\d{2}$/.test(body.date || '')) refuse('Score rejected: unknown officer, qualification, or invalid score/date.');
+                    || !isDate(body.date)) refuse('Score rejected: unknown officer, qualification, or invalid score/date.');
                 const type = name.toLowerCase();
                 const entry = [body.score, body.date];
                 if (['pistol', 'rifle', 'swat'].includes(type)) {
@@ -322,7 +334,7 @@ export async function createControllerTest() {
                 const index = database.Officers.findIndex((item) => item.BadgeNum === badge);
                 const nameOk = (name) => typeof name === 'string' && name.trim() && name.trim().length <= 64;
                 if (method === 'POST') {
-                    if (!Number.isInteger(body.BadgeNum) || body.BadgeNum < 1 || !nameOk(body.Name)) refuse('Enter a name and a positive badge number.');
+                    if (!Number.isInteger(body.BadgeNum) || body.BadgeNum < 1 || body.BadgeNum > 2147483647 || !nameOk(body.Name)) refuse('Enter a name and a positive badge number.');
                     if (database.Officers.some((item) => item.BadgeNum === body.BadgeNum)) refuse('An officer with that badge number already exists');
                     database.Officers.push({ Name: body.Name.trim(), BadgeNum: body.BadgeNum, qualificationScores: {},
                         pistolQualScores: [], rifleQualScores: [], swatQualScores: [] });
@@ -330,7 +342,7 @@ export async function createControllerTest() {
                     if (index < 0) refuse('Officer not found');
                     if (body.Name !== undefined && !nameOk(body.Name)) refuse('Name is required');
                     if (body.BadgeNum !== undefined) {
-                        if (!Number.isInteger(body.BadgeNum) || body.BadgeNum < 1) refuse('BadgeNum must be a positive whole number');
+                        if (!Number.isInteger(body.BadgeNum) || body.BadgeNum < 1 || body.BadgeNum > 2147483647) refuse('BadgeNum must be a positive whole number');
                         if (body.BadgeNum !== badge && database.Officers.some((item) => item.BadgeNum === body.BadgeNum)) refuse('Another officer already has that badge number');
                         database.Officers[index].BadgeNum = body.BadgeNum;
                     }
@@ -366,18 +378,50 @@ export async function createControllerTest() {
                     if (index < 0 || database.drills.some((item) => item.sequence.some((step) => step.action === name))) refuse('Drill not found or used by another drill.');
                     database.drills.splice(index, 1);
                 } else {
-                    if (body.qualifications !== undefined && (!Array.isArray(body.qualifications)
-                        || body.qualifications.some((name) => typeof name !== 'string'
+                    // AI-generated (Codex): reject the same authoring boundaries as preflight.
+                    if (method === 'PUT' && index < 0) refuse('Drill not found.');
+                    if (method === 'PUT' && body.sequence == null
+                        && (body.qualifications != null || body.description != null || body.drillName == null)) refuse('A sequence is required for this edit.');
+                    // Rename-only edits are supported by the production API; validate the final record.
+                    const candidate = method === 'PUT' ? { ...database.drills[index], ...body,
+                        drillName: body.drillName ?? database.drills[index].drillName,
+                        sequence: body.sequence ?? database.drills[index].sequence,
+                        qualifications: body.qualifications ?? database.drills[index].qualifications,
+                        description: body.description ?? database.drills[index].description } : body;
+                    const actions = new Set(['present', 'hide', 'yield', 'pause', 'delay']);
+                    if (typeof candidate.drillName !== 'string' || !candidate.drillName.trim() || actions.has(candidate.drillName)
+                        || !Array.isArray(candidate.sequence) || !candidate.sequence.length) refuse('A unique drill name and sequence are required.');
+                    for (const [stepIndex, step] of candidate.sequence.entries()) {
+                        if (!step || step.step !== stepIndex + 1 || typeof step.action !== 'string') refuse('Invalid drill step.');
+                        if (['targetMode', 'targetIds', 'randomCount'].some((key) => Object.hasOwn(step, key))) refuse('Unsupported target-selection fields.');
+                        if (step.action === 'delay' && (!Number.isInteger(step.timeMs) || step.timeMs <= 0 || step.timeMs > 2147483647)) refuse('Delay needs a positive whole-number duration.');
+                        if (step.targets !== undefined && (!['present', 'hide'].includes(step.action) || !Array.isArray(step.targets)
+                            || !step.targets.length || new Set(step.targets).size !== step.targets.length
+                            || step.targets.some((id) => !Number.isInteger(id) || id < 1 || id > 20 || !workingTargets().includes(id)))) refuse('Choose valid available targets.');
+                        if (step.random !== undefined && (step.action !== 'present' || !Number.isInteger(step.random)
+                            || step.random < 1 || step.random > 20 || step.targets !== undefined)) refuse('Invalid random target count.');
+                    }
+                    const graph = new Map(database.drills.filter((drill) => drill.drillName !== name).map((drill) => [drill.drillName, drill]));
+                    graph.set(candidate.drillName, candidate);
+                    const visit = (drillName, path = []) => {
+                        if (path.includes(drillName) || path.length >= 4) refuse('Drill references form a cycle or exceed four levels.');
+                        const drill = graph.get(drillName);
+                        if (!drill) refuse('Nested drill not found.');
+                        for (const step of drill.sequence) if (!actions.has(step.action)) visit(step.action === name ? candidate.drillName : step.action, [...path, drillName]);
+                    };
+                    for (const drillName of graph.keys()) visit(drillName);
+                    if (candidate.qualifications !== undefined && (!Array.isArray(candidate.qualifications)
+                        || candidate.qualifications.some((name) => typeof name !== 'string'
                             || !(database.qualifications || ['Pistol', 'Rifle', 'SWAT']).some((item) => item.toLowerCase() === name.toLowerCase())))) {
                         refuse('Unknown qualification.');
                     }
-                    if (database.drills.some((item, other) => item.drillName === body.drillName && other !== index)) refuse('Drill name already exists.');
-                    if (method === 'PUT' && index < 0) refuse('Drill not found.');
-                    if (index < 0) database.drills.push(body);
+                    if (candidate.qualifications && new Set(candidate.qualifications.map((qualification) => qualification.toLowerCase())).size !== candidate.qualifications.length) refuse('Duplicate qualification assignments.');
+                    if (database.drills.some((item, other) => item.drillName === candidate.drillName && other !== index)) refuse('Drill name already exists.');
+                    if (index < 0) database.drills.push(candidate);
                     else {
-                        database.drills[index] = { ...database.drills[index], ...body };
+                        database.drills[index] = candidate;
                         database.drills.forEach((item) => item.sequence.forEach((step) => {
-                            if (step.action === name) step.action = body.drillName;
+                            if (step.action === name) step.action = candidate.drillName;
                         }));
                     }
                 }
@@ -392,4 +436,3 @@ export async function createControllerTest() {
     };
 }
 // END TEMPORARY CONTROLLER BYPASS.
-*/

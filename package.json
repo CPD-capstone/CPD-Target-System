@@ -1,0 +1,16 @@
+{
+  "private": true,
+  "scripts": {
+    "test": "node tools/release/test-unit.cjs",
+    "test:database": "python tools/release/test_database.py",
+    "test:release": "python tools/release/test_release_guards.py",
+    "validate:database": "node tools/release/validate-database.cjs data/database.json",
+    "validate:assets": "node tools/release/validate-assets.cjs data",
+    "release": "python tools/release/release.py build",
+    "test:ui": "playwright test",
+    "test:ui:desktop": "playwright test --project=desktop-chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1"
+  }
+}

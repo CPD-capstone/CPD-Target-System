@@ -1,0 +1,6 @@
+# AI-generated (Codex): gzip partners must retain exactly the source bytes across checkouts.
+data/vendor/*.css text eol=lf
+data/vendor/*.js text eol=lf
+*.gz binary
+*.ttf binary
+*.woff2 binary
