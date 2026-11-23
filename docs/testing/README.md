@@ -23,3 +23,10 @@ substitutes are required to run database tests without a controller.
 See [memory and data safeguards](tests-validation-and-guardrails.md) for the
 retained protections and [database test details](../../tests/database/README.md).
 These commands do not upload firmware, connect to a controller, or actuate targets.
+
+The existing [stage-reset checks](../../tests/stage_reset/README.md) separately run
+eleven groups against the production drill runner using a simulated clock and HAL:
+
+```text
+python tools/test_database.py --source tests/stage_reset/runner.cpp --mocks tests/stage_reset/mocks
+```
