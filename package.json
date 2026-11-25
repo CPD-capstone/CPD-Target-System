@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "scripts": {
+    "test": "node tools/test-unit.cjs",
+    "test:database": "python tools/test_database.py",
+    "validate:database": "node tools/validate-database.cjs data/database.json"
+  }
+}

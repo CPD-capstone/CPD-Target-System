@@ -2,6 +2,14 @@
 
 # PlatformIO build output and downloaded dependencies
 .pio/
+node_modules/
+__pycache__/
+
+# AI-generated (Codex): keep existing local build/test artifacts out of source control.
+test-results/
+test-results-*/
+playwright-report/
+releases/
 
 # PlatformIO-generated VS Code files
 .vscode/.browse.c_cpp.db*

@@ -180,11 +180,28 @@ void plainResume(){
     setup("Stage 1");
     at(2000, []{ CHECK(pauseDrill()); });
     at(2100, []{
-        CHECK(resetDrillStage() == StageResetResult::NoStage);
+        // AI-modified (Codex): standalone drills now expose replayable parts. Ordinary
+        // Resume must still retain the remaining delay without requesting a replay.
+        CHECK(getDrillStatus().stagesAreParts && getDrillStatus().canResetStage);
         CHECK(getDrillStatus().delayRemainingMs == 2010);
     });
     at(3000, []{ CHECK(getDrillStatus().delayRemainingMs == 2010); CHECK(resumeDrill()); });
     run(); completed(); CHECK(now == 5010); CHECK(presents() == 1);
+
+    // Exercise the alternate operator choice in this same group: Redo starts the
+    // standalone part from its beginning, hides first, and requires a fresh Resume.
+    setup("Stage 1");
+    at(2000, []{ CHECK(pauseDrill()); });
+    at(2100, []{ CHECK(resetDrillStage() == StageResetResult::Accepted); });
+    at(2200, []{ CHECK(!resumeDrill()); CHECK(getDrillStatus().stageResetPending); });
+    at(2800, []{
+        const auto status = getDrillStatus();
+        CHECK(status.stagesAreParts && status.stageCount == 1 && status.stageIndex == 1);
+        CHECK(status.stageRestartReady && status.partIndex == 0 && status.partCount == 0);
+        CHECK(status.step == 1 && status.delayMs == 0 && !facing && presents() == 1);
+        CHECK(resumeDrill());
+    });
+    run(); completed(); CHECK(presents() == 2); CHECK(now == 5810);
 }
 void repeatedStage(){
     setup("Repeated");
@@ -257,11 +274,13 @@ void stopRaces(){
 }
 void invalidAndFailure(){
     setup("Before");
-    CHECK(resetDrillStage() == StageResetResult::NotPaused);
+    // AI-modified (Codex): jumps are supported while running, but no stage exists
+    // before this drill's leading pause; once finished there is no active drill.
+    CHECK(resetDrillStage() == StageResetResult::NoStage);
     at(1010, []{ CHECK(resetDrillStage() == StageResetResult::NoStage); CHECK(resumeDrill()); });
     finishAtFinalHold(10000);
     run(); completed();
-    CHECK(resetDrillStage() == StageResetResult::NotPaused);
+    CHECK(resetDrillStage() == StageResetResult::NoDrill);
     for(int failure = 0; failure < 3; failure++){
         setup();
         at(2000, []{ CHECK(pauseDrill()); });

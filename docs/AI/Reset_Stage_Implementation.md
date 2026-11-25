@@ -3,7 +3,7 @@
 
 This feature was developed with assistance from OpenAI Codex (GPT-6). The changes cover
 `src/target_manager.cpp`, `include/target_manager.h`, `src/api.cpp`, `include/api.h`,
-`data/targets.html`, `data/script.js`, `data/controller-test.js`, `tests/stage_reset/`, and this note.
+`data/targets.html`, `data/script.js`, `tests/stage_reset/`, and this note.
 
 Each direct child drill is a distinct stage occurrence, including its nested content.
 Reset rewinds the current stage, or the completed stage at a top-level pause. The runner
@@ -24,8 +24,9 @@ The webpage keeps Pause available while running, highlights available stage rese
 and closes the target picker before starting. Fresh drill status clears stale manual-mode
 preferences that would otherwise lock Reset and Resume after a page reload.
 
-Temporary browser testing is enabled only on localhost with `?test=1`. The separate
-`controller-test.js` adapter keeps test records in the tab and does not send API requests
-to a controller. Its code and loader are marked with uppercase removal comments.
+<!-- AI-modified (Codex): reflect removal of the browser simulator. -->
+The browser simulator has been removed. Pages always use the controller API;
+`?test=1` does not enable a separate testing mode. JavaScript and database tests
+run on the development computer as described in the [test guide](../testing/README.md).
 
 See [checks and device validation](../../tests/stage_reset/README.md).

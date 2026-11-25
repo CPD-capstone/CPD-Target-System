@@ -209,19 +209,7 @@ document.body.append(faqButton, faqModal);
 faqButton.addEventListener('click', () => {
     bootstrap.Modal.getOrCreateInstance(faqModal).show();
 });
-/*
- * TEMPORARILY DISABLED: local controller bypass for webpage testing.
- * The bypass remains here for repeatable QA, but production always uses the ESP32 API.
- *
- * const controllerTestMode = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
- *     && new URLSearchParams(location.search).get('test') === '1';
- * const controllerTest = controllerTestMode
- *     ? import('./controller-test.js?v=connection-rssi-3').then((module) => module.createControllerTest())
- *     : null;
- * const controllerFetch = async (...args) => controllerTest
- *     ? (await controllerTest)(...args)
- *     : fetch(...args);
- */
+// AI-modified (Codex): the browser uses the controller API directly.
 const controllerFetch = (...args) => fetch(...args);
 
 const drillStatus = document.getElementById('drillStatus');

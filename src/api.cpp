@@ -4,25 +4,50 @@
 #include "hal.h"
 #include "wifi_manager.h"
 #include <AsyncJson.h>
+#include <limits.h>
+#include <memory>
+#include <new>
+#include <utility>
 
 
 // AI-assisted (Claude): REST handlers for the web UI. Each handler validates its input, calls
 // one database / target_manager / hal function, and replies with JSON. Request bodies must be
-// sent with "Content-Type: application/json" or AsyncCallbackJsonWebHandler ignores them.
+// sent with "Content-Type: application/json"; the bounded body handler rejects other types.
 
 // Helpers ---------------------------------------------------------------------------------------------
 
-// Serializes doc and sends it with status code
-static void sendJson(AsyncWebServerRequest* request, int code, const JsonDocument& doc) {
-    String body;
-    serializeJson(doc, body);
-    request->send(code, "application/json", body);
+// AI-generated (Codex): own one document until the network response ends; no full JSON String copies.
+class DocumentJsonResponse : public AsyncAbstractResponse {
+    JsonDocument document;
+public:
+    DocumentJsonResponse(int code, JsonDocument& source) : document(std::move(source)) {
+        _code = code;
+        _contentType = "application/json";
+        _contentLength = measureJson(document);
+    }
+    bool _sourceValid() const override { return !document.overflowed(); }
+    size_t _fillBuffer(uint8_t* data, size_t length) override {
+        ChunkPrint output(data, _sentLength, length);
+        serializeJson(document, output);
+        return length;
+    }
+};
+
+static void sendJson(AsyncWebServerRequest* request, int code, JsonDocument& doc) {
+    auto* response = new(std::nothrow) DocumentJsonResponse(code, doc);
+    if (!response) {
+        doc.clear();
+        request->send(503, "application/json", "{\"error\":\"Insufficient memory for response\"}");
+        return;
+    }
+    response->addHeader("Cache-Control", "no-store");
+    request->send(response);
 }
 
 // Sends in format: {"error", message}
 static void sendError(AsyncWebServerRequest* request, int code, const char* message) {
     JsonDocument doc;
-    doc["error"] = message;
+    doc["error"] = JsonString(message, false); // Own dynamic text until asynchronous transmission ends.
     sendJson(request, code, doc);
 }
 
@@ -44,10 +69,12 @@ static bool getQueryString(AsyncWebServerRequest* request, const char* name, Str
 static bool getQueryInt(AsyncWebServerRequest* request, const char* name, int& out) {
     String value;
     if (!getQueryString(request, name, value)) return false;
+    // AI-modified (Codex): reject overflow instead of silently truncating an identifier.
+    out = 0;
     for (char c : value) {
-        if (!isDigit(c)) return false;
+        if (c < '0' || c > '9' || out > (INT_MAX - (c - '0')) / 10) return false;
+        out = out * 10 + (c - '0');
     }
-    out = value.toInt();
     return true;
 }
 
@@ -64,12 +91,71 @@ static void addSignal(JsonDocument& doc, AsyncWebServerRequest* request) {
     doc["rssi"] = signal.rssi;
 }
 
-// Registers a handler for a JSON request body on uri for the given method
+// AI-generated (Codex): retain bounded raw bytes until strict parsing can reject ambiguous keys.
+class BoundedJsonHandler : public AsyncWebHandler {
+    struct Body { size_t received; size_t length; bool invalid; char bytes[1]; };
+    static constexpr size_t REQUEST_RAM_LIMIT = 16384;
+    String uri;
+    WebRequestMethod method;
+    using DocumentHandler = std::function<void(AsyncWebServerRequest*, JsonDocument&)>;
+    DocumentHandler callback;
+    struct Cleanup {
+        void operator()(Body* body) const { free(body); }
+    };
+public:
+    BoundedJsonHandler(const char* path, WebRequestMethod verb, DocumentHandler handler)
+        : uri(path), method(verb), callback(handler) {}
+    bool canHandle(AsyncWebServerRequest* request) const override {
+        return request->isHTTP() && request->method() == method && request->url() == uri;
+    }
+    bool isRequestHandlerTrivial() const override { return false; }
+    void handleBody(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) override {
+        if (total == 0 || total > REQUEST_RAM_LIMIT || index > total || len > total - index) return;
+        if (!request->_tempObject && index == 0) {
+            auto* body = static_cast<Body*>(calloc(1, sizeof(Body) + total));
+            if (!body) return;
+            body->length = total;
+            request->_tempObject = body;
+            request->onDisconnect([request]() {
+                free(request->_tempObject);
+                request->_tempObject = nullptr;
+            });
+        }
+        auto* body = static_cast<Body*>(request->_tempObject);
+        if (!body || body->invalid) return;
+        if (total != body->length || index != body->received) { body->invalid = true; return; }
+        memcpy(body->bytes + index, data, len);
+        body->bytes[total] = '\0';
+        body->received += len;
+    }
+    void handleRequest(AsyncWebServerRequest* request) override {
+        // Take ownership now so every early return frees the raw request buffer too.
+        std::unique_ptr<Body, Cleanup> body(static_cast<Body*>(request->_tempObject));
+        request->_tempObject = nullptr;
+        if (request->contentLength() > REQUEST_RAM_LIMIT) return sendError(request, 413, "JSON request exceeds the supported size");
+        String contentType = request->contentType();
+        int semicolon = contentType.indexOf(';');
+        if (semicolon >= 0) contentType = contentType.substring(0, semicolon);
+        contentType.trim();
+        if (!contentType.equalsIgnoreCase("application/json")) return sendError(request, 415, "Send the body as application/json");
+        if (!body || body->invalid || body->received != request->contentLength()) return sendError(request, 400, "Incomplete JSON request body");
+        JsonDocument document;
+        String reason;
+        if (!parseDatabaseJson(body->bytes, body->received, document, reason)) return sendError(request, 400, reason.c_str());
+        // The const-input parser owns its strings; release raw bytes before loading/saving records.
+        body.reset();
+        if (!document.is<JsonObject>()) return sendError(request, 400, "JSON body must be an object");
+        callback(request, document);
+    }
+};
+
 static void onJsonBody(AsyncWebServer& server, const char* uri, WebRequestMethod method,
                        ArJsonRequestHandlerFunction handler) {
-    auto* jsonHandler = new AsyncCallbackJsonWebHandler(uri, handler);
-    jsonHandler->setMethod(method);
-    server.addHandler(jsonHandler);
+    server.addHandler(new BoundedJsonHandler(uri, method,
+        [handler](AsyncWebServerRequest* request, JsonDocument& document) {
+            JsonVariant json = document.as<JsonVariant>();
+            handler(request, json);
+        }));
 }
 
 // Drills ---------------------------------------------------------------------------------------------
@@ -135,6 +221,10 @@ static void handleEditDrill(AsyncWebServerRequest* request, JsonVariant& json) {
 
     JsonArrayConst sequence = json["sequence"].as<JsonArrayConst>();
     JsonVariantConst newNameField = json["drillName"];
+    if ((!json["sequence"].isNull() && !json["sequence"].is<JsonArray>()) ||
+        (!newNameField.isNull() && !newNameField.is<const char*>())) {
+        return sendError(request, 400, "sequence must be an array and drillName must be text");
+    }
     if (!json["qualifications"].isNull() && !json["qualifications"].is<JsonArray>()) {
         return sendError(request, 400, "qualifications must be an array");
     }
@@ -155,27 +245,17 @@ static void handleEditDrill(AsyncWebServerRequest* request, JsonVariant& json) {
     newName.trim();
     bool renaming = newName != name;
 
-    // Check everything a rename can fail on before saving anything, so a rejected name never
-    // leaves the sequence edit half applied
-    JsonDocument existing;
-    if (!getDrill(name.c_str(), existing)) return sendError(request, 404, "Drill not found");
-    if (renaming) {
-        if (newName.isEmpty()) return sendError(request, 400, "drillName cannot be empty");
-        if (isReservedDrillName(newName.c_str())) {
-            return sendError(request, 400, "drillName cannot be present, hide, yield, pause or delay");
-        }
-        if (getDrill(newName.c_str(), existing)) {
-            return sendError(request, 409, "A drill with that name already exists");
-        }
+    // AI-modified (Codex): release lookup results before the edit loads its candidate document.
+    {
+        JsonDocument existing;
+        if (!getDrill(name.c_str(), existing)) return sendError(request, 404, "Drill not found");
+        existing.clear();
+        if (renaming && getDrill(newName.c_str(), existing)) return sendError(request, 409, "A drill with that name already exists");
     }
-
-    // The sequence is saved under the old name, then the rename updates it and every Full Drill
-    // that includes it
-    if (!sequence.isNull() && !editDrill(name.c_str(), sequence, json["qualifications"].as<JsonArrayConst>(), description)) {
-        return sendError(request, 400, "Edit rejected: invalid sequence");
-    }
-    if (renaming && !renameDrill(name.c_str(), newName.c_str())) {
-        return sendError(request, 500, "Could not rename the drill");
+    String reason;
+    if (!editDrillTransaction(name.c_str(), renaming ? newName.c_str() : nullptr,
+            sequence, json["qualifications"].as<JsonArrayConst>(), description, reason)) {
+        return sendError(request, 400, reason.c_str());
     }
     sendOk(request);
 }
